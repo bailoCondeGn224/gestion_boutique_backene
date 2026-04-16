@@ -1,0 +1,27 @@
+### Test de l'API Versements Client
+
+### 1. Login pour obtenir le token
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+
+### 2. Récupérer tous les versements clients (remplacer YOUR_TOKEN par le token obtenu)
+GET http://localhost:3000/versements-client?page=1&limit=10
+Authorization: Bearer YOUR_TOKEN
+
+### 3. Créer un versement client de test (remplacer YOUR_TOKEN et les IDs)
+POST http://localhost:3000/versements-client
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "clientId": "REMPLACER_PAR_UN_CLIENT_ID",
+  "clientNom": "Test Client",
+  "montant": 50000,
+  "modePaiement": "especes",
+  "date": "2024-12-20"
+}
