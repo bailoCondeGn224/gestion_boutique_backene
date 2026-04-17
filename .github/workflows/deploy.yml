@@ -18,4 +18,4 @@ jobs:
             cd /opt/gestion-boutique/backend
             git pull origin main
             cd /opt/gestion-boutique
-            docker compose up -d --build backend
+            docker compose up -d --build --no-cache backend
