@@ -15,10 +15,10 @@ jobs:
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cp /opt/gestion-boutique/backend/.env /tmp/backend.env
             cd /opt/gestion-boutique/backend
-            git pull origin main
-            cp /tmp/backend.env /opt/gestion-boutique/backend/.env
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/backend.env .env 2>/dev/null || true
             cd /opt/gestion-boutique
             docker compose build --no-cache backend
             docker compose up -d backend
