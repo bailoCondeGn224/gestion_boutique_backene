@@ -237,10 +237,25 @@ export class ClientsService {
     // Trier par date
     const timelineSorted = timelineItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Appliquer la pagination
-    const totalItems = timelineSorted.length;
+    // Appliquer la pagination selon le type
     const skip = (page - 1) * limit;
-    const timeline = timelineSorted.slice(skip, skip + limit);
+    let totalItems: number;
+    let paginatedData: any;
+
+    if (type === 'achats') {
+      // Paginer uniquement les ventes
+      totalItems = ventesAvecBenefice.length;
+      paginatedData = ventesAvecBenefice.slice(skip, skip + limit);
+    } else if (type === 'paiements') {
+      // Paginer uniquement les paiements
+      totalItems = paymentsTransformed.length;
+      paginatedData = paymentsTransformed.slice(skip, skip + limit);
+    } else {
+      // Paginer la timeline combinée
+      totalItems = timelineSorted.length;
+      paginatedData = timelineSorted.slice(skip, skip + limit);
+    }
+
     const totalPages = Math.ceil(totalItems / limit);
 
     // Calculer les statistiques
@@ -261,9 +276,9 @@ export class ClientsService {
 
     return {
       stats,
-      ventes: type === 'achats' || type === 'tous' ? ventesAvecBenefice : [],
-      paiements: type === 'paiements' || type === 'tous' ? paymentsTransformed : [],
-      timeline,
+      ventes: type === 'achats' ? paginatedData : [],
+      paiements: type === 'paiements' ? paginatedData : [],
+      timeline: type === 'tous' ? paginatedData : [],
       meta: {
         total: totalItems,
         page,
