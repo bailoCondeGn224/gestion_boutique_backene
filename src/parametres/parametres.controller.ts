@@ -9,10 +9,13 @@ import {
   UploadedFile,
   Res,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Response } from 'express';
+import { join } from 'path';
+import { existsSync } from 'fs';
 import { ParametresService } from './parametres.service';
 import { CreateParametreDto } from './dto/create-parametre.dto';
 import { UpdateParametreDto } from './dto/update-parametre.dto';
@@ -87,12 +90,23 @@ export class ParametresController {
   @ApiResponse({ status: 200, description: 'Logo récupéré avec succès' })
   @ApiResponse({ status: 404, description: 'Logo non trouvé' })
   async getLogo(@Res() res: Response) {
-    const logoPath = await this.parametresService.getLogoPath();
+    const logoFilename = await this.parametresService.getLogoPath();
 
-    if (!logoPath) {
+    if (!logoFilename) {
       return res.status(404).json({ message: 'Logo non configuré' });
     }
 
-    return res.sendFile(logoPath, { root: './uploads/logos' });
+    // Créer le chemin absolu vers le fichier logo
+    const absolutePath = join(process.cwd(), 'uploads', 'logos', logoFilename);
+
+    // Vérifier si le fichier existe
+    if (!existsSync(absolutePath)) {
+      return res.status(404).json({
+        message: 'Fichier logo introuvable',
+        path: logoFilename
+      });
+    }
+
+    return res.sendFile(absolutePath);
   }
 }
