@@ -25,7 +25,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       nom: user.nom,
-      role: user.role,
+      roleId: user.roleId, // Stocker uniquement l'ID du rôle
     };
 
     return {
@@ -34,7 +34,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         nom: user.nom,
-        role: user.role,
+        role: user.role, // Retourner le rôle complet dans la réponse
       },
     };
   }

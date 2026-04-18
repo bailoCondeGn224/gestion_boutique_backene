@@ -343,18 +343,45 @@ export class VentesService {
       const { lignes, ...otherFields } = updateVenteDto;
 
       if (Object.keys(otherFields).length > 0) {
+        // Calculer les anciens et nouveaux montants
+        const oldTotal = Number(vente.total);
+        const oldMontantRestant = Number(vente.montantRestant);
+
         // Recalculer montantRestant si nécessaire
         if (otherFields.total !== undefined || otherFields.montantPaye !== undefined) {
-          const newTotal = otherFields.total ?? Number(vente.total);
+          const newTotal = otherFields.total ?? oldTotal;
           const newMontantPaye = otherFields.montantPaye ?? Number(vente.montantPaye);
           otherFields.montantRestant = newTotal - newMontantPaye;
         }
 
+        const newTotal = otherFields.total ?? oldTotal;
+        const newMontantRestant = otherFields.montantRestant ?? oldMontantRestant;
+
+        // Mettre à jour la vente
         await queryRunner.manager.update(
           'vente',
           { id },
           otherFields,
         );
+
+        // Si le client existe et que les montants ont changé, ajuster client
+        if (vente.clientId && (otherFields.total !== undefined || otherFields.montantRestant !== undefined)) {
+          const client = await this.clientRepository.findOne({
+            where: { id: vente.clientId },
+          });
+
+          if (client) {
+            // Calculer les différences
+            const diffTotal = newTotal - oldTotal;
+            const diffMontantRestant = newMontantRestant - oldMontantRestant;
+
+            // Ajuster totalAchats et totalCredits
+            await queryRunner.manager.update(Client, vente.clientId, {
+              totalAchats: Number(client.totalAchats) + diffTotal,
+              totalCredits: Number(client.totalCredits) + diffMontantRestant,
+            });
+          }
+        }
       }
 
       await queryRunner.commitTransaction();

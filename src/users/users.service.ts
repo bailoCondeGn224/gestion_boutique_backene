@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -67,7 +67,10 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository.findOne({
+      where: { email },
+      relations: ['role', 'role.permissions'],
+    });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
@@ -90,8 +93,31 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, currentUserId?: string): Promise<void> {
     const user = await this.findOne(id);
+
+    // Empêcher l'auto-suppression
+    if (currentUserId && id === currentUserId) {
+      throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte');
+    }
+
+    // Vérifier si c'est un admin
+    if (user.role && user.role.nom === 'ADMIN') {
+      // Compter le nombre d'admins
+      const adminCount = await this.usersRepository
+        .createQueryBuilder('user')
+        .leftJoin('user.role', 'role')
+        .where('role.nom = :roleName', { roleName: 'ADMIN' })
+        .getCount();
+
+      // Empêcher la suppression du dernier admin
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Impossible de supprimer le dernier administrateur du système',
+        );
+      }
+    }
+
     await this.usersRepository.remove(user);
   }
 

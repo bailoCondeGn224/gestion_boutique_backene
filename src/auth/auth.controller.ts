@@ -5,6 +5,8 @@ import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { Permissions } from './decorators/permissions.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -12,8 +14,13 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Créer un nouveau compte utilisateur' })
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users.create')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Créer un nouveau compte utilisateur (Admin uniquement)' })
   @ApiResponse({ status: 201, description: 'Compte créé avec succès' })
+  @ApiResponse({ status: 401, description: 'Non authentifié' })
+  @ApiResponse({ status: 403, description: 'Permission insuffisante' })
   @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
   async register(@Body() createUserDto: CreateUserDto) {
     return this.authService.register(createUserDto);

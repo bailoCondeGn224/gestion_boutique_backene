@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from './entities/client.entity';
@@ -121,6 +121,29 @@ export class ClientsService {
 
   async remove(id: string): Promise<void> {
     const client = await this.findOne(id);
+
+    // Vérifier s'il existe des ventes pour ce client
+    const ventesCount = await this.venteRepository.count({
+      where: { clientId: id },
+    });
+
+    if (ventesCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer ce client : ${ventesCount} vente(s) associée(s). Supprimez d'abord les ventes.`,
+      );
+    }
+
+    // Vérifier s'il existe des versements pour ce client
+    const versementsCount = await this.versementClientRepository.count({
+      where: { clientId: id },
+    });
+
+    if (versementsCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer ce client : ${versementsCount} versement(s) associé(s). Supprimez d'abord les versements.`,
+      );
+    }
+
     await this.clientsRepository.remove(client);
   }
 

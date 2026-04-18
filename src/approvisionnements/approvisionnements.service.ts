@@ -343,18 +343,37 @@ export class ApprovisionnementService {
       const { lignes, ...otherFields } = updateDto;
 
       if (Object.keys(otherFields).length > 0) {
+        // Calculer les anciens et nouveaux montants
+        const oldTotal = Number(approvisionnement.total);
+
         // Recalculer montantRestant si nécessaire
         if (otherFields.total !== undefined || otherFields.montantPaye !== undefined) {
-          const newTotal = otherFields.total ?? Number(approvisionnement.total);
+          const newTotal = otherFields.total ?? oldTotal;
           const newMontantPaye = otherFields.montantPaye ?? Number(approvisionnement.montantPaye);
           otherFields.montantRestant = newTotal - newMontantPaye;
         }
 
+        const newTotal = otherFields.total ?? oldTotal;
+
+        // Mettre à jour l'approvisionnement
         await queryRunner.manager.update(
           'approvisionnement',
           { id },
           otherFields,
         );
+
+        // Si le total a changé, ajuster le fournisseur
+        if (otherFields.total !== undefined) {
+          const diffTotal = newTotal - oldTotal;
+
+          await queryRunner.manager.query(
+            `UPDATE fournisseur
+             SET "totalAchats" = "totalAchats" + $1,
+                 dette = "totalAchats" + $1 - "totalPaye"
+             WHERE id = $2`,
+            [diffTotal, approvisionnement.fournisseurId],
+          );
+        }
       }
 
       await queryRunner.commitTransaction();
@@ -372,7 +391,47 @@ export class ApprovisionnementService {
   }
 
   async remove(id: string): Promise<void> {
-    const approvisionnement = await this.findOne(id);
-    await this.approvisionnementRepository.remove(approvisionnement);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const approvisionnement = await this.findOne(id);
+
+      // Restaurer le stock de chaque article
+      for (const ligne of approvisionnement.lignes) {
+        await queryRunner.manager.query(
+          `UPDATE article SET stock = stock - $1 WHERE id = $2`,
+          [ligne.quantite, ligne.articleId],
+        );
+      }
+
+      // Mettre à jour le fournisseur (diminuer totalAchats et recalculer dette)
+      await queryRunner.manager.query(
+        `UPDATE fournisseur
+         SET "totalAchats" = "totalAchats" - $1,
+             dette = "totalAchats" - $1 - "totalPaye"
+         WHERE id = $2`,
+        [approvisionnement.total, approvisionnement.fournisseurId],
+      );
+
+      // Supprimer la transaction financière associée si elle existe
+      await queryRunner.manager.query(
+        `DELETE FROM transaction WHERE "approvisionnementId" = $1`,
+        [id],
+      );
+
+      // Supprimer l'approvisionnement (les lignes seront supprimées en cascade)
+      await queryRunner.manager.remove(approvisionnement);
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw new BadRequestException(
+        `Erreur lors de la suppression de l'approvisionnement: ${error.message}`,
+      );
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

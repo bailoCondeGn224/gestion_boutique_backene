@@ -166,9 +166,77 @@ export class VersementsClientService {
   }
 
   async update(id: string, updateDto: UpdateVersementClientDto): Promise<VersementClient> {
-    const versement = await this.findOne(id);
-    Object.assign(versement, updateDto);
-    return this.versementClientRepository.save(versement);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const versement = await this.findOne(id);
+      const oldMontant = versement.montant;
+
+      // Si le montant change, valider et ajuster
+      if (updateDto.montant !== undefined && updateDto.montant !== oldMontant) {
+        const diffMontant = updateDto.montant - oldMontant;
+
+        // Vérifier le client
+        const client = await this.clientRepository.findOne({
+          where: { id: versement.clientId },
+        });
+
+        if (!client) {
+          throw new NotFoundException('Client introuvable');
+        }
+
+        // Vérifier que le nouveau montant ne dépasse pas la dette (après ajustement)
+        const newDette = client.totalCredits - diffMontant;
+        if (newDette < 0) {
+          throw new BadRequestException(
+            `Le nouveau montant créerait une dette négative (${newDette})`,
+          );
+        }
+
+        // Si lié à une vente, vérifier aussi
+        if (versement.venteId) {
+          const vente = await this.venteRepository.findOne({
+            where: { id: versement.venteId },
+          });
+
+          if (!vente) {
+            throw new NotFoundException('Vente introuvable');
+          }
+
+          const newMontantRestantVente = vente.montantRestant - diffMontant;
+          if (newMontantRestantVente < 0) {
+            throw new BadRequestException(
+              `Le nouveau montant dépasserait le total de la vente`,
+            );
+          }
+
+          // Mettre à jour la vente
+          await queryRunner.manager.update(Vente, versement.venteId, {
+            montantPaye: vente.montantPaye + diffMontant,
+            montantRestant: vente.montantRestant - diffMontant,
+          });
+        }
+
+        // Mettre à jour le client
+        await queryRunner.manager.update(Client, versement.clientId, {
+          totalCredits: client.totalCredits - diffMontant,
+        });
+      }
+
+      // Mettre à jour le versement
+      Object.assign(versement, updateDto);
+      const savedVersement = await queryRunner.manager.save(versement);
+
+      await queryRunner.commitTransaction();
+      return savedVersement;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async remove(id: string): Promise<void> {

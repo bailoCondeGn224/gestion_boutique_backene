@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from './entities/role.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { AssignPermissionsDto } from './dto/assign-permissions.dto';
 import { PermissionsService } from '../permissions/permissions.service';
@@ -11,6 +12,8 @@ export class RolesService {
   constructor(
     @InjectRepository(Role)
     private rolesRepository: Repository<Role>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
     private permissionsService: PermissionsService,
   ) {}
 
@@ -108,6 +111,18 @@ export class RolesService {
 
   async remove(id: string): Promise<void> {
     const role = await this.findOne(id);
+
+    // Vérifier s'il existe des utilisateurs avec ce rôle
+    const usersCount = await this.usersRepository.count({
+      where: { roleId: id },
+    });
+
+    if (usersCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer ce rôle : ${usersCount} utilisateur(s) l'utilisent. Changez d'abord le rôle des utilisateurs.`,
+      );
+    }
+
     await this.rolesRepository.remove(role);
   }
 

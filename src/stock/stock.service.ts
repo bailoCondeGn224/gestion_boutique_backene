@@ -7,12 +7,18 @@ import { UpdateArticleDto } from './dto/update-article.dto';
 import { StockFilterDto } from './dto/stock-filter.dto';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { createPaginatedResponse } from '../common/utils/pagination.util';
+import { LigneVente } from '../ventes/entities/ligne-vente.entity';
+import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
 
 @Injectable()
 export class StockService {
   constructor(
     @InjectRepository(Article)
     private articlesRepository: Repository<Article>,
+    @InjectRepository(LigneVente)
+    private ligneVenteRepository: Repository<LigneVente>,
+    @InjectRepository(LigneApprovisionnement)
+    private ligneApproRepository: Repository<LigneApprovisionnement>,
   ) {}
 
   async create(createArticleDto: CreateArticleDto): Promise<Article> {
@@ -99,6 +105,29 @@ export class StockService {
 
   async remove(id: string): Promise<void> {
     const article = await this.findOne(id);
+
+    // Vérifier s'il existe des lignes de vente pour cet article
+    const ventesCount = await this.ligneVenteRepository.count({
+      where: { articleId: id },
+    });
+
+    if (ventesCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer cet article : utilisé dans ${ventesCount} vente(s). Supprimez d'abord les ventes.`,
+      );
+    }
+
+    // Vérifier s'il existe des lignes d'approvisionnement pour cet article
+    const approCount = await this.ligneApproRepository.count({
+      where: { articleId: id },
+    });
+
+    if (approCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer cet article : utilisé dans ${approCount} approvisionnement(s). Supprimez d'abord les approvisionnements.`,
+      );
+    }
+
     await this.articlesRepository.remove(article);
   }
 

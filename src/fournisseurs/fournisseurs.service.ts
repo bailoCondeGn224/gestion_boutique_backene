@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Fournisseur } from './entities/fournisseur.entity';
@@ -141,6 +141,29 @@ export class FournisseursService {
 
   async remove(id: string): Promise<void> {
     const fournisseur = await this.findOne(id);
+
+    // Vérifier s'il existe des approvisionnements pour ce fournisseur
+    const approCount = await this.approvisionnementRepository.count({
+      where: { fournisseurId: id },
+    });
+
+    if (approCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer ce fournisseur : ${approCount} approvisionnement(s) associé(s). Supprimez d'abord les approvisionnements.`,
+      );
+    }
+
+    // Vérifier s'il existe des versements pour ce fournisseur
+    const versementCount = await this.versementRepository.count({
+      where: { fournisseurId: id },
+    });
+
+    if (versementCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer ce fournisseur : ${versementCount} versement(s) associé(s). Supprimez d'abord les versements.`,
+      );
+    }
+
     await this.fournisseursRepository.remove(fournisseur);
   }
 

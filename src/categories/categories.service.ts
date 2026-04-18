@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Categorie } from './entities/categorie.entity';
+import { Article } from '../stock/entities/article.entity';
 import { CreateCategorieDto } from './dto/create-categorie.dto';
 import { UpdateCategorieDto } from './dto/update-categorie.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -13,6 +14,8 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Categorie)
     private categorieRepository: Repository<Categorie>,
+    @InjectRepository(Article)
+    private articleRepository: Repository<Article>,
   ) {}
 
   async create(createDto: CreateCategorieDto): Promise<Categorie> {
@@ -120,6 +123,18 @@ export class CategoriesService {
 
   async remove(id: string): Promise<void> {
     const categorie = await this.findOne(id);
+
+    // Vérifier s'il existe des articles dans cette catégorie
+    const articlesCount = await this.articleRepository.count({
+      where: { categorieId: id },
+    });
+
+    if (articlesCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer cette catégorie : ${articlesCount} article(s) associé(s). Changez d'abord la catégorie des articles ou supprimez-les.`,
+      );
+    }
+
     await this.categorieRepository.remove(categorie);
   }
 
