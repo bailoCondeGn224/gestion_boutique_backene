@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCategorieDto {
@@ -28,4 +28,13 @@ export class CreateCategorieDto {
   @IsBoolean()
   @IsOptional()
   actif?: boolean;
+
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'ID de la zone associée',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  zoneId?: string;
 }

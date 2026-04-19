@@ -19,6 +19,7 @@ import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.modul
 import { PermissionsModule } from './permissions/permissions.module';
 import { RolesModule } from './roles/roles.module';
 import { ParametresModule } from './parametres/parametres.module';
+import { ZonesModule } from './zones/zones.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ParametresModule } from './parametres/parametres.module';
     }),
     UsersModule,
     AuthModule,
+    ZonesModule,
     CategoriesModule,
     StockModule,
     ClientsModule,

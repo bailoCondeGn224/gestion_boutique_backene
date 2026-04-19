@@ -65,6 +65,17 @@ export class StockController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
+  @Get('rotation/stats')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Statistiques de rotation du stock (bestsellers, stock mort, taux rotation)' })
+  @ApiResponse({ status: 200, description: 'Statistiques de rotation sur 30 jours par défaut' })
+  getRotationStats(@Query('periode') periode?: string) {
+    const periodeJours = periode ? parseInt(periode, 10) : 30;
+    return this.stockService.getRotationStats(periodeJours);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('stock.read')
   @Get('zones/:zone')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer les articles d\'une zone spécifique' })
