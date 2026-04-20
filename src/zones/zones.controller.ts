@@ -13,9 +13,9 @@ import { ZonesService } from './zones.service';
 import { CreateZoneDto } from './dto/create-zone.dto';
 import { UpdateZoneDto } from './dto/update-zone.dto';
 import { ZoneFilterDto } from './dto/zone-filter.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/permissions.guard';
-import { RequirePermissions } from '../auth/permissions.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @Controller('zones')
 @UseGuards(JwtAuthGuard)
@@ -24,7 +24,7 @@ export class ZonesController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('zones.create')
+  @Permissions('zones.create')
   create(@Body() createZoneDto: CreateZoneDto) {
     return this.zonesService.create(createZoneDto);
   }
@@ -46,14 +46,14 @@ export class ZonesController {
 
   @Patch(':id')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('zones.update')
+  @Permissions('zones.update')
   update(@Param('id') id: string, @Body() updateZoneDto: UpdateZoneDto) {
     return this.zonesService.update(id, updateZoneDto);
   }
 
   @Delete(':id')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('zones.delete')
+  @Permissions('zones.delete')
   remove(@Param('id') id: string) {
     return this.zonesService.remove(id);
   }

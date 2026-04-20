@@ -61,6 +61,12 @@ const basePermissions = [
   { code: 'categories.update', nom: 'Modifier une catégorie', description: 'Permet de modifier les catégories' },
   { code: 'categories.delete', nom: 'Supprimer une catégorie', description: 'Permet de supprimer des catégories' },
 
+  // Zones de stockage
+  { code: 'zones.create', nom: 'Créer une zone', description: 'Permet de créer de nouvelles zones de stockage' },
+  { code: 'zones.read', nom: 'Voir les zones', description: 'Permet de consulter les zones de stockage' },
+  { code: 'zones.update', nom: 'Modifier une zone', description: 'Permet de modifier les zones de stockage' },
+  { code: 'zones.delete', nom: 'Supprimer une zone', description: 'Permet de supprimer des zones de stockage' },
+
   // Mouvements de stock
   { code: 'mouvements.read', nom: 'Voir l\'historique des mouvements', description: 'Permet de consulter l\'historique des mouvements de stock' },
 
@@ -115,6 +121,8 @@ const rolesConfig = [
       'analytics.read',
       // Catégories
       'categories.create', 'categories.read', 'categories.update', 'categories.delete',
+      // Zones
+      'zones.create', 'zones.read', 'zones.update', 'zones.delete',
       // Mouvements
       'mouvements.read',
       // Paramètres
@@ -149,6 +157,8 @@ const rolesConfig = [
       'fournisseurs.create', 'fournisseurs.read', 'fournisseurs.update', 'fournisseurs.delete',
       // Catégories
       'categories.create', 'categories.read', 'categories.update', 'categories.delete',
+      // Zones
+      'zones.create', 'zones.read', 'zones.update', 'zones.delete',
       // Mouvements
       'mouvements.read',
       // Versements (lecture seule)
