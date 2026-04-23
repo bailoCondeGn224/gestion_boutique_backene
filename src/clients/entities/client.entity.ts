@@ -5,9 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('client')
-export class Client {
+export class Client extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { LigneVente } from './ligne-vente.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 export enum ModePaiement {
   ESPECES = 'especes',
@@ -17,7 +18,7 @@ export enum ModePaiement {
 }
 
 @Entity('vente')
-export class Vente {
+export class Vente extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

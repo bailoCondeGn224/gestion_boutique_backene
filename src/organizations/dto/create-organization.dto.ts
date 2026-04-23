@@ -29,4 +29,42 @@ export class CreateOrganizationDto {
   @IsOptional()
   @IsDateString()
   abonnementExpire?: string;
+
+  // Informations supplémentaires (ex-Parametre)
+  @IsOptional()
+  @IsString()
+  nomCourt?: string;
+
+  @IsOptional()
+  @IsString()
+  slogan?: string;
+
+  @IsOptional()
+  @IsString()
+  adresse?: string;
+
+  @IsOptional()
+  @IsString()
+  siteWeb?: string;
+
+  // Informations légales
+  @IsOptional()
+  @IsString()
+  rccm?: string;
+
+  @IsOptional()
+  @IsString()
+  nif?: string;
+
+  @IsOptional()
+  @IsString()
+  registreCommerce?: string;
+
+  @IsOptional()
+  @IsString()
+  devise?: string;
+
+  @IsOptional()
+  @IsString()
+  mentionsLegales?: string;
 }

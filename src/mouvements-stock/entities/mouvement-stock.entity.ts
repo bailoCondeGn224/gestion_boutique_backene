@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Article } from '../../stock/entities/article.entity';
 import { User } from '../../users/entities/user.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 /**
  * Types de mouvements de stock
@@ -35,7 +36,7 @@ export enum MotifMouvement {
 @Index(['articleId', 'date'])
 @Index(['type', 'date'])
 @Index(['motif', 'date'])
-export class MouvementStock {
+export class MouvementStock extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Fournisseur } from '../../fournisseurs/entities/fournisseur.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 export enum ModeVersement {
   ESPECES = 'especes',
@@ -23,7 +24,7 @@ export enum StatutVersement {
 }
 
 @Entity('versement')
-export class Versement {
+export class Versement extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

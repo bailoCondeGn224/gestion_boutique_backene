@@ -10,9 +10,10 @@ import {
   OneToMany,
   JoinColumn,
 } from 'typeorm';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('approvisionnement')
-export class Approvisionnement {
+export class Approvisionnement extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

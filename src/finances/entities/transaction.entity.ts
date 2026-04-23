@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
 } from 'typeorm';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 export enum TypeTransaction {
   IN = 'in',
@@ -19,7 +20,7 @@ export enum CategorieTransaction {
 }
 
 @Entity('transaction')
-export class Transaction {
+export class Transaction extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

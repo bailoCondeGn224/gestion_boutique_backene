@@ -8,9 +8,10 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Categorie } from '../../categories/entities/categorie.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('article')
-export class Article {
+export class Article extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -18,7 +18,6 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { RolesModule } from './roles/roles.module';
-import { ParametresModule } from './parametres/parametres.module';
 import { ZonesModule } from './zones/zones.module';
 import { PlansModule } from './plans/plans.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -66,7 +65,6 @@ import { OrganizationsModule } from './organizations/organizations.module';
     MouvementsStockModule,
     PermissionsModule,
     RolesModule,
-    ParametresModule,
   ],
   controllers: [AppController],
   providers: [AppService],

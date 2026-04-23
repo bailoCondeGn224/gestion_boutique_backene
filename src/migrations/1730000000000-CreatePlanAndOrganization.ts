@@ -133,6 +133,51 @@ export class CreatePlanAndOrganization1730000000000 implements MigrationInterfac
             isNullable: true,
           },
           {
+            name: 'nomCourt',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'slogan',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'adresse',
+            type: 'text',
+            isNullable: true,
+          },
+          {
+            name: 'siteWeb',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'rccm',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'nif',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'registreCommerce',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'devise',
+            type: 'varchar',
+            default: "'GNF'",
+          },
+          {
+            name: 'mentionsLegales',
+            type: 'text',
+            isNullable: true,
+          },
+          {
             name: 'createdAt',
             type: 'timestamp',
             default: 'CURRENT_TIMESTAMP',

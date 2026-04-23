@@ -7,9 +7,10 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { Vente } from './vente.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('ligne_vente')
-export class LigneVente {
+export class LigneVente extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

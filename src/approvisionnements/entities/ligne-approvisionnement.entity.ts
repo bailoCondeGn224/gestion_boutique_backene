@@ -8,9 +8,10 @@ import {
 } from 'typeorm';
 import { Approvisionnement } from './approvisionnement.entity';
 import { Article } from '../../stock/entities/article.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('ligne_approvisionnement')
-export class LigneApprovisionnement {
+export class LigneApprovisionnement extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

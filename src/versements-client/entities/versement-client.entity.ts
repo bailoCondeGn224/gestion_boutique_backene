@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Client } from '../../clients/entities/client.entity';
 import { Vente } from '../../ventes/entities/vente.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 export enum ModeVersementClient {
   ESPECES = 'especes',
@@ -19,7 +20,7 @@ export enum ModeVersementClient {
 }
 
 @Entity('versement_client')
-export class VersementClient {
+export class VersementClient extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

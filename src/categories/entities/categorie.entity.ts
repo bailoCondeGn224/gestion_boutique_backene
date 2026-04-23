@@ -10,9 +10,10 @@ import {
 } from 'typeorm';
 import { Article } from '../../stock/entities/article.entity';
 import { Zone } from '../../zones/entities/zone.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('categorie')
-export class Categorie {
+export class Categorie extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

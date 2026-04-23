@@ -7,9 +7,10 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Categorie } from '../../categories/entities/categorie.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('zones')
-export class Zone {
+export class Zone extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Approvisionnement } from '../../approvisionnements/entities/approvisionnement.entity';
+import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 export enum StatutFournisseur {
   ACTIF = 'actif',
@@ -15,7 +16,7 @@ export enum StatutFournisseur {
 }
 
 @Entity('fournisseur')
-export class Fournisseur {
+export class Fournisseur extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
