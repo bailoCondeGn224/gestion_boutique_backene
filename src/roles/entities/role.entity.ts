@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToMany,
+  ManyToOne,
   JoinTable,
 } from 'typeorm';
 import { Permission } from '../../permissions/entities/permission.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('role')
 export class Role {
@@ -22,6 +24,10 @@ export class Role {
 
   @Column({ default: true })
   actif: boolean;
+
+  // Multi-tenant: organization nullable (null = role système comme SUPER_ADMIN)
+  @ManyToOne(() => Organization, { nullable: true })
+  organization: Organization;
 
   // Relation ManyToMany avec Permission
   @ManyToMany(() => Permission, { eager: true })

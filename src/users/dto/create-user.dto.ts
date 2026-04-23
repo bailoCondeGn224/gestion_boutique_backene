@@ -33,4 +33,13 @@ export class CreateUserDto {
   @IsUUID()
   @IsOptional()
   roleId?: string;
+
+  @ApiProperty({
+    example: 'uuid-organization-id',
+    description: 'ID de l\'organisation (null pour SUPER_ADMIN)',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  organizationId?: string;
 }

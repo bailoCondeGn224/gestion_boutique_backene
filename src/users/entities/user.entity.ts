@@ -5,9 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 import { Role } from '../../roles/entities/role.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('user')
 export class User {
@@ -23,12 +23,16 @@ export class User {
   @Column()
   nom: string;
 
-  @Column({ nullable: true })
-  roleId: string;
-
   @ManyToOne(() => Role, { eager: true })
-  @JoinColumn({ name: 'roleId' })
   role: Role;
+
+  // Multi-tenant: organization nullable (null = SUPER_ADMIN)
+  @ManyToOne(() => Organization, { nullable: true })
+  organization: Organization;
+
+  // Flag pour identifier rapidement les SUPER_ADMIN
+  @Column({ default: false })
+  isSuperAdmin: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
