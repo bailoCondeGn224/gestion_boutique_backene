@@ -25,7 +25,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       nom: user.nom,
-      roleId: user.roleId,
+      roleId: user.role.id  ,
       organizationId: user.organization?.id || null, // Multi-tenant
       isSuperAdmin: user.isSuperAdmin || false,      // Flag super admin
     };

@@ -1,6 +1,9 @@
 // Entities
 export * from './entities/base-tenant.entity';
 
+// Services
+export * from './services/base-tenant.service';
+
 // Decorators
 export * from './decorators/is-super-admin.decorator';
 export * from './decorators/current-user.decorator';
