@@ -20,6 +20,8 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { RolesModule } from './roles/roles.module';
 import { ParametresModule } from './parametres/parametres.module';
 import { ZonesModule } from './zones/zones.module';
+import { PlansModule } from './plans/plans.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { ZonesModule } from './zones/zones.module';
     }),
     UsersModule,
     AuthModule,
+    PlansModule,
+    OrganizationsModule,
     ZonesModule,
     CategoriesModule,
     StockModule,

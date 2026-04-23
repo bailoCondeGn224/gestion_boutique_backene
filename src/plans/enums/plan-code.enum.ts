@@ -1,0 +1,6 @@
+export enum PlanCode {
+  FREE = 'FREE',
+  STANDARD = 'STANDARD',
+  PREMIUM = 'PREMIUM',
+  ENTERPRISE = 'ENTERPRISE',
+}
