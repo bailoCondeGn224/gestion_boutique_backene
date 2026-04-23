@@ -25,7 +25,9 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       nom: user.nom,
-      roleId: user.roleId, // Stocker uniquement l'ID du rôle
+      roleId: user.roleId,
+      organizationId: user.organization?.id || null, // Multi-tenant
+      isSuperAdmin: user.isSuperAdmin || false,      // Flag super admin
     };
 
     return {
@@ -34,7 +36,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         nom: user.nom,
-        role: user.role, // Retourner le rôle complet dans la réponse
+        role: user.role,
+        organization: user.organization,
+        isSuperAdmin: user.isSuperAdmin,
       },
     };
   }

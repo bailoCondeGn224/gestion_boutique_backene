@@ -21,10 +21,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // Charger l'utilisateur avec son rôle et permissions depuis la DB
+    // Charger l'utilisateur avec son rôle, permissions et organization depuis la DB
     const user = await this.usersRepository.findOne({
       where: { id: payload.sub },
-      relations: ['role', 'role.permissions'],
+      relations: ['role', 'role.permissions', 'organization'],
     });
 
     if (!user) {
@@ -36,7 +36,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       nom: user.nom,
       roleId: user.roleId,
-      role: user.role, // Rôle complet avec permissions fraîches de la DB
+      role: user.role,
+      organizationId: user.organization?.id || null, // Multi-tenant
+      organization: user.organization,
+      isSuperAdmin: user.isSuperAdmin,
     };
   }
 }

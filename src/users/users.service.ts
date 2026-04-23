@@ -43,8 +43,8 @@ export class UsersService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.usersRepository.findAndCount({
-      select: ['id', 'email', 'nom', 'roleId', 'createdAt', 'updatedAt'],
-      relations: ['role', 'role.permissions'],
+      select: ['id', 'email', 'nom', 'roleId', 'isSuperAdmin', 'createdAt', 'updatedAt'],
+      relations: ['role', 'role.permissions', 'organization'],
       skip,
       take: limit,
     });
@@ -55,8 +55,8 @@ export class UsersService {
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      select: ['id', 'email', 'nom', 'roleId', 'createdAt', 'updatedAt'],
-      relations: ['role', 'role.permissions'],
+      select: ['id', 'email', 'nom', 'roleId', 'isSuperAdmin', 'createdAt', 'updatedAt'],
+      relations: ['role', 'role.permissions', 'organization'],
     });
 
     if (!user) {
@@ -69,7 +69,7 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { email },
-      relations: ['role', 'role.permissions'],
+      relations: ['role', 'role.permissions', 'organization'],
     });
   }
 
