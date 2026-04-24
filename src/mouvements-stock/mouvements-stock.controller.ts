@@ -5,35 +5,40 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagg
 import { MouvementFilterDto } from './dto/mouvement-filter.dto';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { TenantGuard, CurrentOrganization } from '../common';
 
 @ApiTags('Mouvements Stock')
 @Controller('mouvements') // ✅ Route corrigée : /mouvements au lieu de /mouvements-stock
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class MouvementsStockController {
   constructor(
     private readonly mouvementsStockService: MouvementsStockService,
   ) {}
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(PermissionsGuard)
   @Permissions('mouvements.read')
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer tous les mouvements de stock (paginés avec filtres)' })
   @ApiResponse({ status: 200, description: 'Liste paginée des mouvements' })
-  async findAll(@Query() filterDto: MouvementFilterDto) {
-    return await this.mouvementsStockService.findAll(filterDto);
+  async findAll(
+    @Query() filterDto: MouvementFilterDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return await this.mouvementsStockService.findAll(organizationId, filterDto);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(PermissionsGuard)
   @Permissions('mouvements.read')
   @Get('stats')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer les statistiques globales des mouvements' })
   @ApiResponse({ status: 200, description: 'Statistiques des entrées et sorties' })
-  async getStats() {
-    return await this.mouvementsStockService.getStats();
+  async getStats(@CurrentOrganization() organizationId: string) {
+    return await this.mouvementsStockService.getStats(organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(PermissionsGuard)
   @Permissions('mouvements.read')
   @Get('article/:articleId')
   @ApiBearerAuth()
@@ -42,17 +47,21 @@ export class MouvementsStockController {
   async findByArticle(
     @Param('articleId') articleId: string,
     @Query() filterDto: MouvementFilterDto,
+    @CurrentOrganization() organizationId: string,
   ) {
-    return await this.mouvementsStockService.findByArticle(articleId, filterDto);
+    return await this.mouvementsStockService.findByArticle(articleId, organizationId, filterDto);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(PermissionsGuard)
   @Permissions('mouvements.read')
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer un mouvement par ID' })
   @ApiResponse({ status: 200, description: 'Détails du mouvement' })
-  async findOne(@Param('id') id: string) {
-    return await this.mouvementsStockService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return await this.mouvementsStockService.findOne(id, organizationId);
   }
 }

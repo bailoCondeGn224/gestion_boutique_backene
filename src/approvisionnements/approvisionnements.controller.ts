@@ -17,19 +17,21 @@ import { UpdateApprovisionnementDto } from './dto/update-approvisionnement.dto';
 import { ApprovisionnementFilterDto } from './dto/approvisionnement-filter.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard, CurrentOrganization } from '../common';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @ApiTags('approvisionnements')
 @Controller('approvisionnements')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class ApprovisionnementController {
   constructor(
     private readonly approvisionnementService: ApprovisionnementService,
   ) {}
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.create')
   @Post()
+  @UseGuards(PermissionsGuard)
+  @Permissions('approvisionnements.create')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Enregistrer un nouvel approvisionnement' })
   @ApiResponse({
@@ -37,35 +39,36 @@ export class ApprovisionnementController {
     description: 'Approvisionnement créé avec succès',
   })
   @ApiResponse({ status: 400, description: 'Données invalides' })
-  create(@Body() createDto: CreateApprovisionnementDto, @Request() req) {
+  create(
+    @Body() createDto: CreateApprovisionnementDto,
+    @CurrentOrganization() organizationId: string,
+    @Request() req,
+  ) {
     // Ajouter l'utilisateur authentifié pour la traçabilité
     createDto.userId = req.user.id;
     createDto.userNom = req.user.nom;
-    return this.approvisionnementService.create(createDto);
+    return this.approvisionnementService.create(createDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.read')
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lister tous les approvisionnements (paginés avec filtres)' })
   @ApiResponse({ status: 200, description: 'Liste paginée des approvisionnements' })
-  findAll(@Query() filterDto: ApprovisionnementFilterDto) {
-    return this.approvisionnementService.findAll(filterDto);
+  findAll(
+    @Query() filterDto: ApprovisionnementFilterDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.approvisionnementService.findAll(filterDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.read')
   @Get('stats')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Statistiques globales des approvisionnements' })
   @ApiResponse({ status: 200, description: 'Statistiques globales' })
-  getStatsGlobales() {
-    return this.approvisionnementService.getStatsGlobales();
+  getStatsGlobales(@CurrentOrganization() organizationId: string) {
+    return this.approvisionnementService.getStatsGlobales(organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.read')
   @Get('fournisseur/:fournisseurId')
   @ApiBearerAuth()
   @ApiOperation({
@@ -79,15 +82,15 @@ export class ApprovisionnementController {
   findByFournisseur(
     @Param('fournisseurId') fournisseurId: string,
     @Query() paginationDto: PaginationDto,
+    @CurrentOrganization() organizationId: string,
   ) {
     return this.approvisionnementService.findByFournisseur(
+      organizationId,
       fournisseurId,
       paginationDto,
     );
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.read')
   @Get('fournisseur/:fournisseurId/stats')
   @ApiBearerAuth()
   @ApiOperation({
@@ -98,25 +101,29 @@ export class ApprovisionnementController {
     status: 200,
     description: 'Statistiques des approvisionnements',
   })
-  getStatsFournisseur(@Param('fournisseurId') fournisseurId: string) {
-    return this.approvisionnementService.getStatsFournisseur(fournisseurId);
+  getStatsFournisseur(
+    @Param('fournisseurId') fournisseurId: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.approvisionnementService.getStatsFournisseur(fournisseurId, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.read')
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtenir un approvisionnement par ID' })
   @ApiParam({ name: 'id', description: 'ID de l\'approvisionnement' })
   @ApiResponse({ status: 200, description: 'Approvisionnement trouvé' })
   @ApiResponse({ status: 404, description: 'Approvisionnement introuvable' })
-  findOne(@Param('id') id: string) {
-    return this.approvisionnementService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.approvisionnementService.findOne(id, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.update')
   @Patch(':id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('approvisionnements.update')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour un approvisionnement' })
   @ApiParam({ name: 'id', description: 'ID de l\'approvisionnement' })
@@ -125,19 +132,23 @@ export class ApprovisionnementController {
   update(
     @Param('id') id: string,
     @Body() updateDto: UpdateApprovisionnementDto,
+    @CurrentOrganization() organizationId: string,
   ) {
-    return this.approvisionnementService.update(id, updateDto);
+    return this.approvisionnementService.update(id, updateDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('approvisionnements.delete')
   @Delete(':id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('approvisionnements.delete')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Supprimer un approvisionnement' })
   @ApiParam({ name: 'id', description: 'ID de l\'approvisionnement' })
   @ApiResponse({ status: 200, description: 'Approvisionnement supprimé' })
   @ApiResponse({ status: 404, description: 'Approvisionnement introuvable' })
-  remove(@Param('id') id: string) {
-    return this.approvisionnementService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.approvisionnementService.remove(id, organizationId);
   }
 }

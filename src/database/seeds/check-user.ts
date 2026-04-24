@@ -53,8 +53,8 @@ async function checkAndFixUser() {
     }
 
     // Assigner le rôle ADMIN si non assigné
-    if (!existingUser.roleId) {
-      existingUser.roleId = adminRole.id;
+    if (!existingUser.role) {
+      existingUser.role = adminRole;
       await userRepository.save(existingUser);
       console.log('✅ Rôle ADMIN assigné à l\'utilisateur!\n');
     }
@@ -64,7 +64,7 @@ async function checkAndFixUser() {
       email: 'admin@boutique.com',
       password: hashedPassword,
       nom: 'Admin Boutique',
-      roleId: adminRole.id,
+      role: adminRole,
     });
     await userRepository.save(admin);
     console.log('✅ Utilisateur admin créé avec succès!\n');

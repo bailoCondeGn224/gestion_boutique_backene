@@ -17,103 +17,118 @@ import { StockFilterDto } from './dto/stock-filter.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { TenantGuard, CurrentOrganization } from '../common';
 
 @ApiTags('stock')
 @Controller('stock')
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.create')
   @Post()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Créer un nouvel article' })
   @ApiResponse({ status: 201, description: 'Article créé avec succès' })
-  create(@Body() createArticleDto: CreateArticleDto) {
-    return this.stockService.create(createArticleDto);
+  create(
+    @Body() createArticleDto: CreateArticleDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.create(createArticleDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer tous les articles (paginés avec filtres)' })
   @ApiResponse({ status: 200, description: 'Liste paginée des articles' })
-  findAll(@Query() filterDto: StockFilterDto) {
-    return this.stockService.findAll(filterDto);
+  findAll(
+    @Query() filterDto: StockFilterDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.findAll(filterDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
   @Get('alerts')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer les articles en alerte (stock faible)' })
   @ApiResponse({ status: 200, description: 'Articles dont le stock est <= au seuil' })
-  findAlerts() {
-    return this.stockService.findAlerts();
+  findAlerts(@CurrentOrganization() organizationId: string) {
+    return this.stockService.findAlerts(organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
   @Get('stats')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer les statistiques du stock' })
   @ApiResponse({ status: 200, description: 'Statistiques globales' })
-  getStats() {
-    return this.stockService.getStats();
+  getStats(@CurrentOrganization() organizationId: string) {
+    return this.stockService.getStats(organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
   @Get('rotation/stats')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Statistiques de rotation du stock (bestsellers, stock mort, taux rotation)' })
   @ApiResponse({ status: 200, description: 'Statistiques de rotation sur 30 jours par défaut' })
-  getRotationStats(@Query('periode') periode?: string) {
+  getRotationStats(
+    @Query('periode') periode: string | undefined,
+    @CurrentOrganization() organizationId: string,
+  ) {
     const periodeJours = periode ? parseInt(periode, 10) : 30;
-    return this.stockService.getRotationStats(periodeJours);
+    return this.stockService.getRotationStats(periodeJours, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
   @Get('zones/:zone')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer les articles d\'une zone spécifique' })
   @ApiResponse({ status: 200, description: 'Articles de la zone' })
-  findByZone(@Param('zone') zone: string) {
-    return this.stockService.findByZone(zone);
+  findByZone(
+    @Param('zone') zone: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.findByZone(zone, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.read')
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer un article par ID' })
   @ApiResponse({ status: 200, description: 'Détails de l\'article' })
   @ApiResponse({ status: 404, description: 'Article introuvable' })
-  findOne(@Param('id') id: string) {
-    return this.stockService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.findOne(id, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.update')
   @Patch(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour un article' })
   @ApiResponse({ status: 200, description: 'Article mis à jour' })
   @ApiResponse({ status: 404, description: 'Article introuvable' })
-  update(@Param('id') id: string, @Body() updateArticleDto: UpdateArticleDto) {
-    return this.stockService.update(id, updateArticleDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateArticleDto: UpdateArticleDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.update(id, updateArticleDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('stock.delete')
   @Delete(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Supprimer un article' })
   @ApiResponse({ status: 200, description: 'Article supprimé' })
   @ApiResponse({ status: 404, description: 'Article introuvable' })
-  remove(@Param('id') id: string) {
-    return this.stockService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.remove(id, organizationId);
   }
 }

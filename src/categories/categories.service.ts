@@ -18,9 +18,9 @@ export class CategoriesService {
     private articleRepository: Repository<Article>,
   ) {}
 
-  async create(createDto: CreateCategorieDto): Promise<Categorie> {
+  async create(createDto: CreateCategorieDto, organizationId: string): Promise<Categorie> {
     const existingByCode = await this.categorieRepository.findOne({
-      where: { code: createDto.code },
+      where: { code: createDto.code, organizationId },
     });
 
     if (existingByCode) {
@@ -30,7 +30,7 @@ export class CategoriesService {
     }
 
     const existingByNom = await this.categorieRepository.findOne({
-      where: { nom: createDto.nom },
+      where: { nom: createDto.nom, organizationId },
     });
 
     if (existingByNom) {
@@ -39,15 +39,19 @@ export class CategoriesService {
       );
     }
 
-    const categorie = this.categorieRepository.create(createDto);
+    const categorie = this.categorieRepository.create({
+      ...createDto,
+      organizationId,
+    });
     return this.categorieRepository.save(categorie);
   }
 
-  async findAll(paginationDto?: PaginationDto): Promise<PaginatedResponse<Categorie>> {
+  async findAll(organizationId: string, paginationDto?: PaginationDto): Promise<PaginatedResponse<Categorie>> {
     const { page = 1, limit = 10 } = paginationDto || {};
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.categorieRepository.findAndCount({
+      where: { organizationId },
       order: { nom: 'ASC' },
       skip,
       take: limit,
@@ -56,16 +60,16 @@ export class CategoriesService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findActive(): Promise<Categorie[]> {
+  async findActive(organizationId: string): Promise<Categorie[]> {
     return this.categorieRepository.find({
-      where: { actif: true },
+      where: { actif: true, organizationId },
       order: { nom: 'ASC' },
     });
   }
 
-  async findOne(id: string): Promise<Categorie> {
+  async findOne(id: string, organizationId: string): Promise<Categorie> {
     const categorie = await this.categorieRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['articles'],
     });
 
@@ -76,9 +80,9 @@ export class CategoriesService {
     return categorie;
   }
 
-  async findByCode(code: string): Promise<Categorie> {
+  async findByCode(code: string, organizationId: string): Promise<Categorie> {
     const categorie = await this.categorieRepository.findOne({
-      where: { code },
+      where: { code, organizationId },
     });
 
     if (!categorie) {
@@ -90,12 +94,12 @@ export class CategoriesService {
     return categorie;
   }
 
-  async update(id: string, updateDto: UpdateCategorieDto): Promise<Categorie> {
-    const categorie = await this.findOne(id);
+  async update(id: string, updateDto: UpdateCategorieDto, organizationId: string): Promise<Categorie> {
+    const categorie = await this.findOne(id, organizationId);
 
     if (updateDto.code && updateDto.code !== categorie.code) {
       const existingByCode = await this.categorieRepository.findOne({
-        where: { code: updateDto.code },
+        where: { code: updateDto.code, organizationId },
       });
 
       if (existingByCode) {
@@ -107,7 +111,7 @@ export class CategoriesService {
 
     if (updateDto.nom && updateDto.nom !== categorie.nom) {
       const existingByNom = await this.categorieRepository.findOne({
-        where: { nom: updateDto.nom },
+        where: { nom: updateDto.nom, organizationId },
       });
 
       if (existingByNom) {
@@ -121,12 +125,12 @@ export class CategoriesService {
     return this.categorieRepository.save(categorie);
   }
 
-  async remove(id: string): Promise<void> {
-    const categorie = await this.findOne(id);
+  async remove(id: string, organizationId: string): Promise<void> {
+    const categorie = await this.findOne(id, organizationId);
 
     // Vérifier s'il existe des articles dans cette catégorie
     const articlesCount = await this.articleRepository.count({
-      where: { categorieId: id },
+      where: { categorieId: id, organizationId },
     });
 
     if (articlesCount > 0) {
@@ -138,39 +142,9 @@ export class CategoriesService {
     await this.categorieRepository.remove(categorie);
   }
 
-  async seedDefaultCategories(): Promise<void> {
-    const defaultCategories = [
-      {
-        nom: 'Abayas',
-        code: 'abayas',
-        description: 'Abayas et robes islamiques',
-      },
-      {
-        nom: 'Foulards',
-        code: 'foulards',
-        description: 'Foulards et hijabs',
-      },
-      {
-        nom: 'Bazin',
-        code: 'bazin',
-        description: 'Tissus bazin et brodés',
-      },
-      {
-        nom: 'Autres',
-        code: 'autres',
-        description: 'Autres articles',
-      },
-    ];
-
-    for (const catData of defaultCategories) {
-      const existing = await this.categorieRepository.findOne({
-        where: { code: catData.code },
-      });
-
-      if (!existing) {
-        const categorie = this.categorieRepository.create(catData);
-        await this.categorieRepository.save(categorie);
-      }
-    }
+  // Seed vide - pas de catégories par défaut
+  async seedDefaultCategories(organizationId: string): Promise<void> {
+    // Pas de catégories par défaut
+    return;
   }
 }

@@ -44,7 +44,7 @@ async function seed() {
       email: 'admin@boutique.com',
       password: hashedPassword,
       nom: 'Admin Boutique',
-      roleId: adminRole.id,
+      role: adminRole,
     });
     await userRepository.save(admin);
     console.log('✅ Utilisateur admin créé:');
@@ -54,8 +54,8 @@ async function seed() {
     console.log('ℹ️  Utilisateur admin existe déjà\n');
 
     // Assigner le rôle ADMIN si non assigné
-    if (!existingAdmin.roleId) {
-      existingAdmin.roleId = adminRole.id;
+    if (!existingAdmin.role) {
+      existingAdmin.role = adminRole;
       await userRepository.save(existingAdmin);
       console.log('✅ Rôle ADMIN assigné à l\'utilisateur existant\n');
     }

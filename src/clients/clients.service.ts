@@ -22,16 +22,22 @@ export class ClientsService {
     private versementClientRepository: Repository<VersementClient>,
   ) {}
 
-  async create(createClientDto: CreateClientDto): Promise<Client> {
-    const client = this.clientsRepository.create(createClientDto);
+  async create(organizationId: string, createClientDto: CreateClientDto): Promise<Client> {
+    const client = this.clientsRepository.create({
+      ...createClientDto,
+      organizationId,
+    });
     return this.clientsRepository.save(client);
   }
 
-  async findAll(filterDto?: ClientFilterDto): Promise<PaginatedResponse<Client>> {
+  async findAll(organizationId: string, filterDto?: ClientFilterDto): Promise<PaginatedResponse<Client>> {
     const { page = 1, limit = 10, search, hasCredits } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.clientsRepository.createQueryBuilder('client');
+
+    // Filtre par organization (toujours en premier avec .where())
+    queryBuilder.where('client.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (nom, téléphone, email)
     if (search) {
@@ -55,9 +61,9 @@ export class ClientsService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Client> {
+  async findOne(organizationId: string, id: string): Promise<Client> {
     const client = await this.clientsRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
     });
 
     if (!client) {
@@ -67,64 +73,68 @@ export class ClientsService {
     return client;
   }
 
-  async findByTelephone(telephone: string): Promise<Client | null> {
+  async findByTelephone(organizationId: string, telephone: string): Promise<Client | null> {
     return this.clientsRepository.findOne({
-      where: { telephone },
+      where: { telephone, organizationId },
     });
   }
 
-  async findByEmail(email: string): Promise<Client | null> {
+  async findByEmail(organizationId: string, email: string): Promise<Client | null> {
     return this.clientsRepository.findOne({
-      where: { email },
+      where: { email, organizationId },
     });
   }
 
-  async update(id: string, updateClientDto: UpdateClientDto): Promise<Client> {
-    const client = await this.findOne(id);
+  async update(organizationId: string, id: string, updateClientDto: UpdateClientDto): Promise<Client> {
+    const client = await this.findOne(organizationId, id);
     Object.assign(client, updateClientDto);
     return this.clientsRepository.save(client);
   }
 
   async updateTotalAchats(
+    organizationId: string,
     id: string,
     montantAchat: number,
   ): Promise<Client> {
-    const client = await this.findOne(id);
+    const client = await this.findOne(organizationId, id);
     client.totalAchats = Number(client.totalAchats) + montantAchat;
     return this.clientsRepository.save(client);
   }
 
   async updateTotalCredits(
+    organizationId: string,
     id: string,
     montantCredit: number,
   ): Promise<Client> {
-    const client = await this.findOne(id);
+    const client = await this.findOne(organizationId, id);
     client.totalCredits = Number(client.totalCredits) + montantCredit;
     return this.clientsRepository.save(client);
   }
 
-  async getClientsAvecCredits(): Promise<Client[]> {
+  async getClientsAvecCredits(organizationId: string): Promise<Client[]> {
     return this.clientsRepository
       .createQueryBuilder('client')
-      .where('client.totalCredits > 0')
+      .where('client.organizationId = :organizationId', { organizationId })
+      .andWhere('client.totalCredits > 0')
       .orderBy('client.totalCredits', 'DESC')
       .getMany();
   }
 
-  async getTopClients(limit: number = 10): Promise<Client[]> {
+  async getTopClients(organizationId: string, limit: number = 10): Promise<Client[]> {
     return this.clientsRepository
       .createQueryBuilder('client')
+      .where('client.organizationId = :organizationId', { organizationId })
       .orderBy('client.totalAchats', 'DESC')
       .limit(limit)
       .getMany();
   }
 
-  async remove(id: string): Promise<void> {
-    const client = await this.findOne(id);
+  async remove(organizationId: string, id: string): Promise<void> {
+    const client = await this.findOne(organizationId, id);
 
     // Vérifier s'il existe des ventes pour ce client
     const ventesCount = await this.venteRepository.count({
-      where: { clientId: id },
+      where: { clientId: id, organizationId },
     });
 
     if (ventesCount > 0) {
@@ -135,7 +145,7 @@ export class ClientsService {
 
     // Vérifier s'il existe des versements pour ce client
     const versementsCount = await this.versementClientRepository.count({
-      where: { clientId: id },
+      where: { clientId: id, organizationId },
     });
 
     if (versementsCount > 0) {
@@ -147,11 +157,14 @@ export class ClientsService {
     await this.clientsRepository.remove(client);
   }
 
-  async getStats(): Promise<any> {
-    const total = await this.clientsRepository.count();
+  async getStats(organizationId: string): Promise<any> {
+    const total = await this.clientsRepository.count({
+      where: { organizationId },
+    });
 
     const statsResult = await this.clientsRepository
       .createQueryBuilder('client')
+      .where('client.organizationId = :organizationId', { organizationId })
       .select('COUNT(CASE WHEN client.totalCredits > 0 THEN 1 END)', 'avecCredits')
       .addSelect('SUM(client.totalCredits)', 'totalCreditsEnCours')
       .getRawOne();
@@ -164,24 +177,25 @@ export class ClientsService {
   }
 
   async getHistorique(
+    organizationId: string,
     clientId: string,
     params?: { page?: number; limit?: number; type?: 'tous' | 'achats' | 'paiements' },
   ): Promise<any> {
     const { page = 1, limit = 10, type = 'tous' } = params || {};
 
     // Vérifier que le client existe
-    const client = await this.findOne(clientId);
+    const client = await this.findOne(organizationId, clientId);
 
     // Récupérer toutes les ventes du client avec les lignes (pour les stats)
     const ventes = await this.venteRepository.find({
-      where: { clientId },
+      where: { clientId, organizationId },
       relations: ['lignes'],
       order: { date: 'DESC' },
     });
 
     // Récupérer tous les paiements du client (pour les stats)
     const paiements = await this.versementClientRepository.find({
-      where: { clientId },
+      where: { clientId, organizationId },
       order: { date: 'DESC' },
     });
 

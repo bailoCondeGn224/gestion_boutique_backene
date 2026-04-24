@@ -14,6 +14,7 @@ import { VersementsService } from './versements.service';
 import { CreateVersementDto } from './dto/create-versement.dto';
 import { UpdateVersementDto } from './dto/update-versement.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard, CurrentOrganization } from '../common';
 import { VersementFilterDto } from './dto/versement-filter.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -21,45 +22,52 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 
 @ApiTags('versements')
 @Controller('versements')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class VersementsController {
   constructor(private readonly versementsService: VersementsService) {}
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.create')
   @Post()
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.create')
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Enregistrer un nouveau paiement fournisseur (met à jour la dette)',
   })
   @ApiResponse({ status: 201, description: 'Versement enregistré avec succès' })
   @ApiResponse({ status: 400, description: 'Montant supérieur à la dette' })
-  create(@Body() createVersementDto: CreateVersementDto) {
-    return this.versementsService.create(createVersementDto);
+  create(
+    @Body() createVersementDto: CreateVersementDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.versementsService.create(createVersementDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.read')
   @Get()
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.read')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer tous les versements (paginés avec filtres)' })
   @ApiResponse({ status: 200, description: 'Liste paginée des versements' })
-  findAll(@Query() filterDto: VersementFilterDto) {
-    return this.versementsService.findAll(filterDto);
+  findAll(
+    @Query() filterDto: VersementFilterDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.versementsService.findAll(organizationId, filterDto);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.read')
   @Get('montants-mois')
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.read')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer le total des versements du mois' })
   @ApiResponse({ status: 200, description: 'Total des paiements du mois' })
-  getMontantsMois() {
-    return this.versementsService.getMontantsMois();
+  getMontantsMois(@CurrentOrganization() organizationId: string) {
+    return this.versementsService.getMontantsMois(organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.read')
   @Get('fournisseur/:fournisseurId')
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.read')
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Lister les versements d\'un fournisseur (paginés)',
@@ -71,24 +79,28 @@ export class VersementsController {
   findByFournisseur(
     @Param('fournisseurId') fournisseurId: string,
     @Query() paginationDto: PaginationDto,
+    @CurrentOrganization() organizationId: string,
   ) {
-    return this.versementsService.findByFournisseur(fournisseurId, paginationDto);
+    return this.versementsService.findByFournisseur(organizationId, fournisseurId, paginationDto);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.read')
   @Get(':id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.read')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer un versement par ID' })
   @ApiResponse({ status: 200, description: 'Détails du versement' })
   @ApiResponse({ status: 404, description: 'Versement introuvable' })
-  findOne(@Param('id') id: string) {
-    return this.versementsService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.versementsService.findOne(id, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.update')
   @Patch(':id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.update')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour un versement' })
   @ApiResponse({ status: 200, description: 'Versement mis à jour' })
@@ -96,18 +108,22 @@ export class VersementsController {
   update(
     @Param('id') id: string,
     @Body() updateVersementDto: UpdateVersementDto,
+    @CurrentOrganization() organizationId: string,
   ) {
-    return this.versementsService.update(id, updateVersementDto);
+    return this.versementsService.update(id, updateVersementDto, organizationId);
   }
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('versements.delete')
   @Delete(':id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('versements.delete')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Annuler un versement (restaure la dette)' })
   @ApiResponse({ status: 200, description: 'Versement annulé' })
   @ApiResponse({ status: 404, description: 'Versement introuvable' })
-  remove(@Param('id') id: string) {
-    return this.versementsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.versementsService.remove(id, organizationId);
   }
 }

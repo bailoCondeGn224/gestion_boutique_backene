@@ -19,21 +19,26 @@ export class MouvementsStockService {
    */
   async create(
     createMouvementStockDto: CreateMouvementStockDto,
+    organizationId: string,
   ): Promise<MouvementStock> {
-    const mouvement = this.mouvementStockRepository.create(
-      createMouvementStockDto,
-    );
+    const mouvement = this.mouvementStockRepository.create({
+      ...createMouvementStockDto,
+      organizationId,
+    });
     return await this.mouvementStockRepository.save(mouvement);
   }
 
   /**
    * Récupérer tous les mouvements avec pagination et filtres
    */
-  async findAll(filterDto?: MouvementFilterDto): Promise<PaginatedResponse<MouvementStock>> {
+  async findAll(organizationId: string, filterDto?: MouvementFilterDto): Promise<PaginatedResponse<MouvementStock>> {
     const { page = 1, limit = 20, search, type, motif, dateDebut, dateFin, articleId } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.mouvementStockRepository.createQueryBuilder('mouvement');
+
+    // Filtrage par organization (CRITIQUE pour multi-tenant)
+    queryBuilder.where('mouvement.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (nom d'article)
     if (search) {
@@ -80,23 +85,23 @@ export class MouvementsStockService {
   /**
    * Récupérer les mouvements d'un article
    */
-  async findByArticle(articleId: string, filterDto?: MouvementFilterDto): Promise<PaginatedResponse<MouvementStock>> {
-    return this.findAll({ ...filterDto, articleId });
+  async findByArticle(articleId: string, organizationId: string, filterDto?: MouvementFilterDto): Promise<PaginatedResponse<MouvementStock>> {
+    return this.findAll(organizationId, { ...filterDto, articleId });
   }
 
   /**
    * Récupérer un mouvement par ID
    */
-  async findOne(id: string): Promise<MouvementStock> {
+  async findOne(id: string, organizationId: string): Promise<MouvementStock> {
     return await this.mouvementStockRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
     });
   }
 
   /**
    * Récupérer les statistiques globales
    */
-  async getStats(): Promise<{
+  async getStats(organizationId: string): Promise<{
     totalEntrees: number;
     totalSorties: number;
     valeurEntrees: number;
@@ -107,7 +112,8 @@ export class MouvementsStockService {
       .createQueryBuilder('mouvement')
       .select('SUM(mouvement.quantite)', 'total')
       .addSelect('SUM(mouvement.valeurTotal)', 'valeur')
-      .where('mouvement.type = :type', { type: 'entree' })
+      .where('mouvement.organizationId = :organizationId', { organizationId })
+      .andWhere('mouvement.type = :type', { type: 'entree' })
       .getRawOne();
 
     // Statistiques des sorties
@@ -115,7 +121,8 @@ export class MouvementsStockService {
       .createQueryBuilder('mouvement')
       .select('SUM(mouvement.quantite)', 'total')
       .addSelect('SUM(mouvement.valeurTotal)', 'valeur')
-      .where('mouvement.type = :type', { type: 'sortie' })
+      .where('mouvement.organizationId = :organizationId', { organizationId })
+      .andWhere('mouvement.type = :type', { type: 'sortie' })
       .getRawOne();
 
     return {
@@ -129,10 +136,11 @@ export class MouvementsStockService {
   /**
    * Récupérer les mouvements par période
    */
-  async findByPeriod(dateDebut: Date, dateFin: Date): Promise<MouvementStock[]> {
+  async findByPeriod(dateDebut: Date, dateFin: Date, organizationId: string): Promise<MouvementStock[]> {
     return await this.mouvementStockRepository
       .createQueryBuilder('mouvement')
-      .where('mouvement.date >= :dateDebut', { dateDebut })
+      .where('mouvement.organizationId = :organizationId', { organizationId })
+      .andWhere('mouvement.date >= :dateDebut', { dateDebut })
       .andWhere('mouvement.date <= :dateFin', { dateFin })
       .orderBy('mouvement.date', 'DESC')
       .getMany();

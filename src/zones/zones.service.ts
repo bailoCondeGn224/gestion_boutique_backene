@@ -15,25 +15,31 @@ export class ZonesService {
     private zonesRepository: Repository<Zone>,
   ) {}
 
-  async create(createZoneDto: CreateZoneDto): Promise<Zone> {
-    // Vérifier si le code existe déjà
+  async create(createZoneDto: CreateZoneDto, organizationId: string): Promise<Zone> {
+    // Vérifier si le code existe déjà dans cette organisation
     const existingZone = await this.zonesRepository.findOne({
-      where: { code: createZoneDto.code },
+      where: { code: createZoneDto.code, organizationId },
     });
 
     if (existingZone) {
       throw new BadRequestException(`Une zone avec le code "${createZoneDto.code}" existe déjà`);
     }
 
-    const zone = this.zonesRepository.create(createZoneDto);
+    const zone = this.zonesRepository.create({
+      ...createZoneDto,
+      organizationId,
+    });
     return this.zonesRepository.save(zone);
   }
 
-  async findAll(filterDto?: ZoneFilterDto): Promise<PaginatedResponse<Zone>> {
+  async findAll(organizationId: string, filterDto?: ZoneFilterDto): Promise<PaginatedResponse<Zone>> {
     const { page = 1, limit = 10, search, actif } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.zonesRepository.createQueryBuilder('zone');
+
+    // Filtrage par organization (CRITIQUE pour multi-tenant)
+    queryBuilder.where('zone.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (code, nom, description)
     if (search) {
@@ -57,16 +63,16 @@ export class ZonesService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findActives(): Promise<Zone[]> {
+  async findActives(organizationId: string): Promise<Zone[]> {
     return this.zonesRepository.find({
-      where: { actif: true },
+      where: { actif: true, organizationId },
       order: { code: 'ASC' },
     });
   }
 
-  async findOne(id: string): Promise<Zone> {
+  async findOne(id: string, organizationId: string): Promise<Zone> {
     const zone = await this.zonesRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['categories'],
     });
 
@@ -77,13 +83,13 @@ export class ZonesService {
     return zone;
   }
 
-  async update(id: string, updateZoneDto: UpdateZoneDto): Promise<Zone> {
-    const zone = await this.findOne(id);
+  async update(id: string, updateZoneDto: UpdateZoneDto, organizationId: string): Promise<Zone> {
+    const zone = await this.findOne(id, organizationId);
 
-    // Si le code change, vérifier qu'il n'existe pas déjà
+    // Si le code change, vérifier qu'il n'existe pas déjà dans cette organisation
     if (updateZoneDto.code && updateZoneDto.code !== zone.code) {
       const existingZone = await this.zonesRepository.findOne({
-        where: { code: updateZoneDto.code },
+        where: { code: updateZoneDto.code, organizationId },
       });
 
       if (existingZone) {
@@ -95,9 +101,9 @@ export class ZonesService {
     return this.zonesRepository.save(zone);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, organizationId: string): Promise<void> {
     const zone = await this.zonesRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['categories'],
     });
 

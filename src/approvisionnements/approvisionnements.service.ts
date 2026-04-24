@@ -26,6 +26,7 @@ export class ApprovisionnementService {
 
   async create(
     createDto: CreateApprovisionnementDto,
+    organizationId: string,
   ): Promise<Approvisionnement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -33,7 +34,7 @@ export class ApprovisionnementService {
 
     try {
       // Générer le numéro d'approvisionnement
-      const numero = await this.generateNumero();
+      const numero = await this.generateNumero(organizationId);
 
       // Calculer montantRestant si non fourni
       const montantPaye = createDto.montantPaye || 0;
@@ -48,6 +49,7 @@ export class ApprovisionnementService {
         numero,
         montantPaye,
         montantRestant,
+        organizationId,
       });
 
       const savedApprovisionnement = await queryRunner.manager.save(
@@ -58,23 +60,23 @@ export class ApprovisionnementService {
       for (const ligne of createDto.lignes) {
         // Récupérer le stock avant modification
         const stockResult = await queryRunner.manager.query(
-          `SELECT stock FROM article WHERE id = $1`,
-          [ligne.articleId],
+          `SELECT stock FROM article WHERE id = $1 AND "organizationId" = $2`,
+          [ligne.articleId, organizationId],
         );
         const stockAvant = stockResult[0]?.stock || 0;
 
         // Incrémenter le stock
         await queryRunner.manager.query(
-          `UPDATE article SET stock = stock + $1 WHERE id = $2`,
-          [ligne.quantite, ligne.articleId],
+          `UPDATE article SET stock = stock + $1 WHERE id = $2 AND "organizationId" = $3`,
+          [ligne.quantite, ligne.articleId, organizationId],
         );
 
         const stockApres = stockAvant + ligne.quantite;
 
         // Mettre à jour le prix d'achat moyen (optionnel)
         await queryRunner.manager.query(
-          `UPDATE article SET "prixAchat" = $1 WHERE id = $2`,
-          [ligne.prixUnitaire, ligne.articleId],
+          `UPDATE article SET "prixAchat" = $1 WHERE id = $2 AND "organizationId" = $3`,
+          [ligne.prixUnitaire, ligne.articleId, organizationId],
         );
 
         // Enregistrer le mouvement de stock (si userId fourni)
@@ -93,7 +95,7 @@ export class ApprovisionnementService {
             userNom: createDto.userNom,
             approvisionnementId: savedApprovisionnement.id,
             date: new Date(createDto.dateLivraison),
-          });
+          }, organizationId);
         }
       }
 
@@ -102,20 +104,21 @@ export class ApprovisionnementService {
         `UPDATE fournisseur
          SET "totalAchats" = "totalAchats" + $1,
              dette = "totalAchats" + $1 - "totalPaye"
-         WHERE id = $2`,
-        [createDto.total, createDto.fournisseurId],
+         WHERE id = $2 AND "organizationId" = $3`,
+        [createDto.total, createDto.fournisseurId, organizationId],
       );
 
       // Créer une transaction financière (sortie d'argent si payé)
       if (montantPaye > 0) {
         await queryRunner.manager.query(
-          `INSERT INTO transaction (description, montant, type, categorie, date, "approvisionnementId")
-           VALUES ($1, $2, 'out', 'approvisionnement', $3, $4)`,
+          `INSERT INTO transaction (description, montant, type, categorie, date, "approvisionnementId", "organizationId")
+           VALUES ($1, $2, 'out', 'approvisionnement', $3, $4, $5)`,
           [
             `Approvisionnement ${numero} - ${createDto.fournisseurNom}`,
             montantPaye,
             createDto.dateLivraison,
             savedApprovisionnement.id,
+            organizationId,
           ],
         );
       }
@@ -132,26 +135,22 @@ export class ApprovisionnementService {
     }
   }
 
-  async generateNumero(): Promise<string> {
-    const lastAppro = await this.approvisionnementRepository.find({
-      order: { createdAt: 'DESC' },
-      take: 1,
+  async generateNumero(organizationId: string): Promise<string> {
+    const count = await this.approvisionnementRepository.count({
+      where: { organizationId },
     });
-
-    if (!lastAppro || lastAppro.length === 0) {
-      return 'APP-001';
-    }
-
-    const lastNumber = parseInt(lastAppro[0].numero.split('-')[1], 10);
-    const newNumber = lastNumber + 1;
-    return `APP-${newNumber.toString().padStart(3, '0')}`;
+    const numero = (count + 1).toString().padStart(3, '0');
+    return `APP-${numero}`;
   }
 
-  async findAll(filterDto?: ApprovisionnementFilterDto): Promise<PaginatedResponse<Approvisionnement>> {
+  async findAll(filterDto: ApprovisionnementFilterDto, organizationId: string): Promise<PaginatedResponse<Approvisionnement>> {
     const { page = 1, limit = 10, search, fournisseurId, dateDebut, dateFin } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.approvisionnementRepository.createQueryBuilder('approvisionnement');
+
+    // Filtre par organization (toujours en premier avec .where())
+    queryBuilder.where('approvisionnement.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (numéro)
     if (search) {
@@ -184,9 +183,9 @@ export class ApprovisionnementService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Approvisionnement> {
+  async findOne(id: string, organizationId: string): Promise<Approvisionnement> {
     const approvisionnement = await this.approvisionnementRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['lignes'],
     });
 
@@ -201,13 +200,14 @@ export class ApprovisionnementService {
 
   async findByFournisseur(
     fournisseurId: string,
+    organizationId: string,
     paginationDto?: PaginationDto,
   ): Promise<PaginatedResponse<Approvisionnement>> {
     const { page = 1, limit = 10 } = paginationDto || {};
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.approvisionnementRepository.findAndCount({
-      where: { fournisseurId },
+      where: { fournisseurId, organizationId },
       order: { dateLivraison: 'DESC' },
       skip,
       take: limit,
@@ -216,7 +216,7 @@ export class ApprovisionnementService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async getStatsFournisseur(fournisseurId: string): Promise<{
+  async getStatsFournisseur(fournisseurId: string, organizationId: string): Promise<{
     totalAppros: number;
     totalMontant: number;
     totalPaye: number;
@@ -224,7 +224,7 @@ export class ApprovisionnementService {
     quantiteTotale: number;
   }> {
     const appros = await this.approvisionnementRepository.find({
-      where: { fournisseurId },
+      where: { fournisseurId, organizationId },
       relations: ['lignes'],
     });
 
@@ -254,13 +254,14 @@ export class ApprovisionnementService {
     return stats;
   }
 
-  async getStatsGlobales(): Promise<{
+  async getStatsGlobales(organizationId: string): Promise<{
     totalAppros: number;
     montantTotal: number;
     montantMoisEnCours: number;
     dernierAppro: Approvisionnement | null;
   }> {
     const allAppros = await this.approvisionnementRepository.find({
+      where: { organizationId },
       order: { dateLivraison: 'DESC' },
     });
 
@@ -288,13 +289,14 @@ export class ApprovisionnementService {
   async update(
     id: string,
     updateDto: UpdateApprovisionnementDto,
+    organizationId: string,
   ): Promise<Approvisionnement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const approvisionnement = await this.findOne(id);
+      const approvisionnement = await this.findOne(id, organizationId);
 
       // Si les lignes sont mises à jour, gérer manuellement
       if (updateDto.lignes && updateDto.lignes.length > 0) {
@@ -304,23 +306,23 @@ export class ApprovisionnementService {
         // Rétablir le stock des anciennes lignes
         for (const ligne of oldLignes) {
           await queryRunner.manager.query(
-            `UPDATE article SET stock = stock - $1 WHERE id = $2`,
-            [ligne.quantite, ligne.articleId],
+            `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
+            [ligne.quantite, ligne.articleId, organizationId],
           );
         }
 
         // Supprimer les anciennes lignes
         await queryRunner.manager.query(
-          `DELETE FROM ligne_approvisionnement WHERE "approvisionnementId" = $1`,
-          [id],
+          `DELETE FROM ligne_approvisionnement WHERE "approvisionnementId" = $1 AND "organizationId" = $2`,
+          [id, organizationId],
         );
 
         // Créer les nouvelles lignes et ajuster le stock
         for (const ligneDto of updateDto.lignes) {
           await queryRunner.manager.query(
             `INSERT INTO ligne_approvisionnement
-             ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal")
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+             ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId")
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
               id,
               ligneDto.articleId,
@@ -328,13 +330,14 @@ export class ApprovisionnementService {
               ligneDto.quantite,
               ligneDto.prixUnitaire,
               ligneDto.sousTotal,
+              organizationId,
             ],
           );
 
           // Ajouter au stock et mettre à jour le prix d'achat
           await queryRunner.manager.query(
-            `UPDATE article SET stock = stock + $1, "prixAchat" = $2 WHERE id = $3`,
-            [ligneDto.quantite, ligneDto.prixUnitaire, ligneDto.articleId],
+            `UPDATE article SET stock = stock + $1, "prixAchat" = $2 WHERE id = $3 AND "organizationId" = $4`,
+            [ligneDto.quantite, ligneDto.prixUnitaire, ligneDto.articleId, organizationId],
           );
         }
       }
@@ -358,7 +361,7 @@ export class ApprovisionnementService {
         // Mettre à jour l'approvisionnement
         await queryRunner.manager.update(
           'approvisionnement',
-          { id },
+          { id, organizationId },
           otherFields,
         );
 
@@ -370,8 +373,8 @@ export class ApprovisionnementService {
             `UPDATE fournisseur
              SET "totalAchats" = "totalAchats" + $1,
                  dette = "totalAchats" + $1 - "totalPaye"
-             WHERE id = $2`,
-            [diffTotal, approvisionnement.fournisseurId],
+             WHERE id = $2 AND "organizationId" = $3`,
+            [diffTotal, approvisionnement.fournisseurId, organizationId],
           );
         }
       }
@@ -379,7 +382,7 @@ export class ApprovisionnementService {
       await queryRunner.commitTransaction();
 
       // Recharger l'approvisionnement avec les nouvelles lignes
-      return this.findOne(id);
+      return this.findOne(id, organizationId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw new BadRequestException(
@@ -390,19 +393,19 @@ export class ApprovisionnementService {
     }
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, organizationId: string): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const approvisionnement = await this.findOne(id);
+      const approvisionnement = await this.findOne(id, organizationId);
 
       // Restaurer le stock de chaque article
       for (const ligne of approvisionnement.lignes) {
         await queryRunner.manager.query(
-          `UPDATE article SET stock = stock - $1 WHERE id = $2`,
-          [ligne.quantite, ligne.articleId],
+          `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
+          [ligne.quantite, ligne.articleId, organizationId],
         );
       }
 
@@ -411,14 +414,14 @@ export class ApprovisionnementService {
         `UPDATE fournisseur
          SET "totalAchats" = "totalAchats" - $1,
              dette = "totalAchats" - $1 - "totalPaye"
-         WHERE id = $2`,
-        [approvisionnement.total, approvisionnement.fournisseurId],
+         WHERE id = $2 AND "organizationId" = $3`,
+        [approvisionnement.total, approvisionnement.fournisseurId, organizationId],
       );
 
       // Supprimer la transaction financière associée si elle existe
       await queryRunner.manager.query(
-        `DELETE FROM transaction WHERE "approvisionnementId" = $1`,
-        [id],
+        `DELETE FROM transaction WHERE "approvisionnementId" = $1 AND "organizationId" = $2`,
+        [id, organizationId],
       );
 
       // Supprimer l'approvisionnement (les lignes seront supprimées en cascade)

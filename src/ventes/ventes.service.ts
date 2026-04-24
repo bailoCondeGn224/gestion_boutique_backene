@@ -24,13 +24,15 @@ export class VentesService {
     private mouvementsStockService: MouvementsStockService,
   ) {}
 
-  async generateNumero(): Promise<string> {
-    const count = await this.ventesRepository.count();
+  async generateNumero(organizationId: string): Promise<string> {
+    const count = await this.ventesRepository.count({
+      where: { organizationId },
+    });
     const numero = (count + 1).toString().padStart(3, '0');
     return `V-${numero}`;
   }
 
-  async create(createVenteDto: CreateVenteDto): Promise<Vente> {
+  async create(createVenteDto: CreateVenteDto, organizationId: string): Promise<Vente> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -39,7 +41,7 @@ export class VentesService {
       // Décrémenter le stock et enregistrer les mouvements
       for (const item of createVenteDto.lignes) {
         // Récupérer le stock avant modification
-        const article = await this.stockService.findOne(item.articleId);
+        const article = await this.stockService.findOne(item.articleId, organizationId);
         const stockAvant = article.stock;
 
         // Stocker le prixAchat de l'article dans la ligne (pour calculer le bénéfice)
@@ -48,7 +50,7 @@ export class VentesService {
         }
 
         // Décrémenter le stock
-        await this.stockService.decrementStock(item.articleId, item.quantite);
+        await this.stockService.decrementStock(item.articleId, item.quantite, organizationId);
         const stockApres = stockAvant - item.quantite;
 
         // Enregistrer le mouvement de stock (si userId fourni)
@@ -67,11 +69,11 @@ export class VentesService {
             userNom: createVenteDto.userNom,
             venteId: null,
             date: new Date(),
-          });
+          }, organizationId);
         }
       }
 
-      const numero = await this.generateNumero();
+      const numero = await this.generateNumero(organizationId);
       const now = new Date();
       const heure = now.toTimeString().slice(0, 5);
 
@@ -80,6 +82,7 @@ export class VentesService {
         numero,
         date: now,
         heure,
+        organizationId,
       });
 
       const savedVente = await queryRunner.manager.save(vente);
@@ -89,15 +92,15 @@ export class VentesService {
         await queryRunner.manager.query(
           `UPDATE mouvement_stock SET "venteId" = $1
            WHERE "userId" = $2 AND "venteId" IS NULL
-           AND "createdAt" >= $3`,
-          [savedVente.id, createVenteDto.userId, now],
+           AND "createdAt" >= $3 AND "organizationId" = $4`,
+          [savedVente.id, createVenteDto.userId, now, organizationId],
         );
       }
 
       // Mettre à jour le client si un clientId est fourni
       if (createVenteDto.clientId) {
         const client = await this.clientRepository.findOne({
-          where: { id: createVenteDto.clientId },
+          where: { id: createVenteDto.clientId, organizationId },
         });
 
         if (client) {
@@ -125,11 +128,14 @@ export class VentesService {
     }
   }
 
-  async findAll(filterDto?: VenteFilterDto): Promise<PaginatedResponse<Vente>> {
+  async findAll(filterDto: VenteFilterDto, organizationId: string): Promise<PaginatedResponse<Vente>> {
     const { page = 1, limit = 10, search, clientId, dateDebut, dateFin, typePaiement } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.ventesRepository.createQueryBuilder('vente');
+
+    // Filtre par organization (toujours en premier avec .where())
+    queryBuilder.where('vente.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (numéro de vente)
     if (search) {
@@ -167,9 +173,9 @@ export class VentesService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Vente> {
+  async findOne(id: string, organizationId: string): Promise<Vente> {
     const vente = await this.ventesRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['lignes'],
     });
     if (!vente) {
@@ -178,25 +184,27 @@ export class VentesService {
     return vente;
   }
 
-  async findRecent(): Promise<Vente[]> {
+  async findRecent(organizationId: string): Promise<Vente[]> {
     const oneHourAgo = new Date();
     oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
     return this.ventesRepository
       .createQueryBuilder('vente')
-      .where('vente.createdAt >= :oneHourAgo', { oneHourAgo })
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .andWhere('vente.createdAt >= :oneHourAgo', { oneHourAgo })
       .orderBy('vente.createdAt', 'DESC')
       .getMany();
   }
 
-  async getStats(): Promise<any> {
+  async getStats(organizationId: string): Promise<any> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     // Stats du jour
     const ventesJour = await this.ventesRepository
       .createQueryBuilder('vente')
-      .where('vente.date >= :today', { today })
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .andWhere('vente.date >= :today', { today })
       .getMany();
 
     const totalJour = ventesJour.reduce((sum, v) => sum + Number(v.total), 0);
@@ -207,7 +215,8 @@ export class VentesService {
 
     const ventesSemaine = await this.ventesRepository
       .createQueryBuilder('vente')
-      .where('vente.date >= :weekStart', { weekStart })
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .andWhere('vente.date >= :weekStart', { weekStart })
       .getMany();
 
     const totalSemaine = ventesSemaine.reduce(
@@ -218,19 +227,12 @@ export class VentesService {
     // Stats du mois
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Charger les ventes du mois avec leurs lignes pour calculer le bénéfice
-    const ventesMoisAvecLignes = await this.ventesRepository.find({
-      where: {
-        date: monthStart as any, // Cette condition sera gérée par le queryBuilder ci-dessous
-      },
-      relations: ['lignes'],
-    });
-
     // Utiliser queryBuilder pour la condition >= sur la date
     const ventesMois = await this.ventesRepository
       .createQueryBuilder('vente')
       .leftJoinAndSelect('vente.lignes', 'lignes')
-      .where('vente.date >= :monthStart', { monthStart })
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .andWhere('vente.date >= :monthStart', { monthStart })
       .getMany();
 
     const totalMois = ventesMois.reduce((sum, v) => sum + Number(v.total), 0);
@@ -286,13 +288,13 @@ export class VentesService {
     };
   }
 
-  async update(id: string, updateVenteDto: UpdateVenteDto): Promise<Vente> {
+  async update(id: string, updateVenteDto: UpdateVenteDto, organizationId: string): Promise<Vente> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const vente = await this.findOne(id);
+      const vente = await this.findOne(id, organizationId);
 
       // Si les lignes sont mises à jour, gérer manuellement
       if (updateVenteDto.lignes && updateVenteDto.lignes.length > 0) {
@@ -301,13 +303,13 @@ export class VentesService {
 
         // Rétablir le stock des anciennes lignes
         for (const ligne of oldLignes) {
-          await this.stockService.incrementStock(ligne.articleId, ligne.quantite);
+          await this.stockService.incrementStock(ligne.articleId, ligne.quantite, organizationId);
         }
 
         // Supprimer les anciennes lignes
         await queryRunner.manager.query(
-          `DELETE FROM ligne_vente WHERE "venteId" = $1`,
-          [id],
+          `DELETE FROM ligne_vente WHERE "venteId" = $1 AND "organizationId" = $2`,
+          [id, organizationId],
         );
 
         // Créer les nouvelles lignes et décrémenter le stock
@@ -315,14 +317,14 @@ export class VentesService {
           // Récupérer le prix d'achat si non fourni
           let prixAchat = ligneDto.prixAchat;
           if (!prixAchat) {
-            const article = await this.stockService.findOne(ligneDto.articleId);
+            const article = await this.stockService.findOne(ligneDto.articleId, organizationId);
             prixAchat = Number(article.prixAchat) || 0;
           }
 
           await queryRunner.manager.query(
             `INSERT INTO ligne_vente
-             ("venteId", "articleId", nom, quantite, "prixUnitaire", "prixAchat", "sousTotal")
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+             ("venteId", "articleId", nom, quantite, "prixUnitaire", "prixAchat", "sousTotal", "organizationId")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
               id,
               ligneDto.articleId,
@@ -331,11 +333,12 @@ export class VentesService {
               ligneDto.prixUnitaire,
               prixAchat,
               ligneDto.sousTotal,
+              organizationId,
             ],
           );
 
           // Décrémenter le stock
-          await this.stockService.decrementStock(ligneDto.articleId, ligneDto.quantite);
+          await this.stockService.decrementStock(ligneDto.articleId, ligneDto.quantite, organizationId);
         }
       }
 
@@ -360,14 +363,14 @@ export class VentesService {
         // Mettre à jour la vente
         await queryRunner.manager.update(
           'vente',
-          { id },
+          { id, organizationId },
           otherFields,
         );
 
         // Si le client existe et que les montants ont changé, ajuster client
         if (vente.clientId && (otherFields.total !== undefined || otherFields.montantRestant !== undefined)) {
           const client = await this.clientRepository.findOne({
-            where: { id: vente.clientId },
+            where: { id: vente.clientId, organizationId },
           });
 
           if (client) {
@@ -387,7 +390,7 @@ export class VentesService {
       await queryRunner.commitTransaction();
 
       // Recharger la vente avec les nouvelles lignes
-      return this.findOne(id);
+      return this.findOne(id, organizationId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -396,8 +399,8 @@ export class VentesService {
     }
   }
 
-  async remove(id: string): Promise<void> {
-    const vente = await this.findOne(id);
+  async remove(id: string, organizationId: string): Promise<void> {
+    const vente = await this.findOne(id, organizationId);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -406,13 +409,13 @@ export class VentesService {
     try {
       // Restaurer le stock
       for (const item of vente.lignes) {
-        await this.stockService.incrementStock(item.articleId, item.quantite);
+        await this.stockService.incrementStock(item.articleId, item.quantite, organizationId);
       }
 
       // Mettre à jour le client si un clientId est fourni
       if (vente.clientId) {
         const client = await this.clientRepository.findOne({
-          where: { id: vente.clientId },
+          where: { id: vente.clientId, organizationId },
         });
 
         if (client) {

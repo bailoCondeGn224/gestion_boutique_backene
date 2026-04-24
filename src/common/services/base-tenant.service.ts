@@ -46,7 +46,7 @@ export abstract class BaseTenantService<T extends BaseTenantEntity> {
    */
   async findOne(id: string, organizationId: string): Promise<T> {
     const entity = await this.repository.findOne({
-      where: { id, organizationId } as FindOptionsWhere<T>,
+      where: { id, organizationId } as unknown as FindOptionsWhere<T>,
     });
 
     if (!entity) {
@@ -67,10 +67,10 @@ export abstract class BaseTenantService<T extends BaseTenantEntity> {
       organizationId,
     } as any);
 
-    return this.repository.save(entity);
+    return this.repository.save(entity) as unknown as Promise<T>;
   }
-
   /**
+   * 
    * Met à jour une entité avec vérification d'appartenance
    */
   async update(
@@ -111,7 +111,7 @@ export abstract class BaseTenantService<T extends BaseTenantEntity> {
    */
   async exists(id: string, organizationId: string): Promise<boolean> {
     const count = await this.repository.count({
-      where: { id, organizationId } as FindOptionsWhere<T>,
+      where: { id, organizationId } as unknown as FindOptionsWhere<T>,
     });
 
     return count > 0;
@@ -126,7 +126,7 @@ export abstract class BaseTenantService<T extends BaseTenantEntity> {
     relations: string[],
   ): Promise<T> {
     const entity = await this.repository.findOne({
-      where: { id, organizationId } as FindOptionsWhere<T>,
+      where: { id, organizationId } as unknown as FindOptionsWhere<T>,
       relations,
     });
 

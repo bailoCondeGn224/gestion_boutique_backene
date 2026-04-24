@@ -19,9 +19,11 @@ export class VersementsService {
     private dataSource: DataSource,
   ) {}
 
-  async create(createVersementDto: CreateVersementDto): Promise<Versement> {
+  async create(createVersementDto: CreateVersementDto, organizationId: string): Promise<Versement> {
+    // Vérifier que le fournisseur appartient à l'organisation
     const fournisseur = await this.fournisseursService.findOne(
       createVersementDto.fournisseurId,
+      organizationId,
     );
 
     if (Number(createVersementDto.montant) > Number(fournisseur.dette)) {
@@ -39,6 +41,7 @@ export class VersementsService {
         ...createVersementDto,
         fournisseurNom: fournisseur.nom,
         date: new Date(),
+        organizationId,
       });
 
       const savedVersement = await queryRunner.manager.save(versement);
@@ -46,6 +49,7 @@ export class VersementsService {
       await this.fournisseursService.updateTotalPaye(
         fournisseur.id,
         Number(createVersementDto.montant),
+        organizationId,
       );
 
       await queryRunner.commitTransaction();
@@ -59,11 +63,14 @@ export class VersementsService {
     }
   }
 
-  async findAll(filterDto?: VersementFilterDto): Promise<PaginatedResponse<Versement>> {
+  async findAll(organizationId: string, filterDto?: VersementFilterDto): Promise<PaginatedResponse<Versement>> {
     const { page = 1, limit = 10, search, fournisseurId, dateDebut, dateFin, modePaiement } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.versementsRepository.createQueryBuilder('versement');
+
+    // Filtrage par organization (CRITIQUE pour multi-tenant)
+    queryBuilder.where('versement.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (référence)
     if (search) {
@@ -101,9 +108,9 @@ export class VersementsService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Versement> {
+  async findOne(id: string, organizationId: string): Promise<Versement> {
     const versement = await this.versementsRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
     });
 
     if (!versement) {
@@ -115,13 +122,14 @@ export class VersementsService {
 
   async findByFournisseur(
     fournisseurId: string,
+    organizationId: string,
     paginationDto?: PaginationDto,
   ): Promise<PaginatedResponse<Versement>> {
     const { page = 1, limit = 10 } = paginationDto || {};
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.versementsRepository.findAndCount({
-      where: { fournisseurId },
+      where: { fournisseurId, organizationId },
       order: { date: 'DESC' },
       skip,
       take: limit,
@@ -130,13 +138,14 @@ export class VersementsService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async getMontantsMois(): Promise<{ total: number; count: number }> {
+  async getMontantsMois(organizationId: string): Promise<{ total: number; count: number }> {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const versements = await this.versementsRepository.find({
       where: {
+        organizationId,
         date: Between(startOfMonth, endOfMonth),
       },
     });
@@ -155,13 +164,14 @@ export class VersementsService {
   async update(
     id: string,
     updateVersementDto: UpdateVersementDto,
+    organizationId: string,
   ): Promise<Versement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const versement = await this.findOne(id);
+      const versement = await this.findOne(id, organizationId);
       const oldMontant = Number(versement.montant);
       const oldFournisseurId = versement.fournisseurId;
 
@@ -170,7 +180,7 @@ export class VersementsService {
         const difference = Number(updateVersementDto.montant) - oldMontant;
 
         // Vérifier que le nouveau montant ne dépasse pas la dette
-        const fournisseur = await this.fournisseursService.findOne(oldFournisseurId);
+        const fournisseur = await this.fournisseursService.findOne(oldFournisseurId, organizationId);
         const nouvelleDette = Number(fournisseur.dette) - difference;
 
         if (nouvelleDette < 0) {
@@ -179,25 +189,28 @@ export class VersementsService {
           );
         }
 
-        // Ajuster le totalPaye du fournisseur
+        // Ajuster le totalPaye du fournisseur avec vérification de l'organization
         await queryRunner.manager.query(
           `UPDATE fournisseur
            SET "totalPaye" = "totalPaye" + $1,
                dette = "totalAchats" - ("totalPaye" + $1)
-           WHERE id = $2`,
-          [difference, oldFournisseurId],
+           WHERE id = $2 AND "organizationId" = $3`,
+          [difference, oldFournisseurId, organizationId],
         );
       }
 
       // Si le fournisseur change (cas rare mais possible)
       if (updateVersementDto.fournisseurId && updateVersementDto.fournisseurId !== oldFournisseurId) {
+        // Vérifier que le nouveau fournisseur appartient à la même organization
+        const newFournisseur = await this.fournisseursService.findOne(updateVersementDto.fournisseurId, organizationId);
+
         // Rétablir le totalPaye de l'ancien fournisseur
         await queryRunner.manager.query(
           `UPDATE fournisseur
            SET "totalPaye" = "totalPaye" - $1,
                dette = "totalAchats" - ("totalPaye" - $1)
-           WHERE id = $2`,
-          [oldMontant, oldFournisseurId],
+           WHERE id = $2 AND "organizationId" = $3`,
+          [oldMontant, oldFournisseurId, organizationId],
         );
 
         // Ajouter au totalPaye du nouveau fournisseur
@@ -206,12 +219,11 @@ export class VersementsService {
           `UPDATE fournisseur
            SET "totalPaye" = "totalPaye" + $1,
                dette = "totalAchats" - ("totalPaye" + $1)
-           WHERE id = $2`,
-          [newMontant, updateVersementDto.fournisseurId],
+           WHERE id = $2 AND "organizationId" = $3`,
+          [newMontant, updateVersementDto.fournisseurId, organizationId],
         );
 
         // Mettre à jour le nom du fournisseur
-        const newFournisseur = await this.fournisseursService.findOne(updateVersementDto.fournisseurId);
         updateVersementDto['fournisseurNom'] = newFournisseur.nom;
       }
 
@@ -229,16 +241,18 @@ export class VersementsService {
     }
   }
 
-  async remove(id: string): Promise<void> {
-    const versement = await this.findOne(id);
+  async remove(id: string, organizationId: string): Promise<void> {
+    const versement = await this.findOne(id, organizationId);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      // Vérifier que le fournisseur appartient à l'organisation
       const fournisseur = await this.fournisseursService.findOne(
         versement.fournisseurId,
+        organizationId,
       );
 
       fournisseur.totalPaye =

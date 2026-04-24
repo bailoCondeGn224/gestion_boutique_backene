@@ -113,9 +113,11 @@ export class RolesService {
     const role = await this.findOne(id);
 
     // Vérifier s'il existe des utilisateurs avec ce rôle
-    const usersCount = await this.usersRepository.count({
-      where: { roleId: id },
-    });
+    const usersCount = await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.role', 'role')
+      .where('role.id = :roleId', { roleId: id })
+      .getCount();
 
     if (usersCount > 0) {
       throw new BadRequestException(

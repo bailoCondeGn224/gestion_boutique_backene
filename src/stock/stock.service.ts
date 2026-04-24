@@ -21,18 +21,19 @@ export class StockService {
     private ligneApproRepository: Repository<LigneApprovisionnement>,
   ) {}
 
-  async create(createArticleDto: CreateArticleDto): Promise<Article> {
-    const article = this.articlesRepository.create(createArticleDto);
+  async create(createArticleDto: CreateArticleDto, organizationId: string): Promise<Article> {
+    const article = this.articlesRepository.create({ ...createArticleDto, organizationId });
     return this.articlesRepository.save(article);
   }
 
-  async findAll(filterDto?: StockFilterDto): Promise<PaginatedResponse<Article>> {
+  async findAll(filterDto: StockFilterDto, organizationId: string): Promise<PaginatedResponse<Article>> {
     const { page = 1, limit = 10, search, categorieId, enAlerte } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.articlesRepository
       .createQueryBuilder('article')
-      .leftJoinAndSelect('article.categorie', 'categorie');
+      .leftJoinAndSelect('article.categorie', 'categorie')
+      .where('article.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (nom ou référence)
     if (search) {
@@ -61,9 +62,9 @@ export class StockService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Article> {
+  async findOne(id: string, organizationId: string): Promise<Article> {
     const article = await this.articlesRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['categorie'],
     });
     if (!article) {
@@ -72,43 +73,44 @@ export class StockService {
     return article;
   }
 
-  async findByCategorie(categorieId: string): Promise<Article[]> {
+  async findByCategorie(categorieId: string, organizationId: string): Promise<Article[]> {
     return this.articlesRepository.find({
-      where: { categorieId },
+      where: { categorieId, organizationId },
       order: { nom: 'ASC' },
       relations: ['categorie'],
     });
   }
 
-  async findByZone(zone: string): Promise<Article[]> {
+  async findByZone(zone: string, organizationId: string): Promise<Article[]> {
     return this.articlesRepository.find({
-      where: { zone },
+      where: { zone, organizationId },
       order: { nom: 'ASC' },
     });
   }
 
-  async findAlerts(): Promise<Article[]> {
+  async findAlerts(organizationId: string): Promise<Article[]> {
     const articles = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.stock <= article.seuilAlerte')
+      .where('article.organizationId = :organizationId', { organizationId })
+      .andWhere('article.stock <= article.seuilAlerte')
       .orderBy('article.stock', 'ASC')
       .getMany();
 
     return articles;
   }
 
-  async update(id: string, updateArticleDto: UpdateArticleDto): Promise<Article> {
-    const article = await this.findOne(id);
+  async update(id: string, updateArticleDto: UpdateArticleDto, organizationId: string): Promise<Article> {
+    const article = await this.findOne(id, organizationId);
     Object.assign(article, updateArticleDto);
     return this.articlesRepository.save(article);
   }
 
-  async remove(id: string): Promise<void> {
-    const article = await this.findOne(id);
+  async remove(id: string, organizationId: string): Promise<void> {
+    const article = await this.findOne(id, organizationId);
 
     // Vérifier s'il existe des lignes de vente pour cet article
     const ventesCount = await this.ligneVenteRepository.count({
-      where: { articleId: id },
+      where: { articleId: id, organizationId },
     });
 
     if (ventesCount > 0) {
@@ -119,7 +121,7 @@ export class StockService {
 
     // Vérifier s'il existe des lignes d'approvisionnement pour cet article
     const approCount = await this.ligneApproRepository.count({
-      where: { articleId: id },
+      where: { articleId: id, organizationId },
     });
 
     if (approCount > 0) {
@@ -131,8 +133,8 @@ export class StockService {
     await this.articlesRepository.remove(article);
   }
 
-  async decrementStock(id: string, quantite: number): Promise<Article> {
-    const article = await this.findOne(id);
+  async decrementStock(id: string, quantite: number, organizationId: string): Promise<Article> {
+    const article = await this.findOne(id, organizationId);
 
     if (article.stock < quantite) {
       throw new BadRequestException(
@@ -144,25 +146,29 @@ export class StockService {
     return this.articlesRepository.save(article);
   }
 
-  async incrementStock(id: string, quantite: number): Promise<Article> {
-    const article = await this.findOne(id);
+  async incrementStock(id: string, quantite: number, organizationId: string): Promise<Article> {
+    const article = await this.findOne(id, organizationId);
     article.stock += quantite;
     return this.articlesRepository.save(article);
   }
 
-  async getStats(): Promise<any> {
+  async getStats(organizationId: string): Promise<any> {
     // Statistiques détaillées
-    const totalArticles = await this.articlesRepository.count();
+    const totalArticles = await this.articlesRepository.count({
+      where: { organizationId },
+    });
 
     const articlesEnRupture = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.stock = 0')
+      .where('article.organizationId = :organizationId', { organizationId })
+      .andWhere('article.stock = 0')
       .getCount();
 
     // Stock Faible : articles avec stock entre 1 et 5
     const articlesStockFaible = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.stock >= 1 AND article.stock <= 5')
+      .where('article.organizationId = :organizationId', { organizationId })
+      .andWhere('article.stock >= 1 AND article.stock <= 5')
       .getCount();
 
     const articlesOK = totalArticles - articlesEnRupture - articlesStockFaible;
@@ -171,6 +177,7 @@ export class StockService {
     const valeurResult = await this.articlesRepository
       .createQueryBuilder('article')
       .select('SUM(article.stock * article.prixAchat)', 'valeurTotale')
+      .where('article.organizationId = :organizationId', { organizationId })
       .getRawOne();
 
     const valeurTotaleStock = parseFloat(valeurResult?.valeurTotale || '0');
@@ -185,6 +192,7 @@ export class StockService {
       .leftJoin('article.categorie', 'categorie')
       .select('categorie.nom', 'categorie')
       .addSelect('COUNT(*)', 'count')
+      .where('article.organizationId = :organizationId', { organizationId })
       .groupBy('categorie.nom')
       .getRawMany();
 
@@ -205,7 +213,7 @@ export class StockService {
     };
   }
 
-  async getRotationStats(periode: number = 30): Promise<any> {
+  async getRotationStats(periode: number = 30, organizationId: string): Promise<any> {
     // Calculer la date de début (aujourd'hui - période en jours)
     const dateDebut = new Date();
     dateDebut.setDate(dateDebut.getDate() - periode);
@@ -218,7 +226,8 @@ export class StockService {
       .addSelect('ligne.nom', 'nom')
       .addSelect('SUM(ligne.quantite)', 'totalVendu')
       .addSelect('COUNT(DISTINCT vente.id)', 'nombreVentes')
-      .where('vente.date >= :dateDebut', { dateDebut })
+      .where('ligne.organizationId = :organizationId', { organizationId })
+      .andWhere('vente.date >= :dateDebut', { dateDebut })
       .groupBy('ligne.articleId')
       .addGroupBy('ligne.nom')
       .orderBy('SUM(ligne.quantite)', 'DESC')
@@ -228,7 +237,7 @@ export class StockService {
     const statsAvecStock = await Promise.all(
       articlesAvecVentes.map(async (item) => {
         const article = await this.articlesRepository.findOne({
-          where: { id: item.articleId },
+          where: { id: item.articleId, organizationId },
           relations: ['categorie'],
         });
 

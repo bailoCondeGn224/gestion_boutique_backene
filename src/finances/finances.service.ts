@@ -13,33 +13,39 @@ export class FinancesService {
     private transactionsRepository: Repository<Transaction>,
   ) {}
 
-  async createTransaction(data: {
-    description: string;
-    montant: number;
-    type: TypeTransaction;
-    categorie: CategorieTransaction;
-    venteId?: string;
-    versementId?: string;
-  }): Promise<Transaction> {
+  async createTransaction(
+    organizationId: string,
+    data: {
+      description: string;
+      montant: number;
+      type: TypeTransaction;
+      categorie: CategorieTransaction;
+      venteId?: string;
+      versementId?: string;
+    },
+  ): Promise<Transaction> {
     const transaction = this.transactionsRepository.create({
       ...data,
+      organizationId,
       date: new Date(),
     });
 
     return this.transactionsRepository.save(transaction);
   }
 
-  async getTresorerie(): Promise<{ solde: number; recettes: number; depenses: number }> {
+  async getTresorerie(organizationId: string): Promise<{ solde: number; recettes: number; depenses: number }> {
     const recettesResult = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .select('COALESCE(SUM(transaction.montant), 0)', 'total')
-      .where('transaction.type = :type', { type: TypeTransaction.IN })
+      .where('transaction.organizationId = :organizationId', { organizationId })
+      .andWhere('transaction.type = :type', { type: TypeTransaction.IN })
       .getRawOne();
 
     const depensesResult = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .select('COALESCE(SUM(transaction.montant), 0)', 'total')
-      .where('transaction.type = :type', { type: TypeTransaction.OUT })
+      .where('transaction.organizationId = :organizationId', { organizationId })
+      .andWhere('transaction.type = :type', { type: TypeTransaction.OUT })
       .getRawOne();
 
     const recettes = Number(recettesResult.total);
@@ -49,13 +55,14 @@ export class FinancesService {
     return { solde, recettes, depenses };
   }
 
-  async getRecettesMois(): Promise<{ total: number; count: number }> {
+  async getRecettesMois(organizationId: string): Promise<{ total: number; count: number }> {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const transactions = await this.transactionsRepository.find({
       where: {
+        organizationId,
         type: TypeTransaction.IN,
         date: Between(startOfMonth, endOfMonth),
       },
@@ -66,13 +73,14 @@ export class FinancesService {
     return { total, count: transactions.length };
   }
 
-  async getDepensesMois(): Promise<{ total: number; count: number }> {
+  async getDepensesMois(organizationId: string): Promise<{ total: number; count: number }> {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const transactions = await this.transactionsRepository.find({
       where: {
+        organizationId,
         type: TypeTransaction.OUT,
         date: Between(startOfMonth, endOfMonth),
       },
@@ -83,12 +91,13 @@ export class FinancesService {
     return { total, count: transactions.length };
   }
 
-  async getChargesBreakdown(): Promise<any> {
+  async getChargesBreakdown(organizationId: string): Promise<any> {
     const result = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .select('transaction.categorie', 'categorie')
       .addSelect('SUM(transaction.montant)', 'total')
-      .where('transaction.type = :type', { type: TypeTransaction.OUT })
+      .where('transaction.organizationId = :organizationId', { organizationId })
+      .andWhere('transaction.type = :type', { type: TypeTransaction.OUT })
       .groupBy('transaction.categorie')
       .getRawMany();
 
@@ -98,11 +107,15 @@ export class FinancesService {
     }));
   }
 
-  async getTransactions(paginationDto?: PaginationDto): Promise<PaginatedResponse<Transaction>> {
+  async getTransactions(
+    organizationId: string,
+    paginationDto?: PaginationDto,
+  ): Promise<PaginatedResponse<Transaction>> {
     const { page = 1, limit = 10 } = paginationDto || {};
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.transactionsRepository.findAndCount({
+      where: { organizationId },
       order: { createdAt: 'DESC' },
       skip,
       take: limit,
@@ -111,11 +124,11 @@ export class FinancesService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async getRapportMensuel(): Promise<any> {
-    const tresorerie = await this.getTresorerie();
-    const recettesMois = await this.getRecettesMois();
-    const depensesMois = await this.getDepensesMois();
-    const chargesBreakdown = await this.getChargesBreakdown();
+  async getRapportMensuel(organizationId: string): Promise<any> {
+    const tresorerie = await this.getTresorerie(organizationId);
+    const recettesMois = await this.getRecettesMois(organizationId);
+    const depensesMois = await this.getDepensesMois(organizationId);
+    const chargesBreakdown = await this.getChargesBreakdown(organizationId);
 
     const now = new Date();
     const moisActuel = now.toLocaleDateString('fr-FR', {
@@ -133,9 +146,10 @@ export class FinancesService {
     };
   }
 
-  async getStatsPeriode(debut: Date, fin: Date): Promise<any> {
+  async getStatsPeriode(organizationId: string, debut: Date, fin: Date): Promise<any> {
     const transactions = await this.transactionsRepository.find({
       where: {
+        organizationId,
         date: Between(debut, fin),
       },
     });

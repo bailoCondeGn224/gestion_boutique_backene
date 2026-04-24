@@ -21,11 +21,11 @@ export class FournisseursService {
     private versementRepository: Repository<Versement>,
   ) {}
 
-  async create(createFournisseurDto: CreateFournisseurDto): Promise<Fournisseur> {
-    // Vérifier si un fournisseur avec cet email existe déjà
+  async create(createFournisseurDto: CreateFournisseurDto, organizationId: string): Promise<Fournisseur> {
+    // Vérifier si un fournisseur avec cet email existe déjà dans cette organisation
     if (createFournisseurDto.email) {
       const existingFournisseur = await this.fournisseursRepository.findOne({
-        where: { email: createFournisseurDto.email },
+        where: { email: createFournisseurDto.email, organizationId },
       });
 
       if (existingFournisseur) {
@@ -42,16 +42,20 @@ export class FournisseursService {
     const fournisseur = this.fournisseursRepository.create({
       ...createFournisseurDto,
       dette,
+      organizationId,
     });
 
     return this.fournisseursRepository.save(fournisseur);
   }
 
-  async findAll(filterDto?: FournisseurFilterDto): Promise<PaginatedResponse<Fournisseur>> {
+  async findAll(organizationId: string, filterDto?: FournisseurFilterDto): Promise<PaginatedResponse<Fournisseur>> {
     const { page = 1, limit = 10, search, statut } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.fournisseursRepository.createQueryBuilder('fournisseur');
+
+    // Filtrage par organization (CRITIQUE pour multi-tenant)
+    queryBuilder.where('fournisseur.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (nom, email, téléphone)
     if (search) {
@@ -75,9 +79,9 @@ export class FournisseursService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<Fournisseur> {
+  async findOne(id: string, organizationId: string): Promise<Fournisseur> {
     const fournisseur = await this.fournisseursRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
     });
 
     if (!fournisseur) {
@@ -92,13 +96,14 @@ export class FournisseursService {
   async update(
     id: string,
     updateFournisseurDto: UpdateFournisseurDto,
+    organizationId: string,
   ): Promise<Fournisseur> {
-    const fournisseur = await this.findOne(id);
+    const fournisseur = await this.findOne(id, organizationId);
 
-    // Vérifier si l'email est modifié et s'il existe déjà
+    // Vérifier si l'email est modifié et s'il existe déjà dans cette organisation
     if (updateFournisseurDto.email && updateFournisseurDto.email !== fournisseur.email) {
       const existingFournisseur = await this.fournisseursRepository.findOne({
-        where: { email: updateFournisseurDto.email },
+        where: { email: updateFournisseurDto.email, organizationId },
       });
 
       if (existingFournisseur) {
@@ -118,8 +123,9 @@ export class FournisseursService {
   async updateTotalPaye(
     id: string,
     montantPaye: number,
+    organizationId: string,
   ): Promise<Fournisseur> {
-    const fournisseur = await this.findOne(id);
+    const fournisseur = await this.findOne(id, organizationId);
 
     fournisseur.totalPaye = Number(fournisseur.totalPaye) + montantPaye;
     fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
@@ -130,8 +136,9 @@ export class FournisseursService {
   async updateTotalAchats(
     id: string,
     montantAchats: number,
+    organizationId: string,
   ): Promise<Fournisseur> {
-    const fournisseur = await this.findOne(id);
+    const fournisseur = await this.findOne(id, organizationId);
 
     fournisseur.totalAchats = Number(fournisseur.totalAchats) + montantAchats;
     fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
@@ -139,12 +146,12 @@ export class FournisseursService {
     return this.fournisseursRepository.save(fournisseur);
   }
 
-  async remove(id: string): Promise<void> {
-    const fournisseur = await this.findOne(id);
+  async remove(id: string, organizationId: string): Promise<void> {
+    const fournisseur = await this.findOne(id, organizationId);
 
     // Vérifier s'il existe des approvisionnements pour ce fournisseur
     const approCount = await this.approvisionnementRepository.count({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
     });
 
     if (approCount > 0) {
@@ -155,7 +162,7 @@ export class FournisseursService {
 
     // Vérifier s'il existe des versements pour ce fournisseur
     const versementCount = await this.versementRepository.count({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
     });
 
     if (versementCount > 0) {
@@ -167,21 +174,21 @@ export class FournisseursService {
     await this.fournisseursRepository.remove(fournisseur);
   }
 
-  async getDette(id: string): Promise<{ dette: number }> {
-    const fournisseur = await this.findOne(id);
+  async getDette(id: string, organizationId: string): Promise<{ dette: number }> {
+    const fournisseur = await this.findOne(id, organizationId);
     return { dette: Number(fournisseur.dette) };
   }
 
-  async getStats(id: string): Promise<any> {
-    const fournisseur = await this.findOne(id);
+  async getStats(id: string, organizationId: string): Promise<any> {
+    const fournisseur = await this.findOne(id, organizationId);
 
     const approvisionnements = await this.approvisionnementRepository.find({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
       order: { dateLivraison: 'DESC' },
     });
 
     const versements = await this.versementRepository.find({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
       order: { date: 'DESC' },
     });
 
@@ -209,30 +216,30 @@ export class FournisseursService {
     };
   }
 
-  async getDetails(id: string): Promise<any> {
-    const fournisseur = await this.findOne(id);
+  async getDetails(id: string, organizationId: string): Promise<any> {
+    const fournisseur = await this.findOne(id, organizationId);
 
     // Récupérer les 5 derniers approvisionnements
     const approvisionnements = await this.approvisionnementRepository.find({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
       order: { dateLivraison: 'DESC' },
       take: 5,
     });
 
     // Récupérer les 5 derniers versements
     const versements = await this.versementRepository.find({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
       order: { date: 'DESC' },
       take: 5,
     });
 
     // Compter le total
     const [, totalAppros] = await this.approvisionnementRepository.findAndCount({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
     });
 
     const [, totalVersements] = await this.versementRepository.findAndCount({
-      where: { fournisseurId: id },
+      where: { fournisseurId: id, organizationId },
     });
 
     return {
@@ -263,16 +270,20 @@ export class FournisseursService {
     };
   }
 
-  async getGlobalStats(): Promise<any> {
-    const total = await this.fournisseursRepository.count();
+  async getGlobalStats(organizationId: string): Promise<any> {
+    const total = await this.fournisseursRepository.count({
+      where: { organizationId },
+    });
 
     const totalActifs = await this.fournisseursRepository
       .createQueryBuilder('fournisseur')
-      .where('fournisseur.statut = :statut', { statut: 'actif' })
+      .where('fournisseur.organizationId = :organizationId', { organizationId })
+      .andWhere('fournisseur.statut = :statut', { statut: 'actif' })
       .getCount();
 
     const statsResult = await this.fournisseursRepository
       .createQueryBuilder('fournisseur')
+      .where('fournisseur.organizationId = :organizationId', { organizationId })
       .select('SUM(fournisseur.totalAchats)', 'totalAchats')
       .addSelect('SUM(fournisseur.dette)', 'detteTotal')
       .addSelect('COUNT(CASE WHEN fournisseur.dette > 0 THEN 1 END)', 'nombreCreanciers')

@@ -22,15 +22,15 @@ export class VersementsClientService {
     private dataSource: DataSource,
   ) {}
 
-  async create(createDto: CreateVersementClientDto): Promise<VersementClient> {
+  async create(organizationId: string, createDto: CreateVersementClientDto): Promise<VersementClient> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // Vérifier que le client existe
+      // Vérifier que le client existe et appartient à l'organisation
       const client = await this.clientRepository.findOne({
-        where: { id: createDto.clientId },
+        where: { id: createDto.clientId, organizationId },
       });
 
       if (!client) {
@@ -48,7 +48,7 @@ export class VersementsClientService {
       let venteNumero: string | undefined;
       if (createDto.venteId) {
         const vente = await this.venteRepository.findOne({
-          where: { id: createDto.venteId },
+          where: { id: createDto.venteId, organizationId },
         });
 
         if (!vente) {
@@ -76,11 +76,12 @@ export class VersementsClientService {
         });
       }
 
-      // Créer le versement avec le venteNumero si disponible
+      // Créer le versement avec le venteNumero et organizationId
       const versement = this.versementClientRepository.create({
         ...createDto,
         date: new Date(createDto.date),
         venteNumero,
+        organizationId,
       });
       const savedVersement = await queryRunner.manager.save(versement);
 
@@ -99,11 +100,14 @@ export class VersementsClientService {
     }
   }
 
-  async findAll(filterDto?: VersementClientFilterDto): Promise<PaginatedResponse<VersementClient>> {
+  async findAll(organizationId: string, filterDto?: VersementClientFilterDto): Promise<PaginatedResponse<VersementClient>> {
     const { page = 1, limit = 10, clientId, venteId, dateDebut, dateFin, search } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.versementClientRepository.createQueryBuilder('versement');
+
+    // Filtre par organization (toujours en premier avec .where())
+    queryBuilder.where('versement.organizationId = :organizationId', { organizationId });
 
     // Filtre par client
     if (clientId) {
@@ -145,9 +149,9 @@ export class VersementsClientService {
     return createPaginatedResponse(data, total, page, limit);
   }
 
-  async findOne(id: string): Promise<VersementClient> {
+  async findOne(organizationId: string, id: string): Promise<VersementClient> {
     const versement = await this.versementClientRepository.findOne({
-      where: { id },
+      where: { id, organizationId },
       relations: ['client', 'vente'],
     });
 
@@ -158,29 +162,29 @@ export class VersementsClientService {
     return versement;
   }
 
-  async findByClient(clientId: string): Promise<VersementClient[]> {
+  async findByClient(organizationId: string, clientId: string): Promise<VersementClient[]> {
     return this.versementClientRepository.find({
-      where: { clientId },
+      where: { clientId, organizationId },
       order: { date: 'DESC', createdAt: 'DESC' },
     });
   }
 
-  async update(id: string, updateDto: UpdateVersementClientDto): Promise<VersementClient> {
+  async update(organizationId: string, id: string, updateDto: UpdateVersementClientDto): Promise<VersementClient> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const versement = await this.findOne(id);
+      const versement = await this.findOne(organizationId, id);
       const oldMontant = versement.montant;
 
       // Si le montant change, valider et ajuster
       if (updateDto.montant !== undefined && updateDto.montant !== oldMontant) {
         const diffMontant = updateDto.montant - oldMontant;
 
-        // Vérifier le client
+        // Vérifier le client et qu'il appartient à l'organisation
         const client = await this.clientRepository.findOne({
-          where: { id: versement.clientId },
+          where: { id: versement.clientId, organizationId },
         });
 
         if (!client) {
@@ -198,7 +202,7 @@ export class VersementsClientService {
         // Si lié à une vente, vérifier aussi
         if (versement.venteId) {
           const vente = await this.venteRepository.findOne({
-            where: { id: versement.venteId },
+            where: { id: versement.venteId, organizationId },
           });
 
           if (!vente) {
@@ -239,17 +243,17 @@ export class VersementsClientService {
     }
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(organizationId: string, id: string): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const versement = await this.findOne(id);
+      const versement = await this.findOne(organizationId, id);
 
       // Restaurer le totalCredits du client
       const client = await this.clientRepository.findOne({
-        where: { id: versement.clientId },
+        where: { id: versement.clientId, organizationId },
       });
 
       if (client) {
@@ -261,7 +265,7 @@ export class VersementsClientService {
       // Si versement lié à une vente, restaurer montantRestant
       if (versement.venteId) {
         const vente = await this.venteRepository.findOne({
-          where: { id: versement.venteId },
+          where: { id: versement.venteId, organizationId },
         });
 
         if (vente) {
