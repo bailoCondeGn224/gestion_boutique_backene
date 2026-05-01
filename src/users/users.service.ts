@@ -208,4 +208,23 @@ export class UsersService {
     user.role = role;
     return await this.usersRepository.save(user);
   }
+
+  async findOneWithPassword(id: string): Promise<User> {
+    const user = await this.usersRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Utilisateur avec l'ID ${id} introuvable`);
+    }
+
+    return user;
+  }
+
+  async updatePassword(userId: string, hashedPassword: string): Promise<void> {
+    await this.usersRepository.update(userId, {
+      password: hashedPassword,
+      mustChangePassword: false,
+    });
+  }
 }

@@ -1,8 +1,9 @@
-import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, Patch, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
@@ -45,5 +46,27 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Non authentifié' })
   getProfile(@Request() req) {
     return req.user;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('change-password')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Changer son mot de passe' })
+  @ApiResponse({ status: 200, description: 'Mot de passe modifié avec succès' })
+  @ApiResponse({ status: 400, description: 'Mot de passe actuel incorrect ou nouveau mot de passe invalide' })
+  @ApiResponse({ status: 401, description: 'Non authentifié' })
+  async changePassword(
+    @Request() req,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    try {
+      return await this.authService.changePassword(
+        req.user.id, // Utiliser req.user.id au lieu de req.user.sub
+        changePasswordDto.currentPassword,
+        changePasswordDto.newPassword,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 }

@@ -37,6 +37,10 @@ export class User {
   @Column({ default: false })
   isSuperAdmin: boolean;
 
+  // Flag pour forcer le changement de mot de passe à la première connexion
+  @Column({ default: true })
+  mustChangePassword: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
