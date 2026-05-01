@@ -15,10 +15,12 @@ jobs:
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
+            cp /opt/gestion-boutique/backend/.env /tmp/backend.env
             cd /opt/gestion-boutique/backend
             git fetch origin main
             git reset --hard origin/main
-            cp /tmp/backend.env .env 2>/dev/null || true
+            cp /tmp/backend.env /opt/gestion-boutique/backend/.env
             cd /opt/gestion-boutique
             docker compose build --no-cache backend
             docker compose up -d backend
+            docker compose exec -T backend sed -i "s|src/\*\*\/\*.entity{.ts,.js}|dist/**/*.entity.js|g" dist/database/data-source.js
