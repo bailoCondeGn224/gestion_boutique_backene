@@ -92,9 +92,9 @@ export class CreateApprovisionnementDto {
     description: 'Montant déjà payé',
     required: false,
   })
+  @IsOptional()
   @IsNumber()
   @Min(0, { message: 'Le montant payé ne peut pas être négatif' })
-  @IsOptional()
   montantPaye?: number;
 
   @ApiProperty({
@@ -103,25 +103,25 @@ export class CreateApprovisionnementDto {
     description: 'Montant restant à payer',
     required: false,
   })
+  @IsOptional()
   @IsNumber()
   @Min(0, { message: 'Le montant restant ne peut pas être négatif' })
-  @IsOptional()
   montantRestant?: number;
 
   @ApiProperty({
     example: '2026-04-04',
-    description: 'Date de livraison (format YYYY-MM-DD)',
+    description: 'Date de livraison',
   })
-  @IsDateString()
-  dateLivraison: string;
+  @IsOptional()
+  dateLivraison?: string;
 
   @ApiProperty({
     example: 'FACT-2026-001',
     description: 'Numéro de facture fournisseur',
     required: false,
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   numeroFacture?: string;
 
   @ApiProperty({
@@ -129,16 +129,16 @@ export class CreateApprovisionnementDto {
     description: 'Notes additionnelles',
     required: false,
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   note?: string;
 
   // Champs pour traçabilité (ajoutés automatiquement par le controller)
-  @IsUUID()
   @IsOptional()
+  @IsUUID()
   userId?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   userNom?: string;
 }

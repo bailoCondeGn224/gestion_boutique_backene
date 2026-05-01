@@ -15,6 +15,8 @@ export enum CategorieTransaction {
   VENTE = 'vente',
   APPROVISIONNEMENT = 'approvisionnement',
   PAIEMENT_FOURNISSEUR = 'paiement_fournisseur',
+  RETOUR_CLIENT = 'retour_client',
+  RETOUR_FOURNISSEUR = 'retour_fournisseur',
   CHARGE = 'charge',
   AUTRE = 'autre',
 }
@@ -27,7 +29,7 @@ export class Transaction extends BaseTenantEntity {
   @Column()
   description: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   montant: number;
 
   @Column({

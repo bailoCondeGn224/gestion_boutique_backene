@@ -17,8 +17,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { CurrentOrganization } from '../common/decorators/current-organization.decorator';
 
 @ApiTags('users')
 @Controller('users')
@@ -32,8 +34,15 @@ export class UsersController {
   @ApiOperation({ summary: 'Créer un nouvel utilisateur' })
   @ApiResponse({ status: 201, description: 'Utilisateur créé avec succès' })
   @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @Request() req,
+  ) {
+    // Récupérer les infos du créateur
+    const creatorOrganizationId = req.user.organizationId || null;
+    const isSuperAdmin = req.user.isSuperAdmin || false;
+
+    return this.usersService.create(createUserDto, creatorOrganizationId, isSuperAdmin);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -42,8 +51,14 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer tous les utilisateurs (paginés)' })
   @ApiResponse({ status: 200, description: 'Liste paginée des utilisateurs' })
-  findAll(@Query() paginationDto: PaginationDto) {
-    return this.usersService.findAll(paginationDto);
+  findAll(
+    @Query() paginationDto: PaginationDto,
+    @Request() req,
+  ) {
+    // Récupérer l'organizationId de l'utilisateur connecté
+    // null pour SUPER_ADMIN (verra tous les utilisateurs)
+    const organizationId = req.user.organizationId || null;
+    return this.usersService.findAll(paginationDto, organizationId);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

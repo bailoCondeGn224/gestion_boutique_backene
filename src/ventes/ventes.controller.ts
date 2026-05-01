@@ -80,6 +80,19 @@ export class VentesController {
 
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @Permissions('ventes.read')
+  @Get('client/:clientId/credits')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les ventes à crédit d\'un client (pour paiement)' })
+  @ApiResponse({ status: 200, description: 'Liste des ventes avec montant restant > 0' })
+  findVentesACredit(
+    @Param('clientId') clientId: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.ventesService.findVentesACredit(clientId, organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('ventes.read')
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer une vente par ID' })

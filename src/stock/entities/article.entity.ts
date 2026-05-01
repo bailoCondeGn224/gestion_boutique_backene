@@ -37,10 +37,10 @@ export class Article extends BaseTenantEntity {
   @Column({ type: 'int', default: 10 })
   seuilAlerte: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   prixVente: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   prixAchat: number;
 
   @Column({ type: 'text', nullable: true })

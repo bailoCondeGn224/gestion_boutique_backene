@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Plan } from './entities/plan.entity';
@@ -14,6 +14,26 @@ export class PlansService {
   ) {}
 
   async create(createPlanDto: CreatePlanDto): Promise<Plan> {
+    // Vérifier si un plan avec le même code existe déjà
+    const existingPlanByCode = await this.plansRepository.findOne({
+      where: { code: createPlanDto.code },
+    });
+    if (existingPlanByCode) {
+      throw new ConflictException(
+        `Un plan avec le code "${createPlanDto.code}" existe déjà`,
+      );
+    }
+
+    // Vérifier si un plan avec le même nom existe déjà
+    const existingPlanByNom = await this.plansRepository.findOne({
+      where: { nom: createPlanDto.nom },
+    });
+    if (existingPlanByNom) {
+      throw new ConflictException(
+        `Un plan avec le nom "${createPlanDto.nom}" existe déjà`,
+      );
+    }
+
     const plan = this.plansRepository.create(createPlanDto);
     return this.plansRepository.save(plan);
   }
@@ -43,6 +63,19 @@ export class PlansService {
 
   async update(id: string, updatePlanDto: UpdatePlanDto): Promise<Plan> {
     const plan = await this.findOne(id);
+
+    // Si le nom est modifié, vérifier qu'il n'existe pas déjà pour un autre plan
+    if (updatePlanDto.nom && updatePlanDto.nom !== plan.nom) {
+      const existingPlanByNom = await this.plansRepository.findOne({
+        where: { nom: updatePlanDto.nom },
+      });
+      if (existingPlanByNom && existingPlanByNom.id !== id) {
+        throw new ConflictException(
+          `Un plan avec le nom "${updatePlanDto.nom}" existe déjà`,
+        );
+      }
+    }
+
     Object.assign(plan, updatePlanDto);
     return this.plansRepository.save(plan);
   }

@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { LigneVente } from './ligne-vente.entity';
+import { VersementClient } from '../../versements-client/entities/versement-client.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 export enum ModePaiement {
@@ -43,13 +44,16 @@ export class Vente extends BaseTenantEntity {
   })
   lignes: LigneVente[];
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @OneToMany(() => VersementClient, (versement) => versement.vente)
+  versements: VersementClient[];
+
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   total: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   montantPaye: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   montantRestant: number;
 
   @Column({

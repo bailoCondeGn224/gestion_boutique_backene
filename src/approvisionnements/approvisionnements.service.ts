@@ -43,9 +43,10 @@ export class ApprovisionnementService {
           ? createDto.montantRestant
           : createDto.total - montantPaye;
 
-      // Créer l'approvisionnement
+      // Créer l'approvisionnement SANS les lignes
+      const { lignes, ...approData } = createDto;
       const approvisionnement = this.approvisionnementRepository.create({
-        ...createDto,
+        ...approData,
         numero,
         montantPaye,
         montantRestant,
@@ -56,8 +57,26 @@ export class ApprovisionnementService {
         approvisionnement,
       );
 
+      // Créer manuellement les lignes avec organizationId
+      for (const ligne of lignes) {
+        await queryRunner.manager.query(
+          `INSERT INTO ligne_approvisionnement
+           ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+          [
+            savedApprovisionnement.id,
+            ligne.articleId,
+            ligne.nom,
+            ligne.quantite,
+            ligne.prixUnitaire,
+            ligne.sousTotal,
+            organizationId,
+          ],
+        );
+      }
+
       // Incrémenter le stock de chaque article et enregistrer les mouvements
-      for (const ligne of createDto.lignes) {
+      for (const ligne of lignes) {
         // Récupérer le stock avant modification
         const stockResult = await queryRunner.manager.query(
           `SELECT stock FROM article WHERE id = $1 AND "organizationId" = $2`,
@@ -149,6 +168,9 @@ export class ApprovisionnementService {
 
     const queryBuilder = this.approvisionnementRepository.createQueryBuilder('approvisionnement');
 
+    // Charger les lignes pour afficher les articles (triées par ordre de création)
+    queryBuilder.leftJoinAndSelect('approvisionnement.lignes', 'lignes');
+
     // Filtre par organization (toujours en premier avec .where())
     queryBuilder.where('approvisionnement.organizationId = :organizationId', { organizationId });
 
@@ -175,7 +197,9 @@ export class ApprovisionnementService {
     }
 
     const [data, total] = await queryBuilder
-      .orderBy('approvisionnement.dateLivraison', 'DESC')
+      .orderBy('approvisionnement.createdAt', 'DESC')
+      .addOrderBy('approvisionnement.dateLivraison', 'DESC')
+      .addOrderBy('lignes.createdAt', 'ASC')
       .skip(skip)
       .take(limit)
       .getManyAndCount();

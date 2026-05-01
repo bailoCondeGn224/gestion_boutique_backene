@@ -26,6 +26,11 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Utilisateur non authentifié');
     }
 
+    // Les SUPER_ADMIN ont accès à tout
+    if (user.isSuperAdmin) {
+      return true;
+    }
+
     // Vérifier si l'utilisateur a un rôle
     if (!user.role) {
       throw new ForbiddenException('Aucun rôle assigné à cet utilisateur');

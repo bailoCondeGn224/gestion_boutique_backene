@@ -1,0 +1,360 @@
+{
+  "categories": [
+    {
+      "nom": "Électronique",
+      "code": "ELEC",
+      "description": "Appareils électroniques et accessoires",
+      "actif": true
+    },
+    {
+      "nom": "Vêtements",
+      "code": "VET",
+      "description": "Vêtements pour hommes et femmes",
+      "actif": true
+    },
+    {
+      "nom": "Alimentaire",
+      "code": "ALIM",
+      "description": "Produits alimentaires",
+      "actif": true
+    },
+    {
+      "nom": "Cosmétiques",
+      "code": "COSM",
+      "description": "Produits de beauté et cosmétiques",
+      "actif": true
+    },
+    {
+      "nom": "Fournitures",
+      "code": "FOUR",
+      "description": "Fournitures de bureau et scolaires",
+      "actif": true
+    }
+  ],
+  "zones_stockage": [
+    {
+      "code": "A",
+      "nom": "Magasin Principal",
+      "description": "Zone de stockage principale",
+      "actif": true
+    },
+    {
+      "code": "B",
+      "nom": "Réserve",
+      "description": "Stock de réserve",
+      "actif": true
+    },
+    {
+      "code": "C",
+      "nom": "Vitrine",
+      "description": "Articles en vitrine",
+      "actif": true
+    }
+  ],
+  "fournisseurs": [
+    {
+      "nom": "Tech Distribution Guinée",
+      "telephone": "+224621123456",
+      "email": "contact@techdist.gn",
+      "adresse": "Quartier Madina, Conakry",
+      "statut": "actif"
+    },
+    {
+      "nom": "Fashion Import",
+      "telephone": "+224622234567",
+      "email": "info@fashionimport.gn",
+      "adresse": "Kaloum, Conakry",
+      "statut": "actif"
+    },
+    {
+      "nom": "Alimentation Moderne",
+      "telephone": "+224623345678",
+      "email": "alim.moderne@gmail.com",
+      "adresse": "Matoto, Conakry",
+      "statut": "actif"
+    },
+    {
+      "nom": "Beauty Products Sarl",
+      "telephone": "+224624456789",
+      "email": "beauty@products.gn",
+      "adresse": "Ratoma, Conakry",
+      "statut": "actif"
+    },
+    {
+      "nom": "Bureau Plus",
+      "telephone": "+224625567890",
+      "email": "bureau.plus@yahoo.fr",
+      "adresse": "Dixinn, Conakry",
+      "statut": "actif"
+    }
+  ],
+  "clients": [
+    {
+      "nom": "Ousmane Diallo",
+      "telephone": "+224621111111",
+      "email": "ousmane.diallo@gmail.com",
+      "adresse": "Quartier Hamdallaye"
+    },
+    {
+      "nom": "Mariama Condé",
+      "telephone": "+224622222222",
+      "email": "mariama.conde@yahoo.fr",
+      "adresse": "Quartier Cameroun"
+    },
+    {
+      "nom": "Thierno Bah",
+      "telephone": "+224623333333",
+      "email": "tbah@hotmail.com",
+      "adresse": "Quartier Kipé"
+    },
+    {
+      "nom": "Kadiatou Sylla",
+      "telephone": "+224624444444",
+      "adresse": "Quartier Taouyah"
+    },
+    {
+      "nom": "Sékou Touré",
+      "telephone": "+224625555555",
+      "email": "sekou.toure@gmail.com",
+      "adresse": "Quartier Minière"
+    },
+    {
+      "nom": "Awa Camara",
+      "telephone": "+224626666666",
+      "adresse": "Quartier Bonfi"
+    },
+    {
+      "nom": "Mamadou Barry",
+      "telephone": "+224627777777",
+      "email": "mbarry@gmail.com",
+      "adresse": "Quartier Wanindara"
+    },
+    {
+      "nom": "Hawa Soumah",
+      "telephone": "+224628888888",
+      "adresse": "Quartier Cosa"
+    }
+  ],
+  "articles": [
+    {
+      "nom": "Samsung Galaxy A54",
+      "reference": "SGH-A54-BLK",
+      "description": "Smartphone Samsung Galaxy A54 128GB Noir",
+      "prixAchat": 3000000,
+      "prixVente": 3800000,
+      "stock": 15,
+      "seuilAlerte": 5,
+      "zone": "C",
+      "categorie": "Électronique"
+    },
+    {
+      "nom": "iPhone 13",
+      "reference": "APL-IP13-128",
+      "description": "Apple iPhone 13 128GB",
+      "prixAchat": 5500000,
+      "prixVente": 7000000,
+      "stock": 8,
+      "seuilAlerte": 3,
+      "zone": "C",
+      "categorie": "Électronique"
+    },
+    {
+      "nom": "Écouteurs Bluetooth",
+      "reference": "AUD-BT-500",
+      "description": "Écouteurs sans fil Bluetooth 5.0",
+      "prixAchat": 180000,
+      "prixVente": 280000,
+      "stock": 45,
+      "seuilAlerte": 10,
+      "zone": "A",
+      "categorie": "Électronique"
+    },
+    {
+      "nom": "Chargeur rapide USB-C",
+      "reference": "CHG-USBC-25W",
+      "description": "Chargeur rapide 25W avec câble USB-C",
+      "prixAchat": 60000,
+      "prixVente": 95000,
+      "stock": 120,
+      "seuilAlerte": 20,
+      "zone": "B",
+      "categorie": "Électronique"
+    },
+    {
+      "nom": "Chemise Homme",
+      "reference": "VET-CH-BLC-L",
+      "description": "Chemise homme blanche taille L",
+      "prixAchat": 90000,
+      "prixVente": 160000,
+      "stock": 30,
+      "seuilAlerte": 10,
+      "zone": "C",
+      "categorie": "Vêtements"
+    },
+    {
+      "nom": "Robe Femme",
+      "reference": "VET-RB-FLR-M",
+      "description": "Robe femme fleurie taille M",
+      "prixAchat": 130000,
+      "prixVente": 230000,
+      "stock": 25,
+      "seuilAlerte": 8,
+      "zone": "C",
+      "categorie": "Vêtements"
+    },
+    {
+      "nom": "Jean Homme",
+      "reference": "VET-JN-BLU-32",
+      "description": "Jean homme bleu taille 32",
+      "prixAchat": 110000,
+      "prixVente": 190000,
+      "stock": 40,
+      "seuilAlerte": 12,
+      "zone": "A",
+      "categorie": "Vêtements"
+    },
+    {
+      "nom": "Riz parfumé 50kg",
+      "reference": "ALI-RIZ-50KG",
+      "description": "Sac de riz parfumé importé 50kg",
+      "prixAchat": 350000,
+      "prixVente": 450000,
+      "stock": 60,
+      "seuilAlerte": 15,
+      "zone": "B",
+      "categorie": "Alimentaire"
+    },
+    {
+      "nom": "Huile végétale 5L",
+      "reference": "ALI-HUI-5L",
+      "description": "Bidon d'huile végétale 5 litres",
+      "prixAchat": 80000,
+      "prixVente": 120000,
+      "stock": 100,
+      "seuilAlerte": 25,
+      "zone": "B",
+      "categorie": "Alimentaire"
+    },
+    {
+      "nom": "Sucre en poudre 1kg",
+      "reference": "ALI-SUC-1KG",
+      "description": "Paquet de sucre en poudre 1kg",
+      "prixAchat": 15000,
+      "prixVente": 22000,
+      "stock": 200,
+      "seuilAlerte": 50,
+      "zone": "A",
+      "categorie": "Alimentaire"
+    },
+    {
+      "nom": "Lait en poudre Nido",
+      "reference": "ALI-LAI-400G",
+      "description": "Lait en poudre Nido 400g",
+      "prixAchat": 45000,
+      "prixVente": 65000,
+      "stock": 85,
+      "seuilAlerte": 20,
+      "zone": "A",
+      "categorie": "Alimentaire"
+    },
+    {
+      "nom": "Crème hydratante",
+      "reference": "COS-CRE-HYD-200",
+      "description": "Crème hydratante visage et corps 200ml",
+      "prixAchat": 35000,
+      "prixVente": 60000,
+      "stock": 50,
+      "seuilAlerte": 15,
+      "zone": "C",
+      "categorie": "Cosmétiques"
+    },
+    {
+      "nom": "Parfum femme",
+      "reference": "COS-PRF-FEM-50",
+      "description": "Parfum femme 50ml",
+      "prixAchat": 150000,
+      "prixVente": 280000,
+      "stock": 20,
+      "seuilAlerte": 5,
+      "zone": "C",
+      "categorie": "Cosmétiques"
+    },
+    {
+      "nom": "Savon de beauté",
+      "reference": "COS-SAV-BEA",
+      "description": "Savon de beauté clarifiant",
+      "prixAchat": 8000,
+      "prixVente": 15000,
+      "stock": 150,
+      "seuilAlerte": 30,
+      "zone": "A",
+      "categorie": "Cosmétiques"
+    },
+    {
+      "nom": "Rouge à lèvres",
+      "reference": "COS-ROU-LEV",
+      "description": "Rouge à lèvres mat longue tenue",
+      "prixAchat": 25000,
+      "prixVente": 45000,
+      "stock": 60,
+      "seuilAlerte": 15,
+      "zone": "C",
+      "categorie": "Cosmétiques"
+    },
+    {
+      "nom": "Cahier 200 pages",
+      "reference": "FRN-CAH-200",
+      "description": "Cahier grand format 200 pages",
+      "prixAchat": 5000,
+      "prixVente": 8000,
+      "stock": 300,
+      "seuilAlerte": 50,
+      "zone": "A",
+      "categorie": "Fournitures"
+    },
+    {
+      "nom": "Stylo à bille",
+      "reference": "FRN-STY-BIC",
+      "description": "Stylo à bille bleu/noir/rouge",
+      "prixAchat": 500,
+      "prixVente": 1000,
+      "stock": 500,
+      "seuilAlerte": 100,
+      "zone": "A",
+      "categorie": "Fournitures"
+    },
+    {
+      "nom": "Sac à dos scolaire",
+      "reference": "FRN-SAC-SCO",
+      "description": "Sac à dos scolaire avec compartiments",
+      "prixAchat": 80000,
+      "prixVente": 140000,
+      "stock": 35,
+      "seuilAlerte": 10,
+      "zone": "C",
+      "categorie": "Fournitures"
+    },
+    {
+      "nom": "Calculatrice scientifique",
+      "reference": "FRN-CAL-SCI",
+      "description": "Calculatrice scientifique Casio",
+      "prixAchat": 45000,
+      "prixVente": 75000,
+      "stock": 25,
+      "seuilAlerte": 8,
+      "zone": "C",
+      "categorie": "Fournitures"
+    },
+    {
+      "nom": "Ramette papier A4",
+      "reference": "FRN-PAP-A4-500",
+      "description": "Ramette papier blanc A4 80g 500 feuilles",
+      "prixAchat": 25000,
+      "prixVente": 40000,
+      "stock": 80,
+      "seuilAlerte": 20,
+      "zone": "B",
+      "categorie": "Fournitures"
+    }
+  ]
+}

@@ -44,43 +44,38 @@ export class VersementsClientService {
         );
       }
 
-      // Si versement pour une vente spécifique, vérifier
-      let venteNumero: string | undefined;
-      if (createDto.venteId) {
-        const vente = await this.venteRepository.findOne({
-          where: { id: createDto.venteId, organizationId },
-        });
+      // Vérifier que la vente existe et appartient à l'organisation
+      const vente = await this.venteRepository.findOne({
+        where: { id: createDto.venteId, organizationId },
+      });
 
-        if (!vente) {
-          throw new NotFoundException('Vente introuvable');
-        }
-
-        if (vente.clientId !== createDto.clientId) {
-          throw new BadRequestException('Cette vente n\'appartient pas à ce client');
-        }
-
-        // Vérifier que le versement ne dépasse pas le montant restant de la vente
-        if (createDto.montant > vente.montantRestant) {
-          throw new BadRequestException(
-            `Le montant du versement (${createDto.montant}) dépasse le montant restant de la vente (${vente.montantRestant})`,
-          );
-        }
-
-        // Récupérer le numéro de vente pour l'enregistrer
-        venteNumero = vente.numero;
-
-        // Mettre à jour la vente
-        await queryRunner.manager.update(Vente, createDto.venteId, {
-          montantPaye: vente.montantPaye + createDto.montant,
-          montantRestant: vente.montantRestant - createDto.montant,
-        });
+      if (!vente) {
+        throw new NotFoundException('Vente introuvable');
       }
 
-      // Créer le versement avec le venteNumero et organizationId
+      // Vérifier que la vente appartient bien au client
+      if (vente.clientId !== createDto.clientId) {
+        throw new BadRequestException('Cette vente n\'appartient pas à ce client');
+      }
+
+      // Vérifier que le versement ne dépasse pas le montant restant de la vente
+      if (createDto.montant > vente.montantRestant) {
+        throw new BadRequestException(
+          `Le montant du versement (${createDto.montant}) dépasse le montant restant de la vente (${vente.montantRestant})`,
+        );
+      }
+
+      // Mettre à jour la vente
+      await queryRunner.manager.update(Vente, createDto.venteId, {
+        montantPaye: vente.montantPaye + createDto.montant,
+        montantRestant: vente.montantRestant - createDto.montant,
+      });
+
+      // Créer le versement avec le numéro de vente et organizationId
       const versement = this.versementClientRepository.create({
         ...createDto,
         date: new Date(createDto.date),
-        venteNumero,
+        venteNumero: vente.numero,
         organizationId,
       });
       const savedVersement = await queryRunner.manager.save(versement);

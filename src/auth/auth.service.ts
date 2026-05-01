@@ -25,7 +25,7 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       nom: user.nom,
-      roleId: user.role.id  ,
+      roleId: user.role?.id || null, // Null pour les super admins
       organizationId: user.organization?.id || null, // Multi-tenant
       isSuperAdmin: user.isSuperAdmin || false,      // Flag super admin
     };
@@ -43,8 +43,16 @@ export class AuthService {
     };
   }
 
-  async register(createUserDto: any) {
-    const user = await this.usersService.create(createUserDto);
+  async register(
+    createUserDto: any,
+    creatorOrganizationId: string | null,
+    isSuperAdmin: boolean = false,
+  ) {
+    const user = await this.usersService.create(
+      createUserDto,
+      creatorOrganizationId,
+      isSuperAdmin,
+    );
     const { password, ...result } = user;
     return this.login(result as User);
   }

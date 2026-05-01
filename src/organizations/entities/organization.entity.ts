@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
 
@@ -33,6 +34,7 @@ export class Organization {
 
   // Relation vers le plan (TypeORM gère planId automatiquement)
   @ManyToOne(() => Plan, { eager: true })
+  @JoinColumn({ name: 'planId' })
   plan: Plan;
 
   // Dates d'abonnement

@@ -24,10 +24,10 @@ export class Client extends BaseTenantEntity {
   @Column({ nullable: true })
   adresse: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   totalAchats: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   totalCredits: number;
 
   @CreateDateColumn()

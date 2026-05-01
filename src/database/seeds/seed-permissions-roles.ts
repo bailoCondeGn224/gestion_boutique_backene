@@ -1,3 +1,4 @@
+
 import { DataSource } from 'typeorm';
 import { Permission } from '../../permissions/entities/permission.entity';
 import { Role } from '../../roles/entities/role.entity';
@@ -11,6 +12,13 @@ const basePermissions = [
   { code: 'ventes.read', nom: 'Voir les ventes', description: 'Permet de consulter les ventes' },
   { code: 'ventes.update', nom: 'Modifier une vente', description: 'Permet de modifier les ventes existantes' },
   { code: 'ventes.delete', nom: 'Supprimer une vente', description: 'Permet de supprimer des ventes' },
+
+  // Commandes
+  { code: 'commandes.create', nom: 'Créer une commande', description: 'Permet de créer des commandes client' },
+  { code: 'commandes.read', nom: 'Voir les commandes', description: 'Permet de consulter les commandes' },
+  { code: 'commandes.update', nom: 'Modifier une commande', description: 'Permet de modifier les commandes en attente' },
+  { code: 'commandes.delete', nom: 'Annuler une commande', description: 'Permet d\'annuler des commandes' },
+  { code: 'commandes.livrer', nom: 'Livrer une commande', description: 'Permet de transformer une commande en vente' },
 
   // Stock
   { code: 'stock.create', nom: 'Ajouter un article', description: 'Permet d\'ajouter de nouveaux articles au stock' },
@@ -52,6 +60,9 @@ const basePermissions = [
   { code: 'versements-client.update', nom: 'Modifier un versement client', description: 'Permet de modifier les paiements clients' },
   { code: 'versements-client.delete', nom: 'Supprimer un versement client', description: 'Permet d\'annuler des paiements clients' },
 
+  // Retours
+  { code: 'retours.create', nom: 'Créer un retour', description: 'Permet de créer des retours clients et fournisseurs' },
+
   // Analytics
   { code: 'analytics.read', nom: 'Voir les statistiques', description: 'Permet de consulter les statistiques et rapports' },
 
@@ -86,6 +97,21 @@ const basePermissions = [
   // Paramètres
   { code: 'parametres.read', nom: 'Voir les paramètres', description: 'Permet de consulter les paramètres de l\'entreprise' },
   { code: 'parametres.update', nom: 'Modifier les paramètres', description: 'Permet de modifier les paramètres de l\'entreprise' },
+
+  // Organizations (SUPER_ADMIN only)
+  { code: 'organizations.create', nom: 'Créer une organization', description: 'Permet de créer de nouvelles organizations' },
+  { code: 'organizations.read', nom: 'Voir les organizations', description: 'Permet de consulter les organizations' },
+  { code: 'organizations.update', nom: 'Modifier une organization', description: 'Permet de modifier les organizations' },
+  { code: 'organizations.delete', nom: 'Supprimer une organization', description: 'Permet de supprimer des organizations' },
+
+  // Plans (SUPER_ADMIN only)
+  { code: 'plans.create', nom: 'Créer un plan', description: 'Permet de créer de nouveaux plans tarifaires' },
+  { code: 'plans.read', nom: 'Voir les plans', description: 'Permet de consulter les plans tarifaires' },
+  { code: 'plans.update', nom: 'Modifier un plan', description: 'Permet de modifier les plans tarifaires' },
+  { code: 'plans.delete', nom: 'Supprimer un plan', description: 'Permet de supprimer des plans tarifaires' },
+
+  // Admin Dashboard (SUPER_ADMIN only)
+  { code: 'admin-dashboard.read', nom: 'Voir le dashboard admin', description: 'Permet de consulter le dashboard administrateur de la plateforme' },
 ];
 
 /**
@@ -103,6 +129,8 @@ const rolesConfig = [
     permissions: [
       // Ventes
       'ventes.create', 'ventes.read', 'ventes.update', 'ventes.delete',
+      // Commandes
+      'commandes.create', 'commandes.read', 'commandes.update', 'commandes.delete', 'commandes.livrer',
       // Stock
       'stock.create', 'stock.read', 'stock.update', 'stock.delete',
       // Approvisionnements
@@ -117,6 +145,8 @@ const rolesConfig = [
       'versements.create', 'versements.read', 'versements.update', 'versements.delete',
       // Versements clients
       'versements-client.create', 'versements-client.read', 'versements-client.update', 'versements-client.delete',
+      // Retours
+      'retours.create',
       // Analytics
       'analytics.read',
       // Catégories
@@ -135,6 +165,8 @@ const rolesConfig = [
     permissions: [
       // Ventes
       'ventes.create', 'ventes.read',
+      // Commandes
+      'commandes.create', 'commandes.read', 'commandes.livrer',
       // Clients
       'clients.create', 'clients.read',
       // Stock (lecture seule)
@@ -161,6 +193,8 @@ const rolesConfig = [
       'zones.create', 'zones.read', 'zones.update', 'zones.delete',
       // Mouvements
       'mouvements.read',
+      // Commandes (lecture seule)
+      'commandes.read',
       // Versements (lecture seule)
       'versements.read',
     ],
@@ -253,6 +287,6 @@ export async function seedPermissionsAndRoles(dataSource: DataSource) {
     }
   }
 
-  console.log('✅ Seed terminé !');
-  console.log(`📊 Total: ${allPermissions.length} permissions, ${rolesConfig.length} rôles`);
+  console.log(' Seed terminé !');
+  console.log(`Total: ${allPermissions.length} permissions, ${rolesConfig.length} rôles`);
 }

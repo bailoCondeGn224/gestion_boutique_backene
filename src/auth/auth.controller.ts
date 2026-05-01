@@ -22,8 +22,10 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Non authentifié' })
   @ApiResponse({ status: 403, description: 'Permission insuffisante' })
   @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
-  async register(@Body() createUserDto: CreateUserDto) {
-    return this.authService.register(createUserDto);
+  async register(@Body() createUserDto: CreateUserDto, @Request() req) {
+    const creatorOrganizationId = req.user.organizationId || null;
+    const isSuperAdmin = req.user.isSuperAdmin || false;
+    return this.authService.register(createUserDto, creatorOrganizationId, isSuperAdmin);
   }
 
   @UseGuards(LocalAuthGuard)

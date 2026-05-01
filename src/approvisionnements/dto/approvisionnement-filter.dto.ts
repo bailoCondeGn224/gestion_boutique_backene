@@ -1,7 +1,11 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+
+// Helper pour transformer les chaînes vides en undefined
+const TransformEmptyToUndefined = () =>
+  Transform(({ value }) => (value === '' ? undefined : value));
 
 export class ApprovisionnementFilterDto extends PaginationDto {
   @ApiPropertyOptional({
@@ -9,6 +13,7 @@ export class ApprovisionnementFilterDto extends PaginationDto {
     example: 'APP-001',
   })
   @IsOptional()
+  @TransformEmptyToUndefined()
   @IsString()
   search?: string;
 
@@ -17,24 +22,23 @@ export class ApprovisionnementFilterDto extends PaginationDto {
     example: 'uuid-fournisseur-123',
   })
   @IsOptional()
+  @TransformEmptyToUndefined()
   @IsString()
   fournisseurId?: string;
 
   @ApiPropertyOptional({
-    description: 'Date de début pour filtrer les approvisionnements (format ISO 8601)',
+    description: 'Date de début pour filtrer les approvisionnements',
     example: '2024-01-01',
   })
   @IsOptional()
-  @Type(() => Date)
-  @IsDateString()
+  @TransformEmptyToUndefined()
   dateDebut?: string;
 
   @ApiPropertyOptional({
-    description: 'Date de fin pour filtrer les approvisionnements (format ISO 8601)',
+    description: 'Date de fin pour filtrer les approvisionnements',
     example: '2024-12-31',
   })
   @IsOptional()
-  @Type(() => Date)
-  @IsDateString()
+  @TransformEmptyToUndefined()
   dateFin?: string;
 }

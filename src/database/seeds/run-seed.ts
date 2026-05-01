@@ -1,41 +1,29 @@
-import { DataSource } from 'typeorm';
+ import {AppDataSource } from "../data-source";
 import { config } from 'dotenv';
 import { seedPermissionsAndRoles } from './seed-permissions-roles';
-import { seedParametres } from './seed-parametres';
+import { seedSuperAdmin } from './seed-super-admin';
 
 // Charger les variables d'environnement
 config();
 
 async function runSeeds() {
-  const dataSource = new DataSource({
-    type: 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: parseInt(process.env.DATABASE_PORT || '5432'),
-    username: process.env.DATABASE_USER || 'postgres',
-    password: process.env.DATABASE_PASSWORD || 'postgres',
-    database: process.env.DATABASE_NAME || 'gestion_boutique',
-    entities: ['src/**/*.entity{.ts,.js}'],
-    synchronize: false,
-  });
 
   try {
-    console.log('📦 Connexion à la base de données...');
-    await dataSource.initialize();
-    console.log('✅ Connecté à la base de données');
+    console.log('Connexion à la base de données...');
+    await AppDataSource.initialize();
+    console.log('Connecté à la base de données');
 
     // Exécuter le seed des permissions et rôles
-    await seedPermissionsAndRoles(dataSource);
+    await seedPermissionsAndRoles(AppDataSource);
 
-    // Exécuter le seed des paramètres
-    await seedParametres(dataSource);
-
-    console.log('\n🎉 Tous les seeds ont été exécutés avec succès !');
+    // Exécuter le seed du SUPER_ADMIN
+    await seedSuperAdmin(AppDataSource);
   } catch (error) {
-    console.error('❌ Erreur lors de l\'exécution des seeds:', error);
+    console.error('Erreur lors de l\'exécution des seeds:', error);
     process.exit(1);
   } finally {
-    await dataSource.destroy();
-    console.log('🔌 Connexion fermée');
+    await AppDataSource.destroy();
+    console.log('Connexion fermée');
   }
 }
 

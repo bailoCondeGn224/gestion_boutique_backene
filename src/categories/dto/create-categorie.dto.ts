@@ -15,8 +15,8 @@ export class CreateCategorieDto {
     description: 'Description de la catégorie',
     required: false,
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   description?: string;
 
   @ApiProperty({
@@ -25,8 +25,8 @@ export class CreateCategorieDto {
     required: false,
     default: true,
   })
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   actif?: boolean;
 
   @ApiProperty({
@@ -34,7 +34,7 @@ export class CreateCategorieDto {
     description: 'ID de la zone associée',
     required: false,
   })
-  @IsUUID()
   @IsOptional()
+  @IsUUID()
   zoneId?: string;
 }

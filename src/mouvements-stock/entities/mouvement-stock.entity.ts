@@ -78,11 +78,11 @@ export class MouvementStock extends BaseTenantEntity {
   stockApres: number;
 
   // Prix unitaire au moment du mouvement
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   prixUnitaire: number;
 
   // Valeur totale du mouvement (quantité × prix)
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   valeurTotal: number;
 
   // Utilisateur qui a effectué l'opération

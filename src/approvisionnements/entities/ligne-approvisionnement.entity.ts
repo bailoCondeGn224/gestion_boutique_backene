@@ -37,10 +37,10 @@ export class LigneApprovisionnement extends BaseTenantEntity {
   @Column({ type: 'int' })
   quantite: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   prixUnitaire: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   sousTotal: number;
 
   @CreateDateColumn()

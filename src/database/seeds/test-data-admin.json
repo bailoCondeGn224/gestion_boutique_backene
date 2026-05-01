@@ -1,0 +1,229 @@
+{
+  "role": {
+    "nom": "ADMIN",
+    "description": "Administrateur avec accès complet au système",
+    "actif": true,
+    "permissions": [
+      "ventes.create",
+      "ventes.read",
+      "ventes.update",
+      "ventes.delete",
+      "stock.create",
+      "stock.read",
+      "stock.update",
+      "stock.delete",
+      "approvisionnements.create",
+      "approvisionnements.read",
+      "approvisionnements.update",
+      "approvisionnements.delete",
+      "clients.create",
+      "clients.read",
+      "clients.update",
+      "clients.delete",
+      "fournisseurs.create",
+      "fournisseurs.read",
+      "fournisseurs.update",
+      "fournisseurs.delete",
+      "finances.read",
+      "finances.manage",
+      "versements.create",
+      "versements.read",
+      "versements.update",
+      "versements.delete",
+      "versements-client.create",
+      "versements-client.read",
+      "versements-client.update",
+      "versements-client.delete",
+      "analytics.read",
+      "categories.create",
+      "categories.read",
+      "categories.update",
+      "categories.delete",
+      "zones.create",
+      "zones.read",
+      "zones.update",
+      "zones.delete",
+      "mouvements.read",
+      "users.create",
+      "users.read",
+      "users.update",
+      "users.delete",
+      "roles.create",
+      "roles.read",
+      "roles.update",
+      "roles.delete",
+      "permissions.manage",
+      "parametres.read",
+      "parametres.update"
+    ]
+  },
+  "utilisateur_admin_test": {
+    "nom": "Admin",
+    "prenom": "Système",
+    "email": "admin@test.com",
+    "password": "Admin@123",
+    "telephone": "+224621000000",
+    "actif": true,
+    "isSuperAdmin": false,
+    "role": "ADMIN",
+    "note": "Compte administrateur de test pour l'organisation"
+  },
+  "permissions_detaillees": [
+    {
+      "module": "Ventes",
+      "permissions": [
+        { "code": "ventes.create", "nom": "Créer une vente", "description": "Permet de créer de nouvelles ventes" },
+        { "code": "ventes.read", "nom": "Voir les ventes", "description": "Permet de consulter les ventes" },
+        { "code": "ventes.update", "nom": "Modifier une vente", "description": "Permet de modifier les ventes existantes" },
+        { "code": "ventes.delete", "nom": "Supprimer une vente", "description": "Permet de supprimer des ventes" }
+      ]
+    },
+    {
+      "module": "Stock",
+      "permissions": [
+        { "code": "stock.create", "nom": "Ajouter un article", "description": "Permet d'ajouter de nouveaux articles au stock" },
+        { "code": "stock.read", "nom": "Voir le stock", "description": "Permet de consulter le stock" },
+        { "code": "stock.update", "nom": "Modifier un article", "description": "Permet de modifier les articles du stock" },
+        { "code": "stock.delete", "nom": "Supprimer un article", "description": "Permet de supprimer des articles du stock" }
+      ]
+    },
+    {
+      "module": "Approvisionnements",
+      "permissions": [
+        { "code": "approvisionnements.create", "nom": "Créer un approvisionnement", "description": "Permet d'enregistrer de nouveaux approvisionnements" },
+        { "code": "approvisionnements.read", "nom": "Voir les approvisionnements", "description": "Permet de consulter les approvisionnements" },
+        { "code": "approvisionnements.update", "nom": "Modifier un approvisionnement", "description": "Permet de modifier les approvisionnements" },
+        { "code": "approvisionnements.delete", "nom": "Supprimer un approvisionnement", "description": "Permet de supprimer des approvisionnements" }
+      ]
+    },
+    {
+      "module": "Clients",
+      "permissions": [
+        { "code": "clients.create", "nom": "Ajouter un client", "description": "Permet d'ajouter de nouveaux clients" },
+        { "code": "clients.read", "nom": "Voir les clients", "description": "Permet de consulter les clients" },
+        { "code": "clients.update", "nom": "Modifier un client", "description": "Permet de modifier les informations des clients" },
+        { "code": "clients.delete", "nom": "Supprimer un client", "description": "Permet de supprimer des clients" }
+      ]
+    },
+    {
+      "module": "Fournisseurs",
+      "permissions": [
+        { "code": "fournisseurs.create", "nom": "Ajouter un fournisseur", "description": "Permet d'ajouter de nouveaux fournisseurs" },
+        { "code": "fournisseurs.read", "nom": "Voir les fournisseurs", "description": "Permet de consulter les fournisseurs" },
+        { "code": "fournisseurs.update", "nom": "Modifier un fournisseur", "description": "Permet de modifier les informations des fournisseurs" },
+        { "code": "fournisseurs.delete", "nom": "Supprimer un fournisseur", "description": "Permet de supprimer des fournisseurs" }
+      ]
+    },
+    {
+      "module": "Finances",
+      "permissions": [
+        { "code": "finances.read", "nom": "Voir les finances", "description": "Permet de consulter les données financières" },
+        { "code": "finances.manage", "nom": "Gérer les finances", "description": "Permet de gérer les transactions financières" }
+      ]
+    },
+    {
+      "module": "Versements Fournisseurs",
+      "permissions": [
+        { "code": "versements.create", "nom": "Créer un versement", "description": "Permet d'enregistrer des paiements fournisseurs" },
+        { "code": "versements.read", "nom": "Voir les versements", "description": "Permet de consulter les versements" },
+        { "code": "versements.update", "nom": "Modifier un versement", "description": "Permet de modifier les versements" },
+        { "code": "versements.delete", "nom": "Supprimer un versement", "description": "Permet de supprimer des versements" }
+      ]
+    },
+    {
+      "module": "Versements Clients",
+      "permissions": [
+        { "code": "versements-client.create", "nom": "Créer un versement client", "description": "Permet d'enregistrer des paiements de dettes clients" },
+        { "code": "versements-client.read", "nom": "Voir les versements clients", "description": "Permet de consulter les paiements clients" },
+        { "code": "versements-client.update", "nom": "Modifier un versement client", "description": "Permet de modifier les paiements clients" },
+        { "code": "versements-client.delete", "nom": "Supprimer un versement client", "description": "Permet d'annuler des paiements clients" }
+      ]
+    },
+    {
+      "module": "Analytics",
+      "permissions": [
+        { "code": "analytics.read", "nom": "Voir les statistiques", "description": "Permet de consulter les statistiques et rapports" }
+      ]
+    },
+    {
+      "module": "Catégories",
+      "permissions": [
+        { "code": "categories.create", "nom": "Créer une catégorie", "description": "Permet de créer de nouvelles catégories" },
+        { "code": "categories.read", "nom": "Voir les catégories", "description": "Permet de consulter les catégories" },
+        { "code": "categories.update", "nom": "Modifier une catégorie", "description": "Permet de modifier les catégories" },
+        { "code": "categories.delete", "nom": "Supprimer une catégorie", "description": "Permet de supprimer des catégories" }
+      ]
+    },
+    {
+      "module": "Zones de stockage",
+      "permissions": [
+        { "code": "zones.create", "nom": "Créer une zone", "description": "Permet de créer de nouvelles zones de stockage" },
+        { "code": "zones.read", "nom": "Voir les zones", "description": "Permet de consulter les zones de stockage" },
+        { "code": "zones.update", "nom": "Modifier une zone", "description": "Permet de modifier les zones de stockage" },
+        { "code": "zones.delete", "nom": "Supprimer une zone", "description": "Permet de supprimer des zones de stockage" }
+      ]
+    },
+    {
+      "module": "Mouvements de stock",
+      "permissions": [
+        { "code": "mouvements.read", "nom": "Voir l'historique des mouvements", "description": "Permet de consulter l'historique des mouvements de stock" }
+      ]
+    },
+    {
+      "module": "Utilisateurs",
+      "permissions": [
+        { "code": "users.create", "nom": "Créer un utilisateur", "description": "Permet de créer de nouveaux utilisateurs" },
+        { "code": "users.read", "nom": "Voir les utilisateurs", "description": "Permet de consulter les utilisateurs" },
+        { "code": "users.update", "nom": "Modifier un utilisateur", "description": "Permet de modifier les utilisateurs" },
+        { "code": "users.delete", "nom": "Supprimer un utilisateur", "description": "Permet de supprimer des utilisateurs" }
+      ]
+    },
+    {
+      "module": "Rôles et permissions",
+      "permissions": [
+        { "code": "roles.create", "nom": "Créer un rôle", "description": "Permet de créer de nouveaux rôles" },
+        { "code": "roles.read", "nom": "Voir les rôles", "description": "Permet de consulter les rôles" },
+        { "code": "roles.update", "nom": "Modifier un rôle", "description": "Permet de modifier les rôles" },
+        { "code": "roles.delete", "nom": "Supprimer un rôle", "description": "Permet de supprimer des rôles" },
+        { "code": "permissions.manage", "nom": "Gérer les permissions", "description": "Permet de gérer les permissions du système" }
+      ]
+    },
+    {
+      "module": "Paramètres",
+      "permissions": [
+        { "code": "parametres.read", "nom": "Voir les paramètres", "description": "Permet de consulter les paramètres de l'entreprise" },
+        { "code": "parametres.update", "nom": "Modifier les paramètres", "description": "Permet de modifier les paramètres de l'entreprise" }
+      ]
+    }
+  ],
+  "instructions": {
+    "description": "Fichier de données de test pour créer un rôle ADMIN avec toutes les permissions",
+    "utilisation": [
+      "1. Le rôle ADMIN a accès complet à tous les modules de l'application",
+      "2. Total de 58 permissions couvrant 15 modules différents",
+      "3. Utilisateur de test inclus avec email: admin@test.com et mot de passe: Admin@123",
+      "4. Ce rôle est distinct du SUPER_ADMIN qui gère les organizations et plans"
+    ],
+    "api_creation_role": {
+      "endpoint": "POST /roles",
+      "body": {
+        "nom": "ADMIN",
+        "description": "Administrateur avec accès complet au système",
+        "actif": true,
+        "permissionIds": ["array-of-permission-ids"]
+      }
+    },
+    "api_creation_user": {
+      "endpoint": "POST /users",
+      "body": {
+        "nom": "Admin",
+        "prenom": "Système",
+        "email": "admin@test.com",
+        "password": "Admin@123",
+        "telephone": "+224621000000",
+        "roleId": "id-du-role-admin",
+        "organizationId": "id-de-lorganization"
+      }
+    }
+  }
+}

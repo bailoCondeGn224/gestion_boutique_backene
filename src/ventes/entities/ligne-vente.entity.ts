@@ -32,13 +32,13 @@ export class LigneVente extends BaseTenantEntity {
   @Column({ type: 'int' })
   quantite: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   prixUnitaire: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   prixAchat: number; // Prix d'achat au moment de la vente (pour calculer le bénéfice)
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   sousTotal: number;
 
   @CreateDateColumn()

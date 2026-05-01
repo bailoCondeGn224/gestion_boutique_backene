@@ -36,13 +36,13 @@ export class Approvisionnement extends BaseTenantEntity {
   })
   lignes: LigneApprovisionnement[];
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 15, scale: 2 })
   total: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   montantPaye: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   montantRestant: number;
 
   @Column({ type: 'date' })

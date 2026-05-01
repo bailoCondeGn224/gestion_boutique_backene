@@ -12,6 +12,7 @@ import { FournisseursModule } from './fournisseurs/fournisseurs.module';
 import { ApprovisionnementModule } from './approvisionnements/approvisionnements.module';
 import { VersementsModule } from './versements/versements.module';
 import { VersementsClientModule } from './versements-client/versements-client.module';
+import { RetoursModule } from './retours/retours.module';
 import { FinancesModule } from './finances/finances.module';
 import { CategoriesModule } from './categories/categories.module';
 import { AnalyticsModule } from './analytics/analytics.module';
@@ -21,6 +22,8 @@ import { RolesModule } from './roles/roles.module';
 import { ZonesModule } from './zones/zones.module';
 import { PlansModule } from './plans/plans.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
+import { CommandesModule } from './commandes/commandes.module';
 
 @Module({
   imports: [
@@ -56,15 +59,18 @@ import { OrganizationsModule } from './organizations/organizations.module';
     StockModule,
     ClientsModule,
     VentesModule,
+    CommandesModule,
     FournisseursModule,
     ApprovisionnementModule,
     VersementsModule,
     VersementsClientModule,
+    RetoursModule,
     FinancesModule,
     AnalyticsModule,
     MouvementsStockModule,
     PermissionsModule,
     RolesModule,
+    AdminDashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

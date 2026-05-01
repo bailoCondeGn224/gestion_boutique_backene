@@ -77,8 +77,10 @@ export class VentesService {
       const now = new Date();
       const heure = now.toTimeString().slice(0, 5);
 
+      // Créer la vente SANS les lignes
+      const { lignes, ...venteData } = createVenteDto;
       const vente = this.ventesRepository.create({
-        ...createVenteDto,
+        ...venteData,
         numero,
         date: now,
         heure,
@@ -86,6 +88,27 @@ export class VentesService {
       });
 
       const savedVente = await queryRunner.manager.save(vente);
+
+      // Créer manuellement les lignes avec organizationId
+      for (const ligne of lignes) {
+        const prixAchat = ligne.prixAchat || 0;
+
+        await queryRunner.manager.query(
+          `INSERT INTO ligne_vente
+           ("venteId", "articleId", nom, quantite, "prixUnitaire", "prixAchat", "sousTotal", "organizationId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+          [
+            savedVente.id,
+            ligne.articleId,
+            ligne.nom,
+            ligne.quantite,
+            ligne.prixUnitaire,
+            prixAchat,
+            ligne.sousTotal,
+            organizationId,
+          ],
+        );
+      }
 
       // Mettre à jour les mouvements avec le venteId
       if (createVenteDto.userId) {
@@ -134,6 +157,9 @@ export class VentesService {
 
     const queryBuilder = this.ventesRepository.createQueryBuilder('vente');
 
+    // Charger les lignes pour afficher les articles
+    queryBuilder.leftJoinAndSelect('vente.lignes', 'lignes');
+
     // Filtre par organization (toujours en premier avec .where())
     queryBuilder.where('vente.organizationId = :organizationId', { organizationId });
 
@@ -176,7 +202,12 @@ export class VentesService {
   async findOne(id: string, organizationId: string): Promise<Vente> {
     const vente = await this.ventesRepository.findOne({
       where: { id, organizationId },
-      relations: ['lignes'],
+      relations: ['lignes', 'versements'],
+      order: {
+        versements: {
+          date: 'ASC',
+        },
+      },
     });
     if (!vente) {
       throw new NotFoundException(`Vente avec l'ID ${id} introuvable`);
@@ -239,11 +270,8 @@ export class VentesService {
 
     // Calculer le bénéfice du mois
     let beneficeMois = 0;
-    console.log('Nombre de ventes du mois:', ventesMois.length);
 
     for (const vente of ventesMois) {
-      console.log('Vente:', vente.numero, 'Lignes:', vente.lignes?.length || 0);
-
       if (vente.lignes && Array.isArray(vente.lignes) && vente.lignes.length > 0) {
         for (const ligne of vente.lignes) {
           const prixAchat = Number(ligne.prixAchat) || 0;
@@ -251,24 +279,17 @@ export class VentesService {
           const quantite = Number(ligne.quantite) || 0;
           const beneficeLigne = (prixUnitaire - prixAchat) * quantite;
 
-          console.log(`  Ligne: ${ligne.nom}, PA: ${prixAchat}, PV: ${prixUnitaire}, Qté: ${quantite}, Bénéfice: ${beneficeLigne}`);
-
           beneficeMois += beneficeLigne;
         }
       }
     }
 
-    console.log('Bénéfice total du mois:', beneficeMois);
-
     // Calculer la dette totale du mois (montants restants)
     let detteMois = 0;
     for (const vente of ventesMois) {
       const montantRestant = Number(vente.montantRestant) || 0;
-      console.log(`Dette vente ${vente.numero}:`, montantRestant);
       detteMois += montantRestant;
     }
-
-    console.log('Dette totale du mois:', detteMois);
 
     return {
       jour: {
@@ -440,5 +461,19 @@ export class VentesService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async findVentesACredit(clientId: string, organizationId: string): Promise<Vente[]> {
+    // Récupérer toutes les ventes du client
+    const ventes = await this.ventesRepository.find({
+      where: {
+        clientId,
+        organizationId,
+      },
+      order: { createdAt: 'ASC' }, // Plus anciennes en premier
+    });
+
+    // Filtrer seulement les ventes avec montant restant > 0
+    return ventes.filter(vente => Number(vente.montantRestant) > 0);
   }
 }

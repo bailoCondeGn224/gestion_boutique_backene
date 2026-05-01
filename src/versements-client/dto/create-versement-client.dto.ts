@@ -13,15 +13,10 @@ export class CreateVersementClientDto {
   @IsNotEmpty()
   clientNom: string;
 
-  @ApiProperty({ description: 'ID de la vente (optionnel)', required: false })
+  @ApiProperty({ description: 'ID de la vente' })
   @IsUUID()
-  @IsOptional()
-  venteId?: string;
-
-  @ApiProperty({ description: 'Numéro de la vente (optionnel)', required: false })
-  @IsString()
-  @IsOptional()
-  venteNumero?: string;
+  @IsNotEmpty()
+  venteId: string;
 
   @ApiProperty({ description: 'Montant du versement' })
   @IsNumber()
