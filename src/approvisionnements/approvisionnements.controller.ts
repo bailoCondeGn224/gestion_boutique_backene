@@ -108,6 +108,26 @@ export class ApprovisionnementController {
     return this.approvisionnementService.getStatsFournisseur(fournisseurId, organizationId);
   }
 
+  @Get(':id/lignes')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obtenir les lignes paginées d\'un approvisionnement' })
+  @ApiParam({ name: 'id', description: 'ID de l\'approvisionnement' })
+  @ApiResponse({ status: 200, description: 'Lignes paginées' })
+  @ApiResponse({ status: 404, description: 'Approvisionnement introuvable' })
+  getApproLignes(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.approvisionnementService.getApproLignes(
+      id,
+      organizationId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
+    );
+  }
+
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtenir un approvisionnement par ID' })

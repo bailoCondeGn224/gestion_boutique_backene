@@ -11,6 +11,7 @@ import { createPaginatedResponse } from '../common/utils/pagination.util';
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
 import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
 import { Client } from '../clients/entities/client.entity';
+import { VersementClient } from '../versements-client/entities/versement-client.entity';
 
 @Injectable()
 export class VentesService {
@@ -19,6 +20,8 @@ export class VentesService {
     private ventesRepository: Repository<Vente>,
     @InjectRepository(Client)
     private clientRepository: Repository<Client>,
+    @InjectRepository(VersementClient)
+    private versementClientRepository: Repository<VersementClient>,
     private stockService: StockService,
     private dataSource: DataSource,
     private mouvementsStockService: MouvementsStockService,
@@ -202,17 +205,39 @@ export class VentesService {
   async findOne(id: string, organizationId: string): Promise<Vente> {
     const vente = await this.ventesRepository.findOne({
       where: { id, organizationId },
-      relations: ['lignes', 'versements'],
-      order: {
-        versements: {
-          date: 'ASC',
-        },
-      },
+      relations: ['lignes'],
     });
     if (!vente) {
       throw new NotFoundException(`Vente avec l'ID ${id} introuvable`);
     }
     return vente;
+  }
+
+  async getVenteVersements(
+    venteId: string,
+    organizationId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<PaginatedResponse<VersementClient>> {
+    // Vérifier que la vente existe et appartient à l'organisation
+    const vente = await this.ventesRepository.findOne({
+      where: { id: venteId, organizationId },
+    });
+
+    if (!vente) {
+      throw new NotFoundException(`Vente avec l'ID ${venteId} introuvable`);
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.versementClientRepository.findAndCount({
+      where: { venteId, organizationId },
+      order: { date: 'ASC' },
+      skip,
+      take: limit,
+    });
+
+    return createPaginatedResponse(data, total, page, limit);
   }
 
   async findRecent(organizationId: string): Promise<Vente[]> {

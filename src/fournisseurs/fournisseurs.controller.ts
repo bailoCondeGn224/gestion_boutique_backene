@@ -67,14 +67,21 @@ export class FournisseursController {
   @ApiOperation({ summary: 'Récupérer les détails complets d\'un fournisseur' })
   @ApiResponse({
     status: 200,
-    description: 'Détails complets avec approvisionnements et versements récents',
+    description: 'Détails complets avec approvisionnements paginés et versements récents',
   })
   @ApiResponse({ status: 404, description: 'Fournisseur introuvable' })
   getDetails(
     @Param('id') id: string,
     @CurrentOrganization() organizationId: string,
+    @Query('approPage') approPage?: number,
+    @Query('approLimit') approLimit?: number,
   ) {
-    return this.fournisseursService.getDetails(id, organizationId);
+    return this.fournisseursService.getDetails(
+      id,
+      organizationId,
+      approPage ? Number(approPage) : 1,
+      approLimit ? Number(approLimit) : 10,
+    );
   }
 
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)

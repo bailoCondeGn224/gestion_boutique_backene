@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Approvisionnement } from './entities/approvisionnement.entity';
+import { LigneApprovisionnement } from './entities/ligne-approvisionnement.entity';
 import { CreateApprovisionnementDto } from './dto/create-approvisionnement.dto';
 import { UpdateApprovisionnementDto } from './dto/update-approvisionnement.dto';
 import { ApprovisionnementFilterDto } from './dto/approvisionnement-filter.dto';
@@ -20,6 +21,8 @@ export class ApprovisionnementService {
   constructor(
     @InjectRepository(Approvisionnement)
     private approvisionnementRepository: Repository<Approvisionnement>,
+    @InjectRepository(LigneApprovisionnement)
+    private ligneApprovisionnementRepository: Repository<LigneApprovisionnement>,
     private dataSource: DataSource,
     private mouvementsStockService: MouvementsStockService,
   ) {}
@@ -210,7 +213,6 @@ export class ApprovisionnementService {
   async findOne(id: string, organizationId: string): Promise<Approvisionnement> {
     const approvisionnement = await this.approvisionnementRepository.findOne({
       where: { id, organizationId },
-      relations: ['lignes'],
     });
 
     if (!approvisionnement) {
@@ -220,6 +222,34 @@ export class ApprovisionnementService {
     }
 
     return approvisionnement;
+  }
+
+  async getApproLignes(
+    approvisionnementId: string,
+    organizationId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<PaginatedResponse<LigneApprovisionnement>> {
+    // Vérifier que l'approvisionnement existe et appartient à l'organisation
+    const appro = await this.approvisionnementRepository.findOne({
+      where: { id: approvisionnementId, organizationId },
+    });
+
+    if (!appro) {
+      throw new NotFoundException(
+        `Approvisionnement avec l'ID ${approvisionnementId} introuvable`,
+      );
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.ligneApprovisionnementRepository.findAndCount({
+      where: { approvisionnementId },
+      skip,
+      take: limit,
+    });
+
+    return createPaginatedResponse(data, total, page, limit);
   }
 
   async findByFournisseur(

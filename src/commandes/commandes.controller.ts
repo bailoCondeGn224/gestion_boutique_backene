@@ -61,6 +61,23 @@ export class CommandesController {
     return this.commandesService.getStats(organizationId);
   }
 
+  @Get(':id/lignes')
+  @Permissions('commandes.read')
+  @ApiOperation({ summary: 'Lignes paginées d\'une commande' })
+  getCommandeLignes(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.commandesService.getCommandeLignes(
+      id,
+      organizationId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
+    );
+  }
+
   @Get(':id')
   @Permissions('commandes.read')
   @ApiOperation({ summary: 'Détails d\'une commande' })

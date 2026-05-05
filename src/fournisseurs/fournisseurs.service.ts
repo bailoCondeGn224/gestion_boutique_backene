@@ -216,31 +216,35 @@ export class FournisseursService {
     };
   }
 
-  async getDetails(id: string, organizationId: string): Promise<any> {
+  async getDetails(
+    id: string,
+    organizationId: string,
+    approPage: number = 1,
+    approLimit: number = 10,
+  ): Promise<any> {
     const fournisseur = await this.findOne(id, organizationId);
 
-    // Récupérer les 5 derniers approvisionnements
-    const approvisionnements = await this.approvisionnementRepository.find({
+    // Récupérer les approvisionnements avec pagination
+    const [approvisionnements, totalAppros] = await this.approvisionnementRepository.findAndCount({
       where: { fournisseurId: id, organizationId },
       order: { dateLivraison: 'DESC' },
-      take: 5,
+      skip: (approPage - 1) * approLimit,
+      take: approLimit,
     });
 
-    // Récupérer les 5 derniers versements
+    // Récupérer les 5 derniers versements (pas paginé pour l'instant)
     const versements = await this.versementRepository.find({
       where: { fournisseurId: id, organizationId },
       order: { date: 'DESC' },
       take: 5,
     });
 
-    // Compter le total
-    const [, totalAppros] = await this.approvisionnementRepository.findAndCount({
-      where: { fournisseurId: id, organizationId },
-    });
-
     const [, totalVersements] = await this.versementRepository.findAndCount({
       where: { fournisseurId: id, organizationId },
     });
+
+    // Métadonnées de pagination pour approvisionnements
+    const totalPages = Math.ceil(totalAppros / approLimit);
 
     return {
       ...fournisseur,
@@ -253,6 +257,12 @@ export class FournisseursService {
         montantRestant: Number(appro.montantRestant),
         createdAt: appro.createdAt,
       })),
+      approMeta: {
+        currentPage: approPage,
+        totalPages,
+        totalItems: totalAppros,
+        itemsPerPage: approLimit,
+      },
       versements: versements.map((vers) => ({
         id: vers.id,
         montant: Number(vers.montant),

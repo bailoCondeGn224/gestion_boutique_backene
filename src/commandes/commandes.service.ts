@@ -174,7 +174,6 @@ export class CommandesService {
   async findOne(id: string, organizationId: string): Promise<Commande> {
     const commande = await this.commandesRepository.findOne({
       where: { id, organizationId },
-      relations: ['lignes'],
     });
 
     if (!commande) {
@@ -182,6 +181,32 @@ export class CommandesService {
     }
 
     return commande;
+  }
+
+  async getCommandeLignes(
+    commandeId: string,
+    organizationId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<PaginatedResponse<LigneCommande>> {
+    // Vérifier que la commande existe et appartient à l'organisation
+    const commande = await this.commandesRepository.findOne({
+      where: { id: commandeId, organizationId },
+    });
+
+    if (!commande) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.lignesCommandeRepository.findAndCount({
+      where: { commandeId },
+      skip,
+      take: limit,
+    });
+
+    return createPaginatedResponse(data, total, page, limit);
   }
 
   async update(

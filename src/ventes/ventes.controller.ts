@@ -93,6 +93,27 @@ export class VentesController {
 
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @Permissions('ventes.read')
+  @Get(':id/versements')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les versements paginés d\'une vente' })
+  @ApiResponse({ status: 200, description: 'Liste paginée des versements' })
+  @ApiResponse({ status: 404, description: 'Vente introuvable' })
+  getVenteVersements(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.ventesService.getVenteVersements(
+      id,
+      organizationId,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('ventes.read')
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer une vente par ID' })
