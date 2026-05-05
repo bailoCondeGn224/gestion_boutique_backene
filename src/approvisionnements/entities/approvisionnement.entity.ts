@@ -9,15 +9,17 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('approvisionnement')
+@Unique(['numero', 'organizationId']) // Contrainte unique composite
 export class Approvisionnement extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   numero: string;
 
   @Column()

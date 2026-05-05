@@ -34,3 +34,7 @@ lerna-debug.log*
 *.swp
 *.swo
 *~
+
+# Uploaded files
+/storage
+/uploads

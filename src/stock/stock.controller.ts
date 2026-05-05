@@ -8,8 +8,11 @@ import {
   Delete,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { StockService } from './stock.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -18,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { TenantGuard, CurrentOrganization } from '../common';
+import { multerConfig } from '../common/config/multer.config';
 
 @ApiTags('stock')
 @Controller('stock')
@@ -27,14 +31,16 @@ export class StockController {
 
   @Permissions('stock.create')
   @Post()
+  @UseInterceptors(FileInterceptor('photo', multerConfig))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Créer un nouvel article' })
   @ApiResponse({ status: 201, description: 'Article créé avec succès' })
   create(
     @Body() createArticleDto: CreateArticleDto,
+    @UploadedFile() file: Express.Multer.File,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.stockService.create(createArticleDto, organizationId);
+    return this.stockService.create(createArticleDto, organizationId, file);
   }
 
   @Permissions('stock.read')
@@ -107,6 +113,7 @@ export class StockController {
 
   @Permissions('stock.update')
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('photo', multerConfig))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour un article' })
   @ApiResponse({ status: 200, description: 'Article mis à jour' })
@@ -114,9 +121,10 @@ export class StockController {
   update(
     @Param('id') id: string,
     @Body() updateArticleDto: UpdateArticleDto,
+    @UploadedFile() file: Express.Multer.File,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.stockService.update(id, updateArticleDto, organizationId);
+    return this.stockService.update(id, updateArticleDto, organizationId, file);
   }
 
   @Permissions('stock.delete')

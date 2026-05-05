@@ -9,6 +9,8 @@ import { PaginatedResponse } from '../common/interfaces/paginated-response.inter
 import { createPaginatedResponse } from '../common/utils/pagination.util';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
+import { deleteFile } from '../common/utils/file.util';
+import { compressImage } from '../common/utils/image.util';
 
 @Injectable()
 export class StockService {
@@ -21,8 +23,28 @@ export class StockService {
     private ligneApproRepository: Repository<LigneApprovisionnement>,
   ) {}
 
-  async create(createArticleDto: CreateArticleDto, organizationId: string): Promise<Article> {
-    const article = this.articlesRepository.create({ ...createArticleDto, organizationId });
+  async create(
+    createArticleDto: CreateArticleDto,
+    organizationId: string,
+    file?: Express.Multer.File,
+  ): Promise<Article> {
+    let photoPath: string | undefined;
+
+    if (file) {
+      photoPath = `articles/${organizationId}/${file.filename}`;
+
+      // Compresser l'image en arrière-plan (ne pas bloquer la création)
+      compressImage(file.path).catch((error) => {
+        console.error('Erreur compression image:', error);
+      });
+    }
+
+    const article = this.articlesRepository.create({
+      ...createArticleDto,
+      photo: photoPath,
+      organizationId,
+    });
+
     return this.articlesRepository.save(article);
   }
 
@@ -99,9 +121,35 @@ export class StockService {
     return articles;
   }
 
-  async update(id: string, updateArticleDto: UpdateArticleDto, organizationId: string): Promise<Article> {
+  async update(
+    id: string,
+    updateArticleDto: UpdateArticleDto,
+    organizationId: string,
+    file?: Express.Multer.File,
+  ): Promise<Article> {
     const article = await this.findOne(id, organizationId);
-    Object.assign(article, updateArticleDto);
+
+    // Supprimer ancienne photo si nouvelle uploadée
+    if (file) {
+      if (article.photo) {
+        await deleteFile(article.photo);
+      }
+
+      // Compresser l'image en arrière-plan
+      compressImage(file.path).catch((error) => {
+        console.error('Erreur compression image:', error);
+      });
+
+      // Mettre à jour avec le nouveau chemin photo
+      Object.assign(article, {
+        ...updateArticleDto,
+        photo: `articles/${organizationId}/${file.filename}`,
+      });
+    } else {
+      // Pas de nouvelle photo, juste mettre à jour les autres champs
+      Object.assign(article, updateArticleDto);
+    }
+
     return this.articlesRepository.save(article);
   }
 
@@ -128,6 +176,11 @@ export class StockService {
       throw new BadRequestException(
         `Impossible de supprimer cet article : utilisé dans ${approCount} approvisionnement(s). Supprimez d'abord les approvisionnements.`,
       );
+    }
+
+    // Supprimer la photo si elle existe
+    if (article.photo) {
+      await deleteFile(article.photo);
     }
 
     await this.articlesRepository.remove(article);

@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Unique,
 } from 'typeorm';
 import { Approvisionnement } from '../../approvisionnements/entities/approvisionnement.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
@@ -16,6 +17,7 @@ export enum StatutFournisseur {
 }
 
 @Entity('fournisseur')
+@Unique(['email', 'organizationId'])
 export class Fournisseur extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -29,7 +31,7 @@ export class Fournisseur extends BaseTenantEntity {
   @Column()
   telephone: string;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ nullable: true })
   email: string;
 
   @Column({ type: 'simple-array', nullable: true })

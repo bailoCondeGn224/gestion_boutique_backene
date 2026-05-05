@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Unique,
 } from 'typeorm';
 import { LigneVente } from './ligne-vente.entity';
 import { VersementClient } from '../../versements-client/entities/versement-client.entity';
@@ -19,11 +20,12 @@ export enum ModePaiement {
 }
 
 @Entity('vente')
+@Unique(['numero', 'organizationId'])
 export class Vente extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   numero: string;
 
   @Column({ nullable: true })

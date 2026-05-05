@@ -7,6 +7,8 @@ import {
   ManyToMany,
   ManyToOne,
   JoinTable,
+  JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Permission } from '../../permissions/entities/permission.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -17,7 +19,7 @@ export class Role {
   id: string;
 
   @Column({ unique: true })
-  nom: string; // Ex: ADMIN, VENDEUR, GESTIONNAIRE_STOCK
+  nom: string; // Ex: ADMIN, VENDEUR, GESTIONNAIRE_STOCK (global, universel à toutes les organisations)
 
   @Column({ type: 'text', nullable: true })
   description: string;
@@ -27,6 +29,7 @@ export class Role {
 
   // Multi-tenant: organization nullable (null = role système comme SUPER_ADMIN)
   @ManyToOne(() => Organization, { nullable: true })
+  @JoinColumn({ name: 'organizationId' })
   organization: Organization;
 
   // Relation ManyToMany avec Permission

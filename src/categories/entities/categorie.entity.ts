@@ -7,20 +7,23 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Article } from '../../stock/entities/article.entity';
 import { Zone } from '../../zones/entities/zone.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('categorie')
+@Unique(['nom', 'organizationId'])
+@Unique(['code', 'organizationId'])
 export class Categorie extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   nom: string;
 
-  @Column({ unique: true })
+  @Column()
   code: string;
 
   @Column({ type: 'text', nullable: true })

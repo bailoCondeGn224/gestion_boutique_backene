@@ -6,17 +6,19 @@ import {
   UpdateDateColumn,
   OneToMany,
   Index,
+  Unique,
 } from 'typeorm';
 import { LigneCommande } from './ligne-commande.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 import { StatutCommande } from '../enums/statut-commande.enum';
 
 @Entity('commande')
+@Unique(['numero', 'organizationId'])
 export class Commande extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   @Index()
   numero: string;
 

@@ -24,3 +24,4 @@ jobs:
             docker compose build --no-cache backend
             docker compose up -d backend
             docker compose exec -T backend sed -i "s|src/\*\*\/\*.entity{.ts,.js}|dist/**/*.entity.js|g" dist/database/data-source.js
+            

@@ -46,6 +46,9 @@ export class Article extends BaseTenantEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ type: 'text', nullable: true })
+  photo: string; // Chemin relatif: articles/{organizationId}/{filename}
+
   @CreateDateColumn()
   createdAt: Date;
 

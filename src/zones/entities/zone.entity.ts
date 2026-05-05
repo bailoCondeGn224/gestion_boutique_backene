@@ -5,16 +5,18 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Unique,
 } from 'typeorm';
 import { Categorie } from '../../categories/entities/categorie.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('zones')
+@Unique(['code', 'organizationId']) // Contrainte unique composite: code unique PAR organisation
 export class Zone extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 10, unique: true })
+  @Column({ type: 'varchar', length: 10 })
   code: string; // Ex: "A", "B", "C", "D", "E"
 
   @Column({ type: 'varchar', length: 100 })
