@@ -8,6 +8,9 @@ export interface StockUpdate {
 }
 
 export interface RetourClientResponse {
+  retourId: string;
+  numeroRetour: string;
+  venteAnnulee: boolean;
   mouvements: MouvementStock[];
   updatedStock: StockUpdate[];
   financialSummary: {

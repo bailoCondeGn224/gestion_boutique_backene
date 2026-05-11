@@ -30,23 +30,7 @@ export class RetoursValidator {
     queryRunner: QueryRunner,
   ): Promise<void> {
     for (const ligne of lignes) {
-      // 1. Récupérer la ligne de vente originale
-      const originalLigne = await queryRunner.manager.findOne(LigneVente, {
-        where: {
-          venteId,
-          articleId: ligne.articleId,
-          organizationId,
-          
-        },
-      });
-
-      if (!originalLigne) {
-        throw new BadRequestException(
-          `Article "${ligne.nom}" n'existe pas dans la vente originale`,
-        );
-      }
-
-      // 2. Calculer la quantité totale déjà retournée pour cet article de cette vente
+      // 1. Calculer la quantité totale déjà retournée pour cet article de cette vente
       const retoursExistants = await queryRunner.manager
         .createQueryBuilder()
         .select('COALESCE(SUM(ms.quantite), 0)', 'totalRetourne')
@@ -63,14 +47,36 @@ export class RetoursValidator {
       const quantiteDejaRetournee = parseInt(
         retoursExistants?.totalRetourne || '0',
       );
-      const quantiteDisponiblePourRetour =
-        originalLigne.quantite - quantiteDejaRetournee;
 
-      // 3. Valider que la quantité demandée ne dépasse pas la quantité disponible
+      // 2. Récupérer la ligne de vente (peut être NULL si tous les articles ont été retournés)
+      const ligneActuelle = await queryRunner.manager.findOne(LigneVente, {
+        where: {
+          venteId,
+          articleId: ligne.articleId,
+          organizationId,
+        },
+      });
+
+      // 3. Calculer la quantité ORIGINALE vendue (actuelle + déjà retournée)
+      const quantiteOriginaleVendue = ligneActuelle
+        ? ligneActuelle.quantite + quantiteDejaRetournee
+        : quantiteDejaRetournee;
+
+      // Si pas de ligne actuelle ET aucun retour précédent = article jamais vendu
+      if (quantiteOriginaleVendue === 0) {
+        throw new BadRequestException(
+          `Article "${ligne.nom}" n'existe pas dans la vente originale`,
+        );
+      }
+
+      // 4. Calculer la quantité disponible pour retour
+      const quantiteDisponiblePourRetour = quantiteOriginaleVendue - quantiteDejaRetournee;
+
+      // 5. Valider que la quantité demandée ne dépasse pas la quantité disponible
       if (ligne.quantite > quantiteDisponiblePourRetour) {
         throw new BadRequestException(
           `Retour impossible pour "${ligne.nom}": ` +
-            `Quantité vendue: ${originalLigne.quantite}, ` +
+            `Quantité originale vendue: ${quantiteOriginaleVendue}, ` +
             `Déjà retournée: ${quantiteDejaRetournee}, ` +
             `Disponible pour retour: ${quantiteDisponiblePourRetour}, ` +
             `Quantité demandée: ${ligne.quantite}. ` +
@@ -78,7 +84,7 @@ export class RetoursValidator {
         );
       }
 
-      // 4. Vérifier que la quantité demandée est positive
+      // 6. Vérifier que la quantité demandée est positive
       if (ligne.quantite <= 0) {
         throw new BadRequestException(
           `La quantité à retourner doit être supérieure à 0 pour "${ligne.nom}"`,

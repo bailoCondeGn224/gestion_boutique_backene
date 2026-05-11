@@ -4,6 +4,8 @@ import { RetoursService } from './retours.service';
 import { RetoursController } from './retours.controller';
 import { Vente } from '../ventes/entities/vente.entity';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
+import { RetourClient } from './entities/retour-client.entity';
+import { LigneRetourClient } from './entities/ligne-retour-client.entity';
 import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
 import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
 import { Client } from '../clients/entities/client.entity';
@@ -18,6 +20,8 @@ import { ValidationModule } from '../validation/validation.module';
     TypeOrmModule.forFeature([
       Vente,
       LigneVente,
+      RetourClient,
+      LigneRetourClient,
       Approvisionnement,
       LigneApprovisionnement,
       Client,

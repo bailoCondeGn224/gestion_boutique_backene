@@ -16,6 +16,8 @@ import { Client } from '../clients/entities/client.entity';
 import { Fournisseur } from '../fournisseurs/entities/fournisseur.entity';
 import { Article } from '../stock/entities/article.entity';
 import { Transaction, CategorieTransaction, TypeTransaction } from '../finances/entities/transaction.entity';
+import { RetourClient } from './entities/retour-client.entity';
+import { LigneRetourClient } from './entities/ligne-retour-client.entity';
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
 import {
   TypeMouvement,
@@ -36,6 +38,10 @@ export class RetoursService {
     private venteRepository: Repository<Vente>,
     @InjectRepository(LigneVente)
     private ligneVenteRepository: Repository<LigneVente>,
+    @InjectRepository(RetourClient)
+    private retourClientRepository: Repository<RetourClient>,
+    @InjectRepository(LigneRetourClient)
+    private ligneRetourClientRepository: Repository<LigneRetourClient>,
     @InjectRepository(Approvisionnement)
     private approvisionnementRepository: Repository<Approvisionnement>,
     @InjectRepository(LigneApprovisionnement)
@@ -80,10 +86,26 @@ export class RetoursService {
         queryRunner,
       );
 
+      // 3. Générer numéro de retour (RC-001, RC-002...)
+      const lastRetour = await queryRunner.manager.findOne(RetourClient, {
+        where: { organizationId },
+        order: { createdAt: 'DESC' },
+      });
+
+      let nextNumber = 1;
+      if (lastRetour && lastRetour.numero) {
+        const match = lastRetour.numero.match(/RC-(\d+)/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
+      }
+      const numeroRetour = `RC-${String(nextNumber).padStart(3, '0')}`;
+
       const mouvements = [];
       const stockUpdates: StockUpdate[] = [];
+      const lignesRetour: LigneRetourClient[] = [];
 
-      // 3. Traiter chaque article retourné
+      // 4. Traiter chaque article retourné
       for (const ligne of dto.lignes) {
         const article = await queryRunner.manager.findOne(Article, {
           where: { id: ligne.articleId, organizationId },
@@ -117,7 +139,7 @@ export class RetoursService {
             userId: dto.userId,
             userNom: dto.userNom,
             venteId: dto.venteId,
-            reference: vente.numero,
+            reference: numeroRetour,
             note: ligne.noteArticle || dto.note,
             date: new Date(),
           },
@@ -131,9 +153,97 @@ export class RetoursService {
           stockAvant,
           stockApres,
         });
+
+        // Préparer ligne retour pour sauvegarde
+        lignesRetour.push({
+          articleId: ligne.articleId,
+          nom: ligne.nom,
+          quantite: ligne.quantite,
+          prixUnitaire: ligne.prixUnitaire,
+          sousTotal: ligne.sousTotal,
+          raison: ligne.raison,
+          noteArticle: ligne.noteArticle,
+        } as LigneRetourClient);
+
+        // 5. METTRE À JOUR LA LIGNE DE VENTE
+        const ligneVente = vente.lignes.find(lv => lv.articleId === ligne.articleId);
+        if (ligneVente) {
+          const nouvelleQuantite = ligneVente.quantite - ligne.quantite;
+
+          if (nouvelleQuantite <= 0) {
+            // Supprimer la ligne si quantité = 0
+            await queryRunner.manager.delete(LigneVente, ligneVente.id);
+          } else {
+            // Diminuer la quantité et recalculer le sous-total
+            const nouveauSousTotal = nouvelleQuantite * ligneVente.prixUnitaire;
+            await queryRunner.manager.update(LigneVente, ligneVente.id, {
+              quantite: nouvelleQuantite,
+              sousTotal: nouveauSousTotal,
+            });
+          }
+        }
       }
 
-      // 4. Ajuster finances client
+      // 6. RECALCULER LE TOTAL DE LA VENTE
+      const lignesRestantes = await queryRunner.manager.find(LigneVente, {
+        where: { venteId: dto.venteId },
+      });
+
+      console.log(`[RETOUR CLIENT] Vente ${vente.numero}: ${lignesRestantes.length} ligne(s) restante(s)`);
+
+      let venteAnnulee = false;
+      if (lignesRestantes.length === 0) {
+        // Retour total: supprimer la vente
+        console.log(`[RETOUR CLIENT] Suppression de la vente ${vente.numero} (retour total)`);
+        await queryRunner.manager.delete(Vente, dto.venteId);
+        venteAnnulee = true;
+      } else {
+        // Retour partiel: recalculer les montants
+        const nouveauTotal = lignesRestantes.reduce(
+          (sum, l) => sum + Number(l.sousTotal),
+          0,
+        );
+
+        // Calculer le ratio du retour pour ajuster montantPaye proportionnellement
+        const ancienTotal = Number(vente.total);
+        const ratioRestant = nouveauTotal / ancienTotal;
+
+        const nouveauMontantPaye = Math.min(
+          Number(vente.montantPaye) * ratioRestant,
+          nouveauTotal,
+        );
+        const nouveauMontantRestant = nouveauTotal - nouveauMontantPaye;
+
+        console.log(`[RETOUR CLIENT] Mise à jour vente ${vente.numero}: ${ancienTotal} → ${nouveauTotal} GNF`);
+
+        await queryRunner.manager.update(Vente, dto.venteId, {
+          total: nouveauTotal,
+          montantPaye: nouveauMontantPaye,
+          montantRestant: nouveauMontantRestant,
+        });
+      }
+
+      // 7. SAUVEGARDER LE RETOUR CLIENT
+      const retourClient = queryRunner.manager.create(RetourClient, {
+        numero: numeroRetour,
+        venteId: dto.venteId,
+        venteNumero: vente.numero,
+        clientId: vente.clientId,
+        clientNom: vente.nom || null,
+        total: dto.total,
+        modeRemboursement: dto.modeRemboursement,
+        montantRembourse: dto.total,
+        date: new Date(),
+        note: dto.note,
+        userId: dto.userId,
+        userNom: dto.userNom,
+        organizationId,
+        lignes: lignesRetour,
+      });
+
+      await queryRunner.manager.save(RetourClient, retourClient);
+
+      // 8. Ajuster finances client
       let clientUpdated = false;
       let nouveauTotalAchats: number | undefined;
       let nouveauTotalCredits: number | undefined;
@@ -165,14 +275,14 @@ export class RetoursService {
         clientUpdated = true;
       }
 
-      // 5. Créer transaction pour remboursements cash/mobile/virement
+      // 9. Créer transaction pour remboursements cash/mobile/virement
       if (dto.modeRemboursement !== ModeRemboursement.CREDIT_COMPTE) {
         await queryRunner.manager.query(
           `INSERT INTO transaction
            (description, montant, type, categorie, date, "venteId", "organizationId")
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
-            `Retour client - Vente ${vente.numero}`,
+            `Retour client ${numeroRetour} - Vente ${vente.numero}`,
             dto.total,
             TypeTransaction.OUT,
             CategorieTransaction.RETOUR_CLIENT,
@@ -186,6 +296,9 @@ export class RetoursService {
       await queryRunner.commitTransaction();
 
       return {
+        retourId: retourClient.id,
+        numeroRetour,
+        venteAnnulee,
         mouvements,
         updatedStock: stockUpdates,
         financialSummary: {
@@ -379,7 +492,7 @@ export class RetoursService {
   // pour une meilleure séparation des responsabilités et réutilisabilité
 
   /**
-   * Récupérer l'historique des retours clients
+   * Récupérer l'historique des retours clients (mouvements de stock)
    */
   async getRetoursClients(organizationId: string, page: number = 1, limit: number = 50) {
     const mouvements = await this.mouvementsStockService.findAll(organizationId, {
@@ -390,11 +503,24 @@ export class RetoursService {
 
     return {
       data: mouvements.data,
-      total: mouvements.meta.total,
-      page: mouvements.meta.page,
-      limit: mouvements.meta.limit,
-      totalPages: mouvements.meta.totalPages,
+      meta: mouvements.meta,
     };
+  }
+
+  /**
+   * Détails d'un retour client (entité complète)
+   */
+  async getRetourClient(id: string, organizationId: string) {
+    const retour = await this.retourClientRepository.findOne({
+      where: { id, organizationId },
+      relations: ['lignes'],
+    });
+
+    if (!retour) {
+      throw new NotFoundException('Retour client non trouvé');
+    }
+
+    return retour;
   }
 
   /**

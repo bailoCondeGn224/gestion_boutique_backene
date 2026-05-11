@@ -17,6 +17,7 @@ import { FinancesModule } from './finances/finances.module';
 import { CategoriesModule } from './categories/categories.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { MouvementsStockModule } from './mouvements-stock/mouvements-stock.module';
+import { InventairesModule } from './inventaires/inventaires.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { RolesModule } from './roles/roles.module';
 import { ZonesModule } from './zones/zones.module';
@@ -68,6 +69,7 @@ import { CommandesModule } from './commandes/commandes.module';
     FinancesModule,
     AnalyticsModule,
     MouvementsStockModule,
+    InventairesModule,
     PermissionsModule,
     RolesModule,
     AdminDashboardModule,

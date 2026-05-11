@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Vente } from './entities/vente.entity';
@@ -36,6 +36,18 @@ export class VentesService {
   }
 
   async create(createVenteDto: CreateVenteDto, organizationId: string): Promise<Vente> {
+    // VALIDATION CRITIQUE: Vérifier qu'un client est enregistré
+    const hasDette = Number(createVenteDto.montantRestant) > 0;
+    const isCreditMode = ['credit', 'acompte_50'].includes(createVenteDto.modePaiement);
+
+    // Bloquer si: (1) il y a une dette OU (2) le mode est crédit/acompte
+    if ((hasDette || isCreditMode) && !createVenteDto.clientId) {
+      throw new BadRequestException(
+        'Un client doit être enregistré pour les ventes à crédit ou avec un montant restant. ' +
+        'Veuillez créer ou sélectionner un client avant de continuer.'
+      );
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();

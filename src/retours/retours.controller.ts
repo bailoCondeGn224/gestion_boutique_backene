@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Query,
+  Param,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -47,6 +48,19 @@ export class RetoursController {
   @ApiResponse({ status: 200, description: 'Statistiques des retours clients' })
   getStatsRetoursClients(@CurrentOrganization() organizationId: string) {
     return this.retoursService.getStatsRetoursClients(organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  @Get('client/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Détails d\'un retour client' })
+  @ApiResponse({ status: 200, description: 'Détails du retour client' })
+  @ApiResponse({ status: 404, description: 'Retour client non trouvé' })
+  getRetourClient(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.retoursService.getRetourClient(id, organizationId);
   }
 
   @UseGuards(JwtAuthGuard, TenantGuard)
