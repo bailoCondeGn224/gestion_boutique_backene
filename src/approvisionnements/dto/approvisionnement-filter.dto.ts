@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -41,4 +41,18 @@ export class ApprovisionnementFilterDto extends PaginationDto {
   @IsOptional()
   @TransformEmptyToUndefined()
   dateFin?: string;
+
+  @ApiPropertyOptional({
+    description: 'Inclure les approvisionnements annulés dans les résultats',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return false;
+  })
+  @IsBoolean()
+  includeAnnules?: boolean;
 }

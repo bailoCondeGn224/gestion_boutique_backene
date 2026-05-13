@@ -67,6 +67,78 @@ export class Inventaire {
   @OneToMany(() => ComptageInventaire, (comptage) => comptage.inventaire)
   comptages: ComptageInventaire[];
 
+  // ============ CHAMPS FINANCIERS ============
+  // Période de l'inventaire
+  @Column({ type: 'timestamp', nullable: true })
+  dateDebut: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  dateFin: Date;
+
+  @Column({ type: 'int', nullable: true })
+  dureeJours: number;
+
+  // Revenus
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  chiffreAffaires: number;
+
+  @Column({ type: 'int', default: 0 })
+  nombreVentes: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  panierMoyen: number;
+
+  // Coûts
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  coutMarchandises: number;
+
+  // Bénéfice brut
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  beneficeBrut: number;
+
+  @Column({ type: 'decimal', precision: 8, scale: 2, default: 0 })
+  tauxMarge: number;
+
+  // Dépenses
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  depensesFixes: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  depensesVariables: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  depensesExceptionnelles: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  totalDepenses: number;
+
+  // Pertes
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  valeurArticlesManquants: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  valeurArticlesAbimes: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  totalPertes: number;
+
+  // Résultat final
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  beneficeNet: number;
+
+  @Column({ type: 'decimal', precision: 8, scale: 2, default: 0 })
+  tauxRentabilite: number;
+
+  // Statut financier
+  @Column({ type: 'boolean', default: false })
+  estBeneficiaire: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  financesCalcules: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  financesCalculesLe: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

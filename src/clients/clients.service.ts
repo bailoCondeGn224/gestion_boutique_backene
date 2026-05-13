@@ -53,7 +53,7 @@ export class ClientsService {
     }
 
     const [data, total] = await queryBuilder
-      .orderBy('client.nom', 'ASC')
+      .orderBy('client.createdAt', 'DESC')
       .skip(skip)
       .take(limit)
       .getManyAndCount();

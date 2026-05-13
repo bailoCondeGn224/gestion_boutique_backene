@@ -121,13 +121,14 @@ export class ApprovisionnementService {
         }
       }
 
-      // Incrémenter totalAchats du fournisseur
+      // Incrémenter totalAchats et totalPaye du fournisseur
       await queryRunner.manager.query(
         `UPDATE fournisseur
          SET "totalAchats" = "totalAchats" + $1,
-             dette = "totalAchats" + $1 - "totalPaye"
-         WHERE id = $2 AND "organizationId" = $3`,
-        [createDto.total, createDto.fournisseurId, organizationId],
+             "totalPaye" = "totalPaye" + $2,
+             dette = ("totalAchats" + $1) - ("totalPaye" + $2)
+         WHERE id = $3 AND "organizationId" = $4`,
+        [createDto.total, montantPaye, createDto.fournisseurId, organizationId],
       );
 
       // Créer une transaction financière (sortie d'argent si payé)
@@ -166,7 +167,7 @@ export class ApprovisionnementService {
   }
 
   async findAll(filterDto: ApprovisionnementFilterDto, organizationId: string): Promise<PaginatedResponse<Approvisionnement>> {
-    const { page = 1, limit = 10, search, fournisseurId, dateDebut, dateFin } = filterDto || {};
+    const { page = 1, limit = 10, search, fournisseurId, dateDebut, dateFin, includeAnnules = false } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.approvisionnementRepository.createQueryBuilder('approvisionnement');
@@ -176,6 +177,11 @@ export class ApprovisionnementService {
 
     // Filtre par organization (toujours en premier avec .where())
     queryBuilder.where('approvisionnement.organizationId = :organizationId', { organizationId });
+
+    // Par défaut, exclure les approvisionnements annulés (sauf si explicitement demandé)
+    if (!includeAnnules) {
+      queryBuilder.andWhere('approvisionnement.statut = :statut', { statut: 'VALIDE' });
+    }
 
     // Filtre par recherche (numéro)
     if (search) {
@@ -402,15 +408,17 @@ export class ApprovisionnementService {
       if (Object.keys(otherFields).length > 0) {
         // Calculer les anciens et nouveaux montants
         const oldTotal = Number(approvisionnement.total);
+        const oldMontantPaye = Number(approvisionnement.montantPaye);
 
         // Recalculer montantRestant si nécessaire
         if (otherFields.total !== undefined || otherFields.montantPaye !== undefined) {
           const newTotal = otherFields.total ?? oldTotal;
-          const newMontantPaye = otherFields.montantPaye ?? Number(approvisionnement.montantPaye);
+          const newMontantPaye = otherFields.montantPaye ?? oldMontantPaye;
           otherFields.montantRestant = newTotal - newMontantPaye;
         }
 
         const newTotal = otherFields.total ?? oldTotal;
+        const newMontantPaye = otherFields.montantPaye ?? oldMontantPaye;
 
         // Mettre à jour l'approvisionnement
         await queryRunner.manager.update(
@@ -419,16 +427,18 @@ export class ApprovisionnementService {
           otherFields,
         );
 
-        // Si le total a changé, ajuster le fournisseur
-        if (otherFields.total !== undefined) {
+        // Si le total OU le montantPaye a changé, ajuster le fournisseur
+        if (otherFields.total !== undefined || otherFields.montantPaye !== undefined) {
           const diffTotal = newTotal - oldTotal;
+          const diffMontantPaye = newMontantPaye - oldMontantPaye;
 
           await queryRunner.manager.query(
             `UPDATE fournisseur
              SET "totalAchats" = "totalAchats" + $1,
-                 dette = "totalAchats" + $1 - "totalPaye"
-             WHERE id = $2 AND "organizationId" = $3`,
-            [diffTotal, approvisionnement.fournisseurId, organizationId],
+                 "totalPaye" = "totalPaye" + $2,
+                 dette = ("totalAchats" + $1) - ("totalPaye" + $2)
+             WHERE id = $3 AND "organizationId" = $4`,
+            [diffTotal, diffMontantPaye, approvisionnement.fournisseurId, organizationId],
           );
         }
       }
@@ -447,6 +457,128 @@ export class ApprovisionnementService {
     }
   }
 
+  /**
+   * Annuler un approvisionnement (gardé pour traçabilité)
+   * Vérifie que le stock est disponible avant d'annuler
+   */
+  async annuler(
+    id: string,
+    organizationId: string,
+    motifAnnulation: string,
+    userId?: string,
+    userNom?: string,
+  ): Promise<Approvisionnement> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const approvisionnement = await this.findOne(id, organizationId);
+
+      // Vérifier que l'approvisionnement n'est pas déjà annulé
+      if (approvisionnement.statut === 'ANNULE') {
+        throw new BadRequestException(
+          'Cet approvisionnement est déjà annulé',
+        );
+      }
+
+      // ========== VÉRIFICATION CRITIQUE ==========
+      // Même logique de vérification que la suppression
+      const articlesInsuffisants: string[] = [];
+
+      for (const ligne of approvisionnement.lignes) {
+        const article = await queryRunner.manager.query(
+          `SELECT id, nom, stock FROM article WHERE id = $1 AND "organizationId" = $2`,
+          [ligne.articleId, organizationId],
+        );
+
+        if (article.length === 0) {
+          articlesInsuffisants.push(
+            `Article ID ${ligne.articleId} introuvable`
+          );
+          continue;
+        }
+
+        const stockActuel = parseInt(article[0].stock);
+        const quantiteARetirer = ligne.quantite;
+
+        if (stockActuel < quantiteARetirer) {
+          const quantiteVendue = quantiteARetirer - stockActuel;
+          articlesInsuffisants.push(
+            `"${article[0].nom}": ${quantiteVendue} article(s) déjà vendu(s) (stock: ${stockActuel}, besoin: ${quantiteARetirer})`
+          );
+        }
+      }
+
+      // Si des articles ont un stock insuffisant, BLOQUER l'annulation
+      if (articlesInsuffisants.length > 0) {
+        throw new BadRequestException(
+          `❌ Annulation impossible - Des articles ont déjà été vendus:\n\n` +
+          articlesInsuffisants.map(msg => `  • ${msg}`).join('\n') +
+          `\n\n💡 Vous ne pouvez annuler un approvisionnement que si TOUS les articles sont encore en stock.`
+        );
+      }
+
+      // ========== SUPPRESSION DES MOUVEMENTS DE STOCK ==========
+      await queryRunner.manager.query(
+        `DELETE FROM mouvement_stock WHERE "approvisionnementId" = $1 AND "organizationId" = $2`,
+        [id, organizationId],
+      );
+
+      // ========== RESTAURATION DU STOCK ==========
+      for (const ligne of approvisionnement.lignes) {
+        await queryRunner.manager.query(
+          `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
+          [ligne.quantite, ligne.articleId, organizationId],
+        );
+      }
+
+      // ========== MISE À JOUR DU FOURNISSEUR ==========
+      await queryRunner.manager.query(
+        `UPDATE fournisseur
+         SET "totalAchats" = "totalAchats" - $1,
+             "totalPaye" = "totalPaye" - $2,
+             dette = ("totalAchats" - $1) - ("totalPaye" - $2)
+         WHERE id = $3 AND "organizationId" = $4`,
+        [approvisionnement.total, approvisionnement.montantPaye, approvisionnement.fournisseurId, organizationId],
+      );
+
+      // ========== SUPPRESSION DE LA TRANSACTION FINANCIÈRE ==========
+      await queryRunner.manager.query(
+        `DELETE FROM transaction WHERE "approvisionnementId" = $1 AND "organizationId" = $2`,
+        [id, organizationId],
+      );
+
+      // ========== MARQUER COMME ANNULÉ ==========
+      await queryRunner.manager.query(
+        `UPDATE approvisionnement
+         SET statut = 'ANNULE',
+             "annuleLe" = CURRENT_TIMESTAMP,
+             "annulePar" = $1,
+             "motifAnnulation" = $2
+         WHERE id = $3 AND "organizationId" = $4`,
+        [userNom || userId || 'Système', motifAnnulation, id, organizationId],
+      );
+
+      await queryRunner.commitTransaction();
+
+      // Retourner l'approvisionnement mis à jour
+      return this.findOne(id, organizationId);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw new BadRequestException(
+        `Erreur lors de l'annulation de l'approvisionnement: ${error.message}`,
+      );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Supprimer définitivement un approvisionnement
+   * ATTENTION: Supprime complètement l'enregistrement (perte d'historique)
+   * Préférer annuler() pour garder la traçabilité
+   */
   async remove(id: string, organizationId: string): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -455,7 +587,54 @@ export class ApprovisionnementService {
     try {
       const approvisionnement = await this.findOne(id, organizationId);
 
-      // Restaurer le stock de chaque article
+      // ========== VÉRIFICATION CRITIQUE ==========
+      // Vérifier que le stock actuel permet la suppression pour CHAQUE article
+      const articlesInsuffisants: string[] = [];
+
+      for (const ligne of approvisionnement.lignes) {
+        const article = await queryRunner.manager.query(
+          `SELECT id, nom, stock FROM article WHERE id = $1 AND "organizationId" = $2`,
+          [ligne.articleId, organizationId],
+        );
+
+        if (article.length === 0) {
+          articlesInsuffisants.push(
+            `Article ID ${ligne.articleId} introuvable`
+          );
+          continue;
+        }
+
+        const stockActuel = parseInt(article[0].stock);
+        const quantiteARetirer = ligne.quantite;
+
+        // Si le stock actuel est inférieur à la quantité approvisionnée,
+        // cela signifie que des articles ont été vendus
+        if (stockActuel < quantiteARetirer) {
+          const quantiteVendue = quantiteARetirer - stockActuel;
+          articlesInsuffisants.push(
+            `"${article[0].nom}": ${quantiteVendue} article(s) déjà vendu(s) (stock: ${stockActuel}, besoin: ${quantiteARetirer})`
+          );
+        }
+      }
+
+      // Si des articles ont un stock insuffisant, BLOQUER la suppression
+      if (articlesInsuffisants.length > 0) {
+        throw new BadRequestException(
+          `❌ Suppression impossible - Des articles ont déjà été vendus:\n\n` +
+          articlesInsuffisants.map(msg => `  • ${msg}`).join('\n') +
+          `\n\n💡 Vous ne pouvez supprimer un approvisionnement que si TOUS les articles sont encore en stock.`
+        );
+      }
+
+      // ========== SUPPRESSION DES MOUVEMENTS DE STOCK ==========
+      // Supprimer les mouvements de stock liés à cet approvisionnement
+      await queryRunner.manager.query(
+        `DELETE FROM mouvement_stock WHERE "approvisionnementId" = $1 AND "organizationId" = $2`,
+        [id, organizationId],
+      );
+
+      // ========== RESTAURATION DU STOCK ==========
+      // Maintenant on peut retirer le stock en toute sécurité
       for (const ligne of approvisionnement.lignes) {
         await queryRunner.manager.query(
           `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
@@ -463,13 +642,14 @@ export class ApprovisionnementService {
         );
       }
 
-      // Mettre à jour le fournisseur (diminuer totalAchats et recalculer dette)
+      // Mettre à jour le fournisseur (diminuer totalAchats, totalPaye et recalculer dette)
       await queryRunner.manager.query(
         `UPDATE fournisseur
          SET "totalAchats" = "totalAchats" - $1,
-             dette = "totalAchats" - $1 - "totalPaye"
-         WHERE id = $2 AND "organizationId" = $3`,
-        [approvisionnement.total, approvisionnement.fournisseurId, organizationId],
+             "totalPaye" = "totalPaye" - $2,
+             dette = ("totalAchats" - $1) - ("totalPaye" - $2)
+         WHERE id = $3 AND "organizationId" = $4`,
+        [approvisionnement.total, approvisionnement.montantPaye, approvisionnement.fournisseurId, organizationId],
       );
 
       // Supprimer la transaction financière associée si elle existe

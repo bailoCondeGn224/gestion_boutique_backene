@@ -81,6 +81,12 @@ const basePermissions = [
   // Mouvements de stock
   { code: 'mouvements.read', nom: 'Voir l\'historique des mouvements', description: 'Permet de consulter l\'historique des mouvements de stock' },
 
+  // Dépenses
+  { code: 'depenses.create', nom: 'Créer une dépense', description: 'Permet d\'enregistrer de nouvelles dépenses' },
+  { code: 'depenses.read', nom: 'Voir les dépenses', description: 'Permet de consulter les dépenses' },
+  { code: 'depenses.update', nom: 'Modifier une dépense', description: 'Permet de modifier les dépenses' },
+  { code: 'depenses.delete', nom: 'Supprimer une dépense', description: 'Permet de supprimer des dépenses' },
+
   // Utilisateurs
   { code: 'users.create', nom: 'Créer un utilisateur', description: 'Permet de créer de nouveaux utilisateurs' },
   { code: 'users.read', nom: 'Voir les utilisateurs', description: 'Permet de consulter les utilisateurs' },
@@ -155,6 +161,8 @@ const rolesConfig = [
       'zones.create', 'zones.read', 'zones.update', 'zones.delete',
       // Mouvements
       'mouvements.read',
+      // Dépenses
+      'depenses.create', 'depenses.read', 'depenses.update', 'depenses.delete',
       // Paramètres
       'parametres.read', 'parametres.update',
     ],
@@ -215,6 +223,8 @@ const rolesConfig = [
       'versements.create', 'versements.read', 'versements.update', 'versements.delete',
       // Versements clients
       'versements-client.create', 'versements-client.read', 'versements-client.update', 'versements-client.delete',
+      // Dépenses
+      'depenses.create', 'depenses.read', 'depenses.update', 'depenses.delete',
       // Clients (lecture seule)
       'clients.read',
       // Fournisseurs (lecture seule)

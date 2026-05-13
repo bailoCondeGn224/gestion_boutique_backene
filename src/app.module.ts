@@ -25,6 +25,7 @@ import { PlansModule } from './plans/plans.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CommandesModule } from './commandes/commandes.module';
+import { DepensesModule } from './depenses/depenses.module';
 
 @Module({
   imports: [
@@ -43,7 +44,7 @@ import { CommandesModule } from './commandes/commandes.module';
         database: configService.get('DATABASE_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get('NODE_ENV') === 'development',
-        logging: false,
+        logging: ['error'],
         extra: {
           max: 10,
           min: 2,
@@ -66,6 +67,7 @@ import { CommandesModule } from './commandes/commandes.module';
     VersementsModule,
     VersementsClientModule,
     RetoursModule,
+    DepensesModule,
     FinancesModule,
     AnalyticsModule,
     MouvementsStockModule,

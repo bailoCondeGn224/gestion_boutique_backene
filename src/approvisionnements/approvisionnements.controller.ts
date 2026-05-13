@@ -10,7 +10,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApprovisionnementService } from './approvisionnements.service';
 import { CreateApprovisionnementDto } from './dto/create-approvisionnement.dto';
 import { UpdateApprovisionnementDto } from './dto/update-approvisionnement.dto';
@@ -157,13 +157,63 @@ export class ApprovisionnementController {
     return this.approvisionnementService.update(id, updateDto, organizationId);
   }
 
+  @Post(':id/annuler')
+  @UseGuards(PermissionsGuard)
+  @Permissions('approvisionnements.delete')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Annuler un approvisionnement (conservé pour traçabilité)' })
+  @ApiParam({ name: 'id', description: 'ID de l\'approvisionnement' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        motifAnnulation: {
+          type: 'string',
+          description: 'Raison de l\'annulation',
+          example: 'Erreur de commande',
+        },
+      },
+      required: ['motifAnnulation'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Approvisionnement annulé avec succès',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Annulation impossible - Articles déjà vendus',
+  })
+  @ApiResponse({ status: 404, description: 'Approvisionnement introuvable' })
+  annuler(
+    @Param('id') id: string,
+    @Body('motifAnnulation') motifAnnulation: string,
+    @CurrentOrganization() organizationId: string,
+    @Request() req,
+  ) {
+    return this.approvisionnementService.annuler(
+      id,
+      organizationId,
+      motifAnnulation,
+      req.user?.id,
+      req.user?.nom,
+    );
+  }
+
   @Delete(':id')
   @UseGuards(PermissionsGuard)
   @Permissions('approvisionnements.delete')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Supprimer un approvisionnement' })
+  @ApiOperation({
+    summary: 'Supprimer définitivement un approvisionnement',
+    description: 'ATTENTION: Supprime complètement l\'enregistrement. Préférer l\'annulation pour garder la traçabilité.',
+  })
   @ApiParam({ name: 'id', description: 'ID de l\'approvisionnement' })
-  @ApiResponse({ status: 200, description: 'Approvisionnement supprimé' })
+  @ApiResponse({ status: 200, description: 'Approvisionnement supprimé définitivement' })
+  @ApiResponse({
+    status: 400,
+    description: 'Suppression impossible - Articles déjà vendus',
+  })
   @ApiResponse({ status: 404, description: 'Approvisionnement introuvable' })
   remove(
     @Param('id') id: string,

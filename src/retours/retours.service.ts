@@ -163,6 +163,7 @@ export class RetoursService {
           sousTotal: ligne.sousTotal,
           raison: ligne.raison,
           noteArticle: ligne.noteArticle,
+          organizationId, // Ajout de l'organizationId
         } as LigneRetourClient);
 
         // 5. METTRE À JOUR LA LIGNE DE VENTE
@@ -223,7 +224,7 @@ export class RetoursService {
         });
       }
 
-      // 7. SAUVEGARDER LE RETOUR CLIENT
+      // 7. SAUVEGARDER LE RETOUR CLIENT (sans les lignes d'abord)
       const retourClient = queryRunner.manager.create(RetourClient, {
         numero: numeroRetour,
         venteId: dto.venteId,
@@ -238,12 +239,21 @@ export class RetoursService {
         userId: dto.userId,
         userNom: dto.userNom,
         organizationId,
-        lignes: lignesRetour,
       });
 
-      await queryRunner.manager.save(RetourClient, retourClient);
+      const savedRetourClient = await queryRunner.manager.save(RetourClient, retourClient);
 
-      // 8. Ajuster finances client
+      // 8. SAUVEGARDER LES LIGNES SÉPARÉMENT avec retourClientId et organizationId
+      for (const ligneData of lignesRetour) {
+        const ligne = queryRunner.manager.create(LigneRetourClient, {
+          ...ligneData,
+          retourClientId: savedRetourClient.id,
+          organizationId,
+        });
+        await queryRunner.manager.save(LigneRetourClient, ligne);
+      }
+
+      // 9. Ajuster finances client
       let clientUpdated = false;
       let nouveauTotalAchats: number | undefined;
       let nouveauTotalCredits: number | undefined;
@@ -275,7 +285,7 @@ export class RetoursService {
         clientUpdated = true;
       }
 
-      // 9. Créer transaction pour remboursements cash/mobile/virement
+      // 10. Créer transaction pour remboursements cash/mobile/virement
       if (dto.modeRemboursement !== ModeRemboursement.CREDIT_COMPTE) {
         await queryRunner.manager.query(
           `INSERT INTO transaction
@@ -296,7 +306,7 @@ export class RetoursService {
       await queryRunner.commitTransaction();
 
       return {
-        retourId: retourClient.id,
+        retourId: savedRetourClient.id,
         numeroRetour,
         venteAnnulee,
         mouvements,

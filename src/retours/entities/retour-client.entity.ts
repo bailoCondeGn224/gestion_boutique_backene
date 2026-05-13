@@ -9,13 +9,7 @@ import {
 } from 'typeorm';
 import { LigneRetourClient } from './ligne-retour-client.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
-
-export enum ModeRemboursement {
-  ESPECES = 'especes',
-  MOBILE_MONEY = 'mobile_money',
-  VIREMENT = 'virement',
-  CREDIT_COMPTE = 'credit_compte',
-}
+import { ModeRemboursement } from '../enums/mode-remboursement.enum';
 
 @Entity('retour_client')
 @Unique(['numero', 'organizationId'])

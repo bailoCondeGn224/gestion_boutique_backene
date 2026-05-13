@@ -6,6 +6,7 @@ import { Inventaire } from './entities/inventaire.entity';
 import { ComptageInventaire } from './entities/comptage-inventaire.entity';
 import { Article } from '../stock/entities/article.entity';
 import { MouvementStock } from '../mouvements-stock/entities/mouvement-stock.entity';
+import { DepensesModule } from '../depenses/depenses.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MouvementStock } from '../mouvements-stock/entities/mouvement-stock.ent
       Article,
       MouvementStock,
     ]),
+    DepensesModule,
   ],
   controllers: [InventairesController],
   providers: [InventairesService],

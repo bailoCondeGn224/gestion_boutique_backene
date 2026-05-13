@@ -13,6 +13,14 @@ import {
 } from 'typeorm';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
+/**
+ * Statut d'un approvisionnement
+ */
+export enum StatutApprovisionnement {
+  VALIDE = 'VALIDE',     // Approvisionnement actif
+  ANNULE = 'ANNULE',     // Approvisionnement annulé (gardé pour traçabilité)
+}
+
 @Entity('approvisionnement')
 @Unique(['numero', 'organizationId']) // Contrainte unique composite
 export class Approvisionnement extends BaseTenantEntity {
@@ -55,6 +63,36 @@ export class Approvisionnement extends BaseTenantEntity {
 
   @Column({ type: 'text', nullable: true })
   note: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: StatutApprovisionnement.VALIDE,
+    comment: 'Statut de l\'approvisionnement (VALIDE ou ANNULE)',
+  })
+  statut: StatutApprovisionnement;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    comment: 'Date d\'annulation si l\'approvisionnement a été annulé',
+  })
+  annuleLe: Date;
+
+  @Column({
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+    comment: 'Utilisateur qui a annulé l\'approvisionnement',
+  })
+  annulePar: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Raison de l\'annulation',
+  })
+  motifAnnulation: string;
 
   @CreateDateColumn()
   createdAt: Date;

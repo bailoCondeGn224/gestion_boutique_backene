@@ -6,7 +6,10 @@ import {
   Param,
   UseGuards,
   Request,
+  Res,
+  Query,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InventairesService } from './inventaires.service';
@@ -38,8 +41,14 @@ export class InventairesController {
 
   @Get()
   @ApiOperation({ summary: 'Liste des inventaires' })
-  findAll(@Request() req): Promise<Inventaire[]> {
-    return this.inventairesService.findAll(req.user.organizationId);
+  findAll(
+    @Request() req,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{ data: Inventaire[]; meta: any }> {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.inventairesService.findAll(req.user.organizationId, pageNum, limitNum);
   }
 
   @Get('date-min')
@@ -85,6 +94,52 @@ export class InventairesController {
       id,
       req.user.organizationId,
       req.user.userId,
+    );
+  }
+
+  @Post(':id/calculer-finances')
+  @ApiOperation({ summary: 'Calculer les finances d\'un inventaire' })
+  calculerFinances(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<Inventaire> {
+    return this.inventairesService.calculerFinances(
+      id,
+      req.user.organizationId,
+    );
+  }
+
+  @Get(':id/finances-data')
+  @ApiOperation({ summary: 'Récupérer les données financières pour génération PDF' })
+  async getFinancesData(
+    @Param('id') id: string,
+    @Request() req,
+  ) {
+    return this.inventairesService.getFinancesData(
+      id,
+      req.user.organizationId,
+    );
+  }
+
+  @Get(':id/test-pdf')
+  @ApiOperation({ summary: 'Tester la génération PDF basique' })
+  async testPDF(
+    @Param('id') id: string,
+    @Request() req,
+    @Res() res: Response,
+  ): Promise<void> {
+    return this.inventairesService.generateTestPDF(res);
+  }
+
+  @Post(':id/save-pdf-debug')
+  @ApiOperation({ summary: 'Sauvegarder le PDF sur le disque pour debug' })
+  async savePDFDebug(
+    @Param('id') id: string,
+    @Request() req,
+  ): Promise<{ message: string; path: string }> {
+    return this.inventairesService.savePDFToFile(
+      id,
+      req.user.organizationId,
     );
   }
 }

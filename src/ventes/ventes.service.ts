@@ -28,11 +28,21 @@ export class VentesService {
   ) {}
 
   async generateNumero(organizationId: string): Promise<string> {
-    const count = await this.ventesRepository.count({
+    // Trouver la dernière vente pour éviter les doublons lors de suppressions
+    const lastVente = await this.ventesRepository.findOne({
       where: { organizationId },
+      order: { createdAt: 'DESC' },
     });
-    const numero = (count + 1).toString().padStart(3, '0');
-    return `V-${numero}`;
+
+    let nextNumber = 1;
+    if (lastVente && lastVente.numero) {
+      const match = lastVente.numero.match(/V-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `V-${String(nextNumber).padStart(3, '0')}`;
   }
 
   async create(createVenteDto: CreateVenteDto, organizationId: string): Promise<Vente> {
