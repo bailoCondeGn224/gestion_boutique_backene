@@ -78,23 +78,29 @@ export class VentesService {
         await this.stockService.decrementStock(item.articleId, item.quantite, organizationId);
         const stockApres = stockAvant - item.quantite;
 
-        // Enregistrer le mouvement de stock (si userId fourni)
+        // Enregistrer le mouvement de stock DANS LA MÊME TRANSACTION
         if (createVenteDto.userId) {
-          await this.mouvementsStockService.create({
-            articleId: item.articleId,
-            articleNom: item.nom,
-            type: TypeMouvement.SORTIE,
-            motif: MotifMouvement.VENTE,
-            quantite: item.quantite,
-            stockAvant: stockAvant,
-            stockApres: stockApres,
-            prixUnitaire: item.prixUnitaire,
-            valeurTotal: item.sousTotal,
-            userId: createVenteDto.userId,
-            userNom: createVenteDto.userNom,
-            venteId: null,
-            date: new Date(),
-          }, organizationId);
+          await queryRunner.manager.query(
+            `INSERT INTO mouvement_stock
+             ("articleId", "articleNom", type, motif, quantite, "stockAvant", "stockApres",
+              "prixUnitaire", "valeurTotal", "userId", "userNom", "venteId",
+              date, "organizationId", "createdAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, NOW(), $12, NOW())`,
+            [
+              item.articleId,
+              item.nom,
+              TypeMouvement.SORTIE,
+              MotifMouvement.VENTE,
+              item.quantite,
+              stockAvant,
+              stockApres,
+              item.prixUnitaire,
+              item.sousTotal,
+              createVenteDto.userId,
+              createVenteDto.userNom,
+              organizationId,
+            ],
+          );
         }
       }
 

@@ -124,29 +124,31 @@ export class RetoursService {
           [ligne.quantite, ligne.articleId, organizationId],
         );
 
-        // Créer mouvement de stock
-        const mouvement = await this.mouvementsStockService.create(
-          {
-            articleId: ligne.articleId,
-            articleNom: ligne.nom,
-            type: TypeMouvement.ENTREE,
-            motif: MotifMouvement.RETOUR_CLIENT,
-            quantite: ligne.quantite,
-            stockAvant: stockAvant,
-            stockApres: stockApres,
-            prixUnitaire: ligne.prixUnitaire,
-            valeurTotal: ligne.sousTotal,
-            userId: dto.userId,
-            userNom: dto.userNom,
-            venteId: dto.venteId,
-            reference: numeroRetour,
-            note: ligne.noteArticle || dto.note,
-            date: new Date(),
-          },
-          organizationId,
+        // Créer mouvement de stock DANS LA MÊME TRANSACTION
+        await queryRunner.manager.query(
+          `INSERT INTO mouvement_stock
+           ("articleId", "articleNom", type, motif, quantite, "stockAvant", "stockApres",
+            "prixUnitaire", "valeurTotal", "userId", "userNom", "venteId",
+            reference, note, date, "organizationId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), $15, NOW())`,
+          [
+            ligne.articleId,
+            ligne.nom,
+            TypeMouvement.ENTREE,
+            MotifMouvement.RETOUR_CLIENT,
+            ligne.quantite,
+            stockAvant,
+            stockApres,
+            ligne.prixUnitaire,
+            ligne.sousTotal,
+            dto.userId,
+            dto.userNom,
+            dto.venteId,
+            numeroRetour,
+            ligne.noteArticle || dto.note,
+            organizationId,
+          ],
         );
-
-        mouvements.push(mouvement);
         stockUpdates.push({
           articleId: ligne.articleId,
           articleNom: ligne.nom,
@@ -395,29 +397,31 @@ export class RetoursService {
           [ligne.quantite, ligne.articleId, organizationId],
         );
 
-        // Créer mouvement de stock
-        const mouvement = await this.mouvementsStockService.create(
-          {
-            articleId: ligne.articleId,
-            articleNom: ligne.nom,
-            type: TypeMouvement.SORTIE,
-            motif: MotifMouvement.RETOUR_FOURNISSEUR,
-            quantite: ligne.quantite,
-            stockAvant: stockAvant,
-            stockApres: stockApres,
-            prixUnitaire: ligne.prixUnitaire,
-            valeurTotal: ligne.sousTotal,
-            userId: dto.userId,
-            userNom: dto.userNom,
-            approvisionnementId: dto.approvisionnementId,
-            reference: approvisionnement.numero,
-            note: ligne.noteArticle || dto.note,
-            date: new Date(),
-          },
-          organizationId,
+        // Créer mouvement de stock DANS LA MÊME TRANSACTION
+        await queryRunner.manager.query(
+          `INSERT INTO mouvement_stock
+           ("articleId", "articleNom", type, motif, quantite, "stockAvant", "stockApres",
+            "prixUnitaire", "valeurTotal", "userId", "userNom", "approvisionnementId",
+            reference, note, date, "organizationId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), $15, NOW())`,
+          [
+            ligne.articleId,
+            ligne.nom,
+            TypeMouvement.SORTIE,
+            MotifMouvement.RETOUR_FOURNISSEUR,
+            ligne.quantite,
+            stockAvant,
+            stockApres,
+            ligne.prixUnitaire,
+            ligne.sousTotal,
+            dto.userId,
+            dto.userNom,
+            dto.approvisionnementId,
+            approvisionnement.numero,
+            ligne.noteArticle || dto.note,
+            organizationId,
+          ],
         );
-
-        mouvements.push(mouvement);
         stockUpdates.push({
           articleId: ligne.articleId,
           articleNom: ligne.nom,

@@ -101,23 +101,30 @@ export class ApprovisionnementService {
           [ligne.prixUnitaire, ligne.articleId, organizationId],
         );
 
-        // Enregistrer le mouvement de stock (si userId fourni)
+        // Enregistrer le mouvement de stock DANS LA MÊME TRANSACTION
         if (createDto.userId) {
-          await this.mouvementsStockService.create({
-            articleId: ligne.articleId,
-            articleNom: ligne.nom,
-            type: TypeMouvement.ENTREE,
-            motif: MotifMouvement.APPROVISIONNEMENT,
-            quantite: ligne.quantite,
-            stockAvant: stockAvant,
-            stockApres: stockApres,
-            prixUnitaire: ligne.prixUnitaire,
-            valeurTotal: ligne.sousTotal,
-            userId: createDto.userId,
-            userNom: createDto.userNom,
-            approvisionnementId: savedApprovisionnement.id,
-            date: new Date(createDto.dateLivraison),
-          }, organizationId);
+          await queryRunner.manager.query(
+            `INSERT INTO mouvement_stock
+             ("articleId", "articleNom", type, motif, quantite, "stockAvant", "stockApres",
+              "prixUnitaire", "valeurTotal", "userId", "userNom", "approvisionnementId",
+              date, "organizationId", "createdAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13, NOW())`,
+            [
+              ligne.articleId,
+              ligne.nom,
+              TypeMouvement.ENTREE,
+              MotifMouvement.APPROVISIONNEMENT,
+              ligne.quantite,
+              stockAvant,
+              stockApres,
+              ligne.prixUnitaire,
+              ligne.sousTotal,
+              createDto.userId,
+              createDto.userNom,
+              savedApprovisionnement.id,
+              organizationId,
+            ],
+          );
         }
       }
 

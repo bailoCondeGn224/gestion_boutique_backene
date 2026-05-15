@@ -5,6 +5,7 @@ import { Article } from './entities/article.entity';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { StockFilterDto } from './dto/stock-filter.dto';
+import { CreateArticlesBulkDto } from './dto/create-articles-bulk.dto';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { createPaginatedResponse } from '../common/utils/pagination.util';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
@@ -46,6 +47,64 @@ export class StockService {
     });
 
     return this.articlesRepository.save(article);
+  }
+
+  async createBulk(
+    createArticlesBulkDto: CreateArticlesBulkDto,
+    organizationId: string,
+    photoMap?: Map<number, Express.Multer.File>,
+  ): Promise<{ created: Article[]; errors: any[] }> {
+    const created: Article[] = [];
+    const errors: any[] = [];
+
+    for (let i = 0; i < createArticlesBulkDto.articles.length; i++) {
+      const articleDto = createArticlesBulkDto.articles[i];
+
+      try {
+        // Vérifier si un article avec la même référence existe déjà
+        if (articleDto.reference) {
+          const existingArticle = await this.articlesRepository.findOne({
+            where: { reference: articleDto.reference, organizationId },
+          });
+
+          if (existingArticle) {
+            errors.push({
+              article: articleDto,
+              error: `Un article avec la référence '${articleDto.reference}' existe déjà`,
+            });
+            continue;
+          }
+        }
+
+        // Gérer la photo si elle existe pour cet article (via le mapping par index)
+        let photoPath: string | undefined;
+        const file = photoMap?.get(i);
+        if (file) {
+          photoPath = `articles/${organizationId}/${file.filename}`;
+
+          // Compresser l'image en arrière-plan
+          compressImage(file.path).catch((error) => {
+            console.error('Erreur compression image:', error);
+          });
+        }
+
+        const article = this.articlesRepository.create({
+          ...articleDto,
+          photo: photoPath,
+          organizationId,
+        });
+
+        const savedArticle = await this.articlesRepository.save(article);
+        created.push(savedArticle);
+      } catch (error) {
+        errors.push({
+          article: articleDto,
+          error: error.message || 'Erreur lors de la création',
+        });
+      }
+    }
+
+    return { created, errors };
   }
 
   async findAll(filterDto: StockFilterDto, organizationId: string): Promise<PaginatedResponse<Article>> {

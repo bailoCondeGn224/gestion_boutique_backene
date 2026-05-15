@@ -10,13 +10,16 @@ import {
   Query,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, AnyFilesInterceptor } from '@nestjs/platform-express';
 import { StockService } from './stock.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { StockFilterDto } from './dto/stock-filter.dto';
+import { CreateArticlesBulkDto } from './dto/create-articles-bulk.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -41,6 +44,52 @@ export class StockController {
     @CurrentOrganization() organizationId: string,
   ) {
     return this.stockService.create(createArticleDto, organizationId, file);
+  }
+
+  @Permissions('stock.create')
+  @Post('bulk')
+  @UseInterceptors(AnyFilesInterceptor(multerConfig))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Créer plusieurs articles en une seule requête avec leurs photos' })
+  @ApiResponse({
+    status: 201,
+    description: 'Retourne les articles créés et les erreurs éventuelles',
+    schema: {
+      type: 'object',
+      properties: {
+        created: { type: 'array', items: { type: 'object' } },
+        errors: { type: 'array', items: { type: 'object' } }
+      }
+    }
+  })
+  async createBulk(
+    @Body('articles') articlesJson: string,
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    // Parser le JSON des articles depuis le FormData
+    let articles: CreateArticleDto[];
+    try {
+      articles = JSON.parse(articlesJson);
+    } catch (error) {
+      throw new BadRequestException('Format JSON invalide pour les articles');
+    }
+
+    const createArticlesBulkDto: CreateArticlesBulkDto = { articles };
+
+    // Créer un mapping des photos par index depuis les fieldnames (photo_0, photo_1, etc.)
+    const photoMap = new Map<number, Express.Multer.File>();
+    if (files && files.length > 0) {
+      files.forEach((file) => {
+        const match = file.fieldname.match(/^photo_(\d+)$/);
+        if (match) {
+          const index = parseInt(match[1], 10);
+          photoMap.set(index, file);
+        }
+      });
+    }
+
+    return this.stockService.createBulk(createArticlesBulkDto, organizationId, photoMap);
   }
 
   @Permissions('stock.read')

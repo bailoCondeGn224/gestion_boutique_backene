@@ -36,6 +36,10 @@ export class InventairesService {
   /**
    * Valider qu'il n'y a pas de chevauchement de périodes avec d'autres inventaires
    * @private
+   *
+   * Utilise des intervalles semi-ouverts [dateDebut, dateFin) où dateFin est exclue.
+   * Cela permet à deux inventaires de se "toucher" sans se chevaucher.
+   * Exemple : Inventaire A [1 mai, 15 mai) et Inventaire B [15 mai, 30 mai) → OK
    */
   private async validateNoChevauchement(
     organizationId: string,
@@ -50,17 +54,10 @@ export class InventairesService {
       .andWhere('inv.id != CAST(:inventaireIdActuel AS uuid)', { inventaireIdActuel })
       .andWhere('inv.financesCalcules = true')
       .andWhere(
-        // Chevauchement : les périodes se croisent si
-        // (dateDebut est entre une période existante) OU
-        // (dateFin est entre une période existante) OU
-        // (la nouvelle période englobe une période existante) OU
-        // (une période existante englobe la nouvelle période)
-        `(
-          (:dateDebut BETWEEN inv."dateDebut" AND inv."dateFin") OR
-          (:dateFin BETWEEN inv."dateDebut" AND inv."dateFin") OR
-          (inv."dateDebut" BETWEEN :dateDebut AND :dateFin) OR
-          (inv."dateFin" BETWEEN :dateDebut AND :dateFin)
-        )`,
+        // Chevauchement avec intervalles semi-ouverts [dateDebut, dateFin)
+        // Deux intervalles se chevauchent si : dateDebut < dateFin_autre AND dateFin > dateDebut_autre
+        // Les périodes qui se touchent exactement sur une borne ne sont PAS considérées comme chevauchantes
+        `(:dateDebut < inv."dateFin" AND :dateFin > inv."dateDebut")`,
         { dateDebut, dateFin },
       )
       .getOne();
@@ -75,12 +72,12 @@ export class InventairesService {
 
       throw new BadRequestException(
         `Impossible de calculer les finances pour cette période. ` +
-        `La période sélectionnée (${formatDate(dateDebut)} au ${formatDate(dateFin)}) ` +
+        `La période sélectionnée (${formatDate(dateDebut)} au ${formatDate(dateFin)} exclu) ` +
         `chevauche avec un inventaire déjà clôturé ` +
-        `(${formatDate(inventaireChevauchant.dateDebut)} au ${formatDate(inventaireChevauchant.dateFin)}). ` +
+        `(${formatDate(inventaireChevauchant.dateDebut)} au ${formatDate(inventaireChevauchant.dateFin)} exclu). ` +
         `Les périodes d'inventaires ne peuvent pas se chevaucher pour garantir ` +
         `que chaque dépense et vente soit comptabilisée dans un seul inventaire. ` +
-        `Terminez l'inventaire à une date qui ne chevauche pas avec les périodes déjà clôturées.`,
+        `Vous pouvez créer un inventaire à partir du ${formatDate(inventaireChevauchant.dateFin)}.`,
       );
     }
   }
@@ -541,14 +538,15 @@ export class InventairesService {
     await this.validateNoChevauchement(organizationId, dateDebut, dateFin, inventaireId);
 
     // 2. Calculer le CA et nombre de ventes
-    console.log('📊 Calcul CA - Période:', dateDebut, 'à', dateFin);
+    // Utilise l'intervalle semi-ouvert [dateDebut, dateFin) : dateDebut incluse, dateFin exclue
+    console.log('📊 Calcul CA - Période:', dateDebut, 'à', dateFin, '(dateFin exclue)');
     const ventesStats = await this.dataSource
       .createQueryBuilder()
       .select('COUNT(*)', 'nombreVentes')
       .addSelect('COALESCE(SUM(total), 0)', 'chiffreAffaires')
       .from('vente', 'v')
       .where('v."organizationId" = CAST(:organizationId AS uuid)', { organizationId })
-      .andWhere('v.date BETWEEN :dateDebut AND :dateFin', {
+      .andWhere('v.date >= :dateDebut AND v.date < :dateFin', {
         dateDebut,
         dateFin,
       })
@@ -561,6 +559,7 @@ export class InventairesService {
 
     // 3. Calculer le CMV (Coût Marchandises Vendues)
     // Somme des (quantité * prixAchat) pour toutes les lignes de vente de la période
+    // Utilise l'intervalle semi-ouvert [dateDebut, dateFin) : dateDebut incluse, dateFin exclue
     console.log('💰 Calcul CMV...');
     const cmv = await this.dataSource
       .createQueryBuilder()
@@ -569,7 +568,7 @@ export class InventairesService {
       .innerJoin('vente', 'v', 'CAST(v.id AS text) = CAST(lv."venteId" AS text)')
       .innerJoin('article', 'a', 'CAST(a.id AS text) = CAST(lv."articleId" AS text)')
       .where('v."organizationId" = CAST(:organizationId AS uuid)', { organizationId })
-      .andWhere('v.date BETWEEN :dateDebut AND :dateFin', {
+      .andWhere('v.date >= :dateDebut AND v.date < :dateFin', {
         dateDebut,
         dateFin,
       })
@@ -587,6 +586,7 @@ export class InventairesService {
       dateFin,
       inventaireId,
       isRecalcul,
+      inventaire.createdAt, // Passer la date de création pour filtrer les dépenses
     );
     console.log('✅ Dépenses:', depenses);
 
@@ -647,6 +647,7 @@ export class InventairesService {
         dateDebut,
         dateFin,
         inventaireId,
+        inventaire.createdAt, // Passer la date de création pour filtrer par createdAt
       );
       console.log(`✅ ${depensesAttachees} dépense(s) attachée(s)`);
     }

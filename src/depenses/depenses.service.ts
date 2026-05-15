@@ -24,6 +24,10 @@ export class DepensesService {
   /**
    * Valider que la date de la dépense n'appartient pas à une période d'inventaire clôturée
    * Règle métier : On ne peut pas ajouter/modifier une dépense dans une période déjà calculée
+   *
+   * Utilise des intervalles semi-ouverts [dateDebut, dateFin) où dateFin est exclue.
+   * Une dépense à la date de fin d'un inventaire appartient à l'inventaire suivant.
+   * Exemple : Si Inventaire A = [1 mai, 15 mai), une dépense du 15 mai appartient à l'inventaire suivant
    */
   private async validateDateNotInClosedInventaire(
     date: string,
@@ -35,7 +39,7 @@ export class DepensesService {
       .from('inventaire', 'inventaire')
       .where('inventaire."organizationId" = CAST(:organizationId AS uuid)', { organizationId })
       .andWhere('inventaire."financesCalcules" = true')
-      .andWhere(':date BETWEEN inventaire."dateDebut" AND inventaire."dateFin"', { date })
+      .andWhere(':date >= inventaire."dateDebut" AND :date < inventaire."dateFin"', { date })
       .getOne();
 
     if (inventaireCloture) {
@@ -43,8 +47,9 @@ export class DepensesService {
         `Impossible d'enregistrer une dépense pour cette date. ` +
         `Elle appartient à une période d'inventaire déjà clôturée ` +
         `(du ${new Date(inventaireCloture.dateDebut).toLocaleDateString('fr-FR')} ` +
-        `au ${new Date(inventaireCloture.dateFin).toLocaleDateString('fr-FR')}). ` +
-        `Les finances de cette période ont déjà été calculées et ne peuvent plus être modifiées.`,
+        `au ${new Date(inventaireCloture.dateFin).toLocaleDateString('fr-FR')} exclu). ` +
+        `Les finances de cette période ont déjà été calculées et ne peuvent plus être modifiées. ` +
+        `Vous pouvez enregistrer cette dépense à partir du ${new Date(inventaireCloture.dateFin).toLocaleDateString('fr-FR')}.`,
       );
     }
   }
@@ -239,11 +244,14 @@ export class DepensesService {
    * Calculer les totaux de dépenses par catégorie pour une période
    * Utilisé pour les calculs financiers d'inventaire
    *
+   * Utilise des intervalles semi-ouverts [dateDebut, dateFin) où dateFin est exclue
+   *
    * @param organizationId - ID de l'organisation
-   * @param dateDebut - Date de début de la période
-   * @param dateFin - Date de fin de la période
+   * @param dateDebut - Date de début de la période (incluse)
+   * @param dateFin - Date de fin de la période (exclue)
    * @param inventaireId - ID de l'inventaire (optionnel, pour recalcul)
    * @param isRecalcul - True si c'est un recalcul (utilise les dépenses attachées)
+   * @param inventaireCreatedAt - Date de création de l'inventaire (pour filtrer par createdAt)
    */
   async getTotalsByCategorie(
     organizationId: string,
@@ -251,6 +259,7 @@ export class DepensesService {
     dateFin: Date,
     inventaireId?: string,
     isRecalcul: boolean = false,
+    inventaireCreatedAt?: Date,
   ): Promise<{
     depensesFixes: number;
     depensesVariables: number;
@@ -268,12 +277,23 @@ export class DepensesService {
       query.andWhere('depense.inventaireId = CAST(:inventaireId AS uuid)', { inventaireId });
     } else {
       // Premier calcul: utiliser les dépenses de la période qui ne sont pas encore attachées
+      // Conditions :
+      // - Date comptable dans [dateDebut, dateFin)
+      // - Créée AVANT l'inventaire (si inventaireCreatedAt fourni)
+      // - Pas encore attachée à un inventaire
       query
-        .andWhere('depense.date BETWEEN :dateDebut AND :dateFin', {
+        .andWhere('depense.date >= :dateDebut AND depense.date < :dateFin', {
           dateDebut,
           dateFin,
         })
         .andWhere('depense.inventaireId IS NULL');
+
+      // Filtrer par createdAt si fourni (pour exclure les dépenses rétroactives)
+      if (inventaireCreatedAt) {
+        query.andWhere('depense.createdAt < :inventaireCreatedAt', {
+          inventaireCreatedAt,
+        });
+      }
     }
 
     const result = await query
@@ -309,45 +329,43 @@ export class DepensesService {
   /**
    * Attacher les dépenses d'une période à un inventaire
    * Appelé après le calcul des finances pour "verrouiller" les dépenses
+   *
+   * Utilise des intervalles semi-ouverts [dateDebut, dateFin) où dateFin est exclue
+   *
+   * LOGIQUE : Attache toutes les dépenses NON ENCORE LIÉES à un inventaire qui :
+   * 1. Ont une date comptable dans la période [dateDebut, dateFin)
+   * 2. Ont été CRÉÉES AVANT la création de l'inventaire (createdAt < inventaireCreatedAt)
+   *
+   * Cela permet d'exclure les dépenses rétroactives créées après l'inventaire.
    */
   async attacherAInventaire(
     organizationId: string,
     dateDebut: Date,
     dateFin: Date,
     inventaireId: string,
+    inventaireCreatedAt: Date,
   ): Promise<number> {
-    // Vérifier qu'il n'y a pas de dépenses déjà attachées à un autre inventaire
-    const depensesDejaAttachees = await this.depenseRepository
-      .createQueryBuilder('depense')
-      .where('depense.organizationId = CAST(:organizationId AS uuid)', { organizationId })
-      .andWhere('depense.date BETWEEN :dateDebut AND :dateFin', {
-        dateDebut,
-        dateFin,
-      })
-      .andWhere('depense.inventaireId IS NOT NULL')
-      .andWhere('depense.inventaireId != CAST(:inventaireId AS uuid)', { inventaireId })
-      .getCount();
-
-    if (depensesDejaAttachees > 0) {
-      throw new BadRequestException(
-        `${depensesDejaAttachees} dépense(s) de cette période sont déjà rattachées à un autre inventaire. ` +
-        'Impossible de calculer les finances pour des périodes qui se chevauchent.',
-      );
-    }
-
     // Attacher toutes les dépenses non attachées de la période à cet inventaire
+    // Conditions :
+    // - Date comptable dans [dateDebut, dateFin)
+    // - Créée AVANT l'inventaire (createdAt < inventaireCreatedAt)
+    // - Pas encore attachée à un inventaire
     const result = await this.depenseRepository
       .createQueryBuilder()
       .update()
       .set({ inventaireId })
       .where('organizationId = CAST(:organizationId AS uuid)', { organizationId })
-      .andWhere('date BETWEEN :dateDebut AND :dateFin', {
+      .andWhere('date >= :dateDebut AND date < :dateFin', {
         dateDebut,
         dateFin,
+      })
+      .andWhere('createdAt < :inventaireCreatedAt', {
+        inventaireCreatedAt,
       })
       .andWhere('inventaireId IS NULL')
       .execute();
 
+    console.log(`✅ ${result.affected || 0} dépense(s) attachée(s) à l'inventaire ${inventaireId} (créées avant ${inventaireCreatedAt.toLocaleString('fr-FR')})`);
     return result.affected || 0;
   }
 
