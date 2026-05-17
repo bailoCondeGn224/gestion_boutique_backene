@@ -129,7 +129,7 @@ export class DepensesService {
     // Recherche textuelle
     if (search) {
       query.andWhere(
-        '(depense.description ILIKE :search OR depense.reference ILIKE :search)',
+        '(depense.description IILIKE :search OR depense.reference IILIKE :search)',
         { search: `%${search}%` },
       );
     }

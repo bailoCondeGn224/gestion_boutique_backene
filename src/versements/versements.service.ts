@@ -74,7 +74,7 @@ export class VersementsService {
 
     // Filtre par recherche (référence)
     if (search) {
-      queryBuilder.andWhere('versement.reference LIKE :search', { search: `%${search}%` });
+      queryBuilder.andWhere('versement.reference ILIKE :search', { search: `%${search}%` });
     }
 
     // Filtre par fournisseur

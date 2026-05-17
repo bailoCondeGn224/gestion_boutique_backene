@@ -137,7 +137,7 @@ export class CommandesService {
 
     // Filtre par recherche (numéro)
     if (search) {
-      queryBuilder.andWhere('commande.numero LIKE :search', {
+      queryBuilder.andWhere('commande.numero ILIKE :search', {
         search: `%${search}%`,
       });
     }

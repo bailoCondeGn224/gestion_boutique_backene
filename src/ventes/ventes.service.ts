@@ -196,7 +196,7 @@ export class VentesService {
 
     // Filtre par recherche (numéro de vente)
     if (search) {
-      queryBuilder.andWhere('vente.numero LIKE :search', { search: `%${search}%` });
+      queryBuilder.andWhere('vente.numero ILIKE :search', { search: `%${search}%` });
     }
 
     // Filtre par client

@@ -42,7 +42,7 @@ export class MouvementsStockService {
 
     // Filtre par recherche (nom d'article)
     if (search) {
-      queryBuilder.andWhere('mouvement.articleNom LIKE :search', { search: `%${search}%` });
+      queryBuilder.andWhere('mouvement.articleNom ILIKE :search', { search: `%${search}%` });
     }
 
     // Filtre par type (entree/sortie)

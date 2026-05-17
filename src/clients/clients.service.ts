@@ -42,7 +42,7 @@ export class ClientsService {
     // Filtre par recherche (nom, téléphone, email)
     if (search) {
       queryBuilder.andWhere(
-        '(client.nom LIKE :search OR client.telephone LIKE :search OR client.email LIKE :search)',
+        '(client.nom ILIKE :search OR client.telephone ILIKE :search OR client.email ILIKE :search)',
         { search: `%${search}%` }
       );
     }

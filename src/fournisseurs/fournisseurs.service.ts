@@ -60,7 +60,7 @@ export class FournisseursService {
     // Filtre par recherche (nom, email, téléphone)
     if (search) {
       queryBuilder.andWhere(
-        '(fournisseur.nom LIKE :search OR fournisseur.email LIKE :search OR fournisseur.telephone LIKE :search)',
+        '(fournisseur.nom ILIKE :search OR fournisseur.email ILIKE :search OR fournisseur.telephone ILIKE :search)',
         { search: `%${search}%` }
       );
     }

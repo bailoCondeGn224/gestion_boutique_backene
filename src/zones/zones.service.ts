@@ -44,7 +44,7 @@ export class ZonesService {
     // Filtre par recherche (code, nom, description)
     if (search) {
       queryBuilder.andWhere(
-        '(zone.code LIKE :search OR zone.nom LIKE :search OR zone.description LIKE :search)',
+        '(zone.code ILIKE :search OR zone.nom ILIKE :search OR zone.description ILIKE :search)',
         { search: `%${search}%` },
       );
     }

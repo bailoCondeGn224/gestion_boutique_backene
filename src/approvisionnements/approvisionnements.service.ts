@@ -192,7 +192,7 @@ export class ApprovisionnementService {
 
     // Filtre par recherche (numéro)
     if (search) {
-      queryBuilder.andWhere('approvisionnement.numero LIKE :search', { search: `%${search}%` });
+      queryBuilder.andWhere('approvisionnement.numero ILIKE :search', { search: `%${search}%` });
     }
 
     // Filtre par fournisseur

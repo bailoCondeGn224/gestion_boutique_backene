@@ -119,7 +119,7 @@ export class StockService {
     // Filtre par recherche (nom ou référence)
     if (search) {
       queryBuilder.andWhere(
-        '(article.nom LIKE :search OR article.reference LIKE :search)',
+        '(article.nom ILIKE :search OR article.reference ILIKE :search)',
         { search: `%${search}%` }
       );
     }

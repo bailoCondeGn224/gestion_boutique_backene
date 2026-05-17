@@ -127,7 +127,7 @@ export class VersementsClientService {
     // Recherche par nom client ou référence
     if (search) {
       queryBuilder.andWhere(
-        '(versement.clientNom ILIKE :search OR versement.reference ILIKE :search)',
+        '(versement.clientNom IILIKE :search OR versement.reference IILIKE :search)',
         { search: `%${search}%` },
       );
     }
