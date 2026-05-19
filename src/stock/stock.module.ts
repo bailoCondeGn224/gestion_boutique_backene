@@ -4,6 +4,7 @@ import { StockService } from './stock.service';
 import { StockController } from './stock.controller';
 import { Article } from './entities/article.entity';
 import { CategoriesModule } from '../categories/categories.module';
+import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
 
@@ -11,6 +12,7 @@ import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-app
   imports: [
     TypeOrmModule.forFeature([Article, LigneVente, LigneApprovisionnement]),
     CategoriesModule,
+    MouvementsStockModule,
   ],
   controllers: [StockController],
   providers: [StockService],

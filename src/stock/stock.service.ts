@@ -12,6 +12,8 @@ import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
 import { deleteFile } from '../common/utils/file.util';
 import { compressImage } from '../common/utils/image.util';
+import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
+import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
 
 @Injectable()
 export class StockService {
@@ -22,6 +24,7 @@ export class StockService {
     private ligneVenteRepository: Repository<LigneVente>,
     @InjectRepository(LigneApprovisionnement)
     private ligneApproRepository: Repository<LigneApprovisionnement>,
+    private mouvementsStockService: MouvementsStockService,
   ) {}
 
   async create(
@@ -46,7 +49,29 @@ export class StockService {
       organizationId,
     });
 
-    return this.articlesRepository.save(article);
+    const savedArticle = await this.articlesRepository.save(article);
+
+    // Créer un mouvement de stock si l'article a un stock initial > 0
+    if (savedArticle.stock > 0) {
+      await this.mouvementsStockService.create(
+        {
+          articleId: savedArticle.id,
+          articleNom: savedArticle.nom,
+          type: TypeMouvement.ENTREE,
+          motif: MotifMouvement.AJUSTEMENT,
+          quantite: savedArticle.stock,
+          stockAvant: 0,
+          stockApres: savedArticle.stock,
+          prixUnitaire: Number(savedArticle.prixAchat),
+          valeurTotal: savedArticle.stock * Number(savedArticle.prixAchat),
+          date: new Date(),
+          note: 'Stock initial lors de la création de l\'article',
+        },
+        organizationId,
+      );
+    }
+
+    return savedArticle;
   }
 
   async createBulk(
@@ -96,6 +121,26 @@ export class StockService {
 
         const savedArticle = await this.articlesRepository.save(article);
         created.push(savedArticle);
+
+        // Créer un mouvement de stock si l'article a un stock initial > 0
+        if (savedArticle.stock > 0) {
+          await this.mouvementsStockService.create(
+            {
+              articleId: savedArticle.id,
+              articleNom: savedArticle.nom,
+              type: TypeMouvement.ENTREE,
+              motif: MotifMouvement.AJUSTEMENT,
+              quantite: savedArticle.stock,
+              stockAvant: 0,
+              stockApres: savedArticle.stock,
+              prixUnitaire: Number(savedArticle.prixAchat),
+              valeurTotal: savedArticle.stock * Number(savedArticle.prixAchat),
+              date: new Date(),
+              note: 'Stock initial lors de la création de l\'article (ajout en masse)',
+            },
+            organizationId,
+          );
+        }
       } catch (error) {
         errors.push({
           article: articleDto,
