@@ -233,8 +233,17 @@ export class DepensesService {
     }
 
     // Vérifier que la dépense n'appartient pas à une période clôturée
+    // Handle date as either Date object or string (TypeORM can return either)
+    let dateStr: string;
+    if (depense.date instanceof Date) {
+      dateStr = depense.date.toISOString().split('T')[0];
+    } else {
+      // Already a string, extract date part if it includes time
+      dateStr = String(depense.date).split('T')[0];
+    }
+
     await this.validateDateNotInClosedInventaire(
-      depense.date.toISOString().split('T')[0],
+      dateStr,
       organizationId,
     );
 
