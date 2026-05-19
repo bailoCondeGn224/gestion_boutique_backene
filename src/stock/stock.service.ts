@@ -13,7 +13,7 @@ import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-app
 import { deleteFile } from '../common/utils/file.util';
 import { compressImage } from '../common/utils/image.util';
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
-import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
+import { TypeMouvement, MotifMouvement, MouvementStock } from '../mouvements-stock/entities/mouvement-stock.entity';
 
 @Injectable()
 export class StockService {
@@ -24,6 +24,8 @@ export class StockService {
     private ligneVenteRepository: Repository<LigneVente>,
     @InjectRepository(LigneApprovisionnement)
     private ligneApproRepository: Repository<LigneApprovisionnement>,
+    @InjectRepository(MouvementStock)
+    private mouvementStockRepository: Repository<MouvementStock>,
     private mouvementsStockService: MouvementsStockService,
   ) {}
 
@@ -281,6 +283,12 @@ export class StockService {
         `Impossible de supprimer cet article : utilisé dans ${approCount} approvisionnement(s). Supprimez d'abord les approvisionnements.`,
       );
     }
+
+    // Supprimer tous les mouvements de stock associés à cet article
+    await this.mouvementStockRepository.delete({
+      articleId: id,
+      organizationId,
+    });
 
     // Supprimer la photo si elle existe
     if (article.photo) {
