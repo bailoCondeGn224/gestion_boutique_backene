@@ -104,6 +104,6 @@ export class VersementsClientController {
     @Param('id') id: string,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.versementsClientService.remove(id, organizationId);
+    return this.versementsClientService.remove(organizationId, id);
   }
 }

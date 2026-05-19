@@ -146,6 +146,6 @@ export class ClientsController {
     @Param('id') id: string,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.clientsService.remove(id, organizationId);
+    return this.clientsService.remove(organizationId, id);
   }
 }
