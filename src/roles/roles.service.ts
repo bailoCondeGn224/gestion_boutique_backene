@@ -125,7 +125,8 @@ export class RolesService {
       );
     }
 
-    await this.rolesRepository.remove(role);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.rolesRepository.delete({ id: role.id });
   }
 
   /**

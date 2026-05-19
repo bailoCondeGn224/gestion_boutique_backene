@@ -118,6 +118,7 @@ export class ZonesService {
       );
     }
 
-    await this.zonesRepository.remove(zone);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.zonesRepository.delete({ id, organizationId });
   }
 }

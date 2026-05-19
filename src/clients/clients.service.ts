@@ -130,6 +130,7 @@ export class ClientsService {
   }
 
   async remove(organizationId: string, id: string): Promise<void> {
+    // Vérifier que le client existe
     const client = await this.findOne(organizationId, id);
 
     // Vérifier s'il existe des ventes pour ce client
@@ -154,7 +155,8 @@ export class ClientsService {
       );
     }
 
-    await this.clientsRepository.remove(client);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.clientsRepository.delete({ id, organizationId });
   }
 
   async getStats(organizationId: string): Promise<any> {

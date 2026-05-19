@@ -126,6 +126,7 @@ export class CategoriesService {
   }
 
   async remove(id: string, organizationId: string): Promise<void> {
+    // Vérifier que la catégorie existe
     const categorie = await this.findOne(id, organizationId);
 
     // Vérifier s'il existe des articles dans cette catégorie
@@ -139,7 +140,8 @@ export class CategoriesService {
       );
     }
 
-    await this.categorieRepository.remove(categorie);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.categorieRepository.delete({ id, organizationId });
   }
 
   // Seed vide - pas de catégories par défaut

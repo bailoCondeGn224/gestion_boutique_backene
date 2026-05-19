@@ -171,7 +171,8 @@ export class FournisseursService {
       );
     }
 
-    await this.fournisseursRepository.remove(fournisseur);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.fournisseursRepository.delete({ id, organizationId });
   }
 
   async getDette(id: string, organizationId: string): Promise<{ dette: number }> {

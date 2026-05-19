@@ -196,7 +196,8 @@ export class UsersService {
       }
     }
 
-    await this.usersRepository.remove(user);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.usersRepository.delete({ id: user.id });
   }
 
   async assignRole(userId: string, assignRoleDto: AssignRoleDto): Promise<User> {

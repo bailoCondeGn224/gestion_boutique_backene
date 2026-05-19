@@ -221,6 +221,7 @@ export class DepensesService {
    * Supprimer une dépense
    */
   async remove(id: string, organizationId: string): Promise<void> {
+    // Vérifier que la dépense existe
     const depense = await this.findOne(id, organizationId);
 
     // Vérifier que la dépense n'est pas déjà attachée à un inventaire clôturé
@@ -237,7 +238,8 @@ export class DepensesService {
       organizationId,
     );
 
-    await this.depenseRepository.remove(depense);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.depenseRepository.delete({ id, organizationId });
   }
 
   /**

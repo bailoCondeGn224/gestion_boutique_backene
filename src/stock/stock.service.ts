@@ -242,7 +242,8 @@ export class StockService {
       await deleteFile(article.photo);
     }
 
-    await this.articlesRepository.remove(article);
+    // Utiliser delete() au lieu de remove() pour éviter les erreurs
+    await this.articlesRepository.delete({ id, organizationId });
   }
 
   async decrementStock(id: string, quantite: number, organizationId: string): Promise<Article> {
