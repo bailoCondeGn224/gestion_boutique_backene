@@ -253,7 +253,15 @@ export class StockService {
       });
     } else {
       // Pas de nouvelle photo, juste mettre à jour les autres champs
-      Object.assign(article, updateArticleDto);
+      // Filtrer les champs undefined pour ne pas écraser les valeurs existantes
+      const cleanData = Object.entries(updateArticleDto).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+
+      Object.assign(article, cleanData);
     }
 
     return this.articlesRepository.save(article);
