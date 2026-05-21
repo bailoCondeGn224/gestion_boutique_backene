@@ -53,15 +53,6 @@ export class CreateArticleDto {
   seuilAlerte: number;
 
   @ApiProperty({
-    example: 100,
-    description: 'Stock maximum',
-    minimum: 1,
-  })
-  @IsNumber()
-  @Min(1, { message: 'Le stock maximum doit être supérieur à 0' })
-  max: number;
-
-  @ApiProperty({
     example: 85000,
     description: 'Prix de vente unitaire en GNF',
     minimum: 0,
