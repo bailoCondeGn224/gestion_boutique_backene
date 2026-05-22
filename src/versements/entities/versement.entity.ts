@@ -34,6 +34,12 @@ export class Versement extends BaseTenantEntity {
   @Column()
   fournisseurNom: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  approvisionnementId: string;
+
+  @Column({ nullable: true })
+  approvisionnementNumero: string;
+
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   montant: number;
 

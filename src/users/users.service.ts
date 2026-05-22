@@ -98,6 +98,7 @@ export class UsersService {
         'user.id',
         'user.email',
         'user.nom',
+        'user.roleId',
         'user.isSuperAdmin',
         'user.createdAt',
         'user.updatedAt',

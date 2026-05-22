@@ -4,9 +4,10 @@ import { VersementsService } from './versements.service';
 import { VersementsController } from './versements.controller';
 import { Versement } from './entities/versement.entity';
 import { FournisseursModule } from '../fournisseurs/fournisseurs.module';
+import { ApprovisionnementModule } from '../approvisionnements/approvisionnements.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Versement]), FournisseursModule],
+  imports: [TypeOrmModule.forFeature([Versement]), FournisseursModule, ApprovisionnementModule],
   controllers: [VersementsController],
   providers: [VersementsService],
   exports: [VersementsService],

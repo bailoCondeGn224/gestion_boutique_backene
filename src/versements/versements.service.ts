@@ -5,6 +5,7 @@ import { Versement } from './entities/versement.entity';
 import { CreateVersementDto } from './dto/create-versement.dto';
 import { UpdateVersementDto } from './dto/update-versement.dto';
 import { FournisseursService } from '../fournisseurs/fournisseurs.service';
+import { ApprovisionnementService } from '../approvisionnements/approvisionnements.service';
 import { VersementFilterDto } from './dto/versement-filter.dto';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { createPaginatedResponse } from '../common/utils/pagination.util';
@@ -16,6 +17,7 @@ export class VersementsService {
     @InjectRepository(Versement)
     private versementsRepository: Repository<Versement>,
     private fournisseursService: FournisseursService,
+    private approvisionnementService: ApprovisionnementService,
     private dataSource: DataSource,
   ) {}
 
@@ -26,6 +28,34 @@ export class VersementsService {
       organizationId,
     );
 
+    let approvisionnement = null;
+    let approvisionnementNumero = null;
+
+    // Si un approvisionnement est spécifié, le récupérer et valider
+    if (createVersementDto.approvisionnementId) {
+      approvisionnement = await this.approvisionnementService.findOne(
+        createVersementDto.approvisionnementId,
+        organizationId,
+      );
+
+      // Vérifier que l'approvisionnement appartient au bon fournisseur
+      if (approvisionnement.fournisseurId !== createVersementDto.fournisseurId) {
+        throw new BadRequestException(
+          'L\'approvisionnement ne correspond pas au fournisseur sélectionné',
+        );
+      }
+
+      // Vérifier que le montant ne dépasse pas le montant restant de l'approvisionnement
+      if (Number(createVersementDto.montant) > Number(approvisionnement.montantRestant)) {
+        throw new BadRequestException(
+          `Le montant du versement (${createVersementDto.montant} GNF) dépasse le montant restant de l'approvisionnement (${approvisionnement.montantRestant} GNF)`,
+        );
+      }
+
+      approvisionnementNumero = approvisionnement.numero;
+    }
+
+    // Vérifier que le montant ne dépasse pas la dette totale du fournisseur
     if (Number(createVersementDto.montant) > Number(fournisseur.dette)) {
       throw new BadRequestException(
         `Le montant du versement (${createVersementDto.montant} GNF) dépasse la dette du fournisseur (${fournisseur.dette} GNF)`,
@@ -40,17 +70,34 @@ export class VersementsService {
       const versement = this.versementsRepository.create({
         ...createVersementDto,
         fournisseurNom: fournisseur.nom,
+        approvisionnementNumero,
         date: new Date(),
         organizationId,
       });
 
       const savedVersement = await queryRunner.manager.save(versement);
 
+      // Mettre à jour le totalPaye du fournisseur
       await this.fournisseursService.updateTotalPaye(
         fournisseur.id,
         Number(createVersementDto.montant),
         organizationId,
       );
+
+      // Si un approvisionnement est lié, mettre à jour son montantPaye
+      if (approvisionnement) {
+        const nouveauMontantPaye = Number(approvisionnement.montantPaye) + Number(createVersementDto.montant);
+        const nouveauMontantRestant = Number(approvisionnement.total) - nouveauMontantPaye;
+
+        await queryRunner.manager.update(
+          'approvisionnement',
+          { id: approvisionnement.id },
+          {
+            montantPaye: nouveauMontantPaye,
+            montantRestant: nouveauMontantRestant,
+          },
+        );
+      }
 
       await queryRunner.commitTransaction();
 
@@ -255,11 +302,33 @@ export class VersementsService {
         organizationId,
       );
 
+      // Mettre à jour le totalPaye du fournisseur
       fournisseur.totalPaye =
         Number(fournisseur.totalPaye) - Number(versement.montant);
       fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
 
       await queryRunner.manager.save(fournisseur);
+
+      // Si le versement est lié à un approvisionnement, restaurer son montantPaye
+      if (versement.approvisionnementId) {
+        const approvisionnement = await this.approvisionnementService.findOne(
+          versement.approvisionnementId,
+          organizationId,
+        );
+
+        const nouveauMontantPaye = Number(approvisionnement.montantPaye) - Number(versement.montant);
+        const nouveauMontantRestant = Number(approvisionnement.total) - nouveauMontantPaye;
+
+        await queryRunner.manager.update(
+          'approvisionnement',
+          { id: approvisionnement.id },
+          {
+            montantPaye: nouveauMontantPaye,
+            montantRestant: nouveauMontantRestant,
+          },
+        );
+      }
+
       await queryRunner.manager.remove(versement);
 
       await queryRunner.commitTransaction();

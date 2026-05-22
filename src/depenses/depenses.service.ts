@@ -189,8 +189,11 @@ export class DepensesService {
     }
 
     // Vérifier d'abord que la dépense actuelle n'est pas dans une période clôturée
+    const currentDate = depense.date instanceof Date
+      ? depense.date.toISOString().split('T')[0]
+      : String(depense.date).split('T')[0];
     await this.validateDateNotInClosedInventaire(
-      depense.date.toISOString().split('T')[0],
+      currentDate,
       organizationId,
     );
 

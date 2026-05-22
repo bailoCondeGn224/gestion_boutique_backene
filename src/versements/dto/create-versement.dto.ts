@@ -7,6 +7,11 @@ export class CreateVersementDto {
   @IsUUID()
   fournisseurId: string;
 
+  @ApiProperty({ example: 'uuid-approvisionnement', required: false, description: 'ID de l\'approvisionnement concerné (optionnel)' })
+  @IsUUID()
+  @IsOptional()
+  approvisionnementId?: string;
+
   @ApiProperty({ example: 500000, minimum: 0 })
   @IsNumber()
   @Min(0, { message: 'Le montant ne peut pas être négatif' })
