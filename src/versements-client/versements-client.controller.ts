@@ -63,7 +63,7 @@ export class VersementsClientController {
     @Param('clientId') clientId: string,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.versementsClientService.findByClient(clientId, organizationId);
+    return this.versementsClientService.findByClient(organizationId, clientId);
   }
 
   @Get(':id')
@@ -75,7 +75,7 @@ export class VersementsClientController {
     @Param('id') id: string,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.versementsClientService.findOne(id, organizationId);
+    return this.versementsClientService.findOne(organizationId, id);
   }
 
   @Patch(':id')

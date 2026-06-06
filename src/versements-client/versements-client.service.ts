@@ -171,61 +171,90 @@ export class VersementsClientService {
 
     try {
       const versement = await this.findOne(organizationId, id);
-      const oldMontant = versement.montant;
 
-      // Si le montant change, valider et ajuster
-      if (updateDto.montant !== undefined && updateDto.montant !== oldMontant) {
-        const diffMontant = updateDto.montant - oldMontant;
+      // ÉTAPE 1: ANNULER le paiement original
 
-        // Vérifier le client et qu'il appartient à l'organisation
-        const client = await this.clientRepository.findOne({
-          where: { id: versement.clientId, organizationId },
+      // 1.1 Restaurer l'ancienne vente si elle était liée
+      if (versement.venteId) {
+        const oldVente = await this.venteRepository.findOne({
+          where: { id: versement.venteId, organizationId },
         });
 
-        if (!client) {
-          throw new NotFoundException('Client introuvable');
+        if (oldVente) {
+          await queryRunner.manager.update(Vente, versement.venteId, {
+            montantPaye: Number(oldVente.montantPaye) - Number(versement.montant),
+            montantRestant: Number(oldVente.montantRestant) + Number(versement.montant),
+          });
+        }
+      }
+
+      // 1.2 Restaurer la dette du client
+      const client = await this.clientRepository.findOne({
+        where: { id: versement.clientId, organizationId },
+      });
+
+      if (!client) {
+        throw new NotFoundException('Client introuvable');
+      }
+
+      await queryRunner.manager.update(Client, versement.clientId, {
+        totalCredits: Number(client.totalCredits) + Number(versement.montant),
+      });
+
+      // ÉTAPE 2: APPLIQUER le nouveau paiement
+
+      const newMontant = updateDto.montant ?? versement.montant;
+      const newVenteId = updateDto.venteId !== undefined ? updateDto.venteId : versement.venteId;
+
+      // 2.1 Vérifier que le nouveau montant ne dépasse pas la dette totale
+      const detteApresRestoration = Number(client.totalCredits) + Number(versement.montant);
+      if (Number(newMontant) > detteApresRestoration) {
+        throw new BadRequestException(
+          `Le montant du versement (${newMontant} GNF) dépasse la dette du client (${detteApresRestoration} GNF)`,
+        );
+      }
+
+      // 2.2 Si nouvelle vente liée, valider et mettre à jour
+      let newVenteNumero = null;
+      if (newVenteId) {
+        // Si c'est la même vente qu'avant, la récupérer à nouveau après la restauration
+        const newVente = await queryRunner.manager.findOne(Vente, {
+          where: { id: newVenteId, organizationId },
+        });
+
+        if (!newVente) {
+          throw new NotFoundException('Vente introuvable');
         }
 
-        // Vérifier que le nouveau montant ne dépasse pas la dette (après ajustement)
-        const newDette = client.totalCredits - diffMontant;
-        if (newDette < 0) {
+        if (newVente.clientId !== versement.clientId) {
+          throw new BadRequestException('Cette vente n\'appartient pas à ce client');
+        }
+
+        if (Number(newMontant) > Number(newVente.montantRestant)) {
           throw new BadRequestException(
-            `Le nouveau montant créerait une dette négative (${newDette})`,
+            `Le montant du versement (${newMontant} GNF) dépasse le montant restant de la vente (${newVente.montantRestant} GNF)`,
           );
         }
 
-        // Si lié à une vente, vérifier aussi
-        if (versement.venteId) {
-          const vente = await this.venteRepository.findOne({
-            where: { id: versement.venteId, organizationId },
-          });
-
-          if (!vente) {
-            throw new NotFoundException('Vente introuvable');
-          }
-
-          const newMontantRestantVente = vente.montantRestant - diffMontant;
-          if (newMontantRestantVente < 0) {
-            throw new BadRequestException(
-              `Le nouveau montant dépasserait le total de la vente`,
-            );
-          }
-
-          // Mettre à jour la vente
-          await queryRunner.manager.update(Vente, versement.venteId, {
-            montantPaye: vente.montantPaye + diffMontant,
-            montantRestant: vente.montantRestant - diffMontant,
-          });
-        }
-
-        // Mettre à jour le client
-        await queryRunner.manager.update(Client, versement.clientId, {
-          totalCredits: client.totalCredits - diffMontant,
+        await queryRunner.manager.update(Vente, newVenteId, {
+          montantPaye: Number(newVente.montantPaye) + Number(newMontant),
+          montantRestant: Number(newVente.montantRestant) - Number(newMontant),
         });
+
+        newVenteNumero = newVente.numero;
       }
 
-      // Mettre à jour le versement
-      Object.assign(versement, updateDto);
+      // 2.3 Mettre à jour la dette du client avec le nouveau montant
+      await queryRunner.manager.update(Client, versement.clientId, {
+        totalCredits: detteApresRestoration - Number(newMontant),
+      });
+
+      // ÉTAPE 3: Mettre à jour l'enregistrement du versement
+      Object.assign(versement, {
+        ...updateDto,
+        venteNumero: newVenteNumero || (newVenteId ? versement.venteNumero : null),
+      });
+
       const savedVersement = await queryRunner.manager.save(versement);
 
       await queryRunner.commitTransaction();

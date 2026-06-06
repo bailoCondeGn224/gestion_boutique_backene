@@ -12,9 +12,9 @@ export class CreateVersementDto {
   @IsOptional()
   approvisionnementId?: string;
 
-  @ApiProperty({ example: 500000, minimum: 0 })
+  @ApiProperty({ example: 500000, minimum: 1 })
   @IsNumber()
-  @Min(0, { message: 'Le montant ne peut pas être négatif' })
+  @Min(1, { message: 'Le montant doit être supérieur à 0' })
   montant: number;
 
   @ApiProperty({ example: 'mobile', enum: ModeVersement })

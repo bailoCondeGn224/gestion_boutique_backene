@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { VenteFilterDto } from './dto/vente-filter.dto';
+import { VenteStatsFilterDto } from './dto/vente-stats-filter.dto';
 import { TenantGuard, CurrentOrganization } from '../common';
 
 @ApiTags('ventes')
@@ -64,8 +65,21 @@ export class VentesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer les statistiques de ventes (jour, semaine, mois)' })
   @ApiResponse({ status: 200, description: 'Statistiques de ventes' })
-  getStats(@CurrentOrganization() organizationId: string) {
-    return this.ventesService.getStats(organizationId);
+  getStats(
+    @Query() filterDto: VenteStatsFilterDto,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.ventesService.getStats(organizationId, filterDto);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('ventes.read')
+  @Get('mois-disponibles')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer la liste des mois/années avec des ventes' })
+  @ApiResponse({ status: 200, description: 'Liste des périodes avec ventes' })
+  getMoisDisponibles(@CurrentOrganization() organizationId: string) {
+    return this.ventesService.getMoisDisponibles(organizationId);
   }
 
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)

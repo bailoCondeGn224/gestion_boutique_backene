@@ -85,8 +85,8 @@ export class ApprovisionnementController {
     @CurrentOrganization() organizationId: string,
   ) {
     return this.approvisionnementService.findByFournisseur(
-      organizationId,
       fournisseurId,
+      organizationId,
       paginationDto,
     );
   }

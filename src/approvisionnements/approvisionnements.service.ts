@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Approvisionnement } from './entities/approvisionnement.entity';
+import { Approvisionnement, StatutApprovisionnement } from './entities/approvisionnement.entity';
 import { LigneApprovisionnement } from './entities/ligne-approvisionnement.entity';
 import { CreateApprovisionnementDto } from './dto/create-approvisionnement.dto';
 import { UpdateApprovisionnementDto } from './dto/update-approvisionnement.dto';
@@ -31,13 +31,31 @@ export class ApprovisionnementService {
     createDto: CreateApprovisionnementDto,
     organizationId: string,
   ): Promise<Approvisionnement> {
+    // Fix Issue #13: Valider que total = sum(lignes.sousTotal)
+    const calculatedTotal = createDto.lignes.reduce(
+      (sum, ligne) => sum + Number(ligne.sousTotal),
+      0,
+    );
+
+    if (Math.abs(Number(createDto.total) - calculatedTotal) > 0.01) {
+      throw new BadRequestException(
+        `Le total (${createDto.total} GNF) ne correspond pas à la somme des lignes (${calculatedTotal} GNF)`,
+      );
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.startTransaction('SERIALIZABLE'); // Fix Issue #7
 
     try {
-      // Générer le numéro d'approvisionnement
-      const numero = await this.generateNumero(organizationId);
+      // Fix Issue #14: Générer numéro de manière atomique
+      const numeroResult = await queryRunner.manager.query(
+        `SELECT COALESCE(MAX(CAST(SUBSTRING(numero FROM 5) AS INTEGER)), 0) + 1 as next_num
+         FROM approvisionnement
+         WHERE "organizationId" = $1`,
+        [organizationId],
+      );
+      const numero = `APP-${numeroResult[0].next_num.toString().padStart(3, '0')}`;
 
       // Calculer montantRestant si non fourni
       const montantPaye = createDto.montantPaye || 0;
@@ -80,14 +98,15 @@ export class ApprovisionnementService {
 
       // Incrémenter le stock de chaque article et enregistrer les mouvements
       for (const ligne of lignes) {
-        // Récupérer le stock avant modification
+        // Fix Issue #10: Verrouiller l'article avec SELECT FOR UPDATE
         const stockResult = await queryRunner.manager.query(
-          `SELECT stock FROM article WHERE id = $1 AND "organizationId" = $2`,
+          `SELECT stock FROM article WHERE id = $1 AND "organizationId" = $2 FOR UPDATE`,
           [ligne.articleId, organizationId],
         );
+
         const stockAvant = stockResult[0]?.stock || 0;
 
-        // Incrémenter le stock
+        // Incrémenter le stock (même si stock = 0, on peut réapprovisionner)
         await queryRunner.manager.query(
           `UPDATE article SET stock = stock + $1 WHERE id = $2 AND "organizationId" = $3`,
           [ligne.quantite, ligne.articleId, organizationId],
@@ -274,7 +293,7 @@ export class ApprovisionnementService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.approvisionnementRepository.findAndCount({
-      where: { fournisseurId, organizationId },
+      where: { fournisseurId, organizationId, statut: StatutApprovisionnement.VALIDE },
       order: { dateLivraison: 'DESC' },
       skip,
       take: limit,
@@ -291,7 +310,7 @@ export class ApprovisionnementService {
     quantiteTotale: number;
   }> {
     const appros = await this.approvisionnementRepository.find({
-      where: { fournisseurId, organizationId },
+      where: { fournisseurId, organizationId, statut: StatutApprovisionnement.VALIDE },
       relations: ['lignes'],
     });
 
@@ -360,7 +379,7 @@ export class ApprovisionnementService {
   ): Promise<Approvisionnement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.startTransaction('SERIALIZABLE'); // Fix Issue #7
 
     try {
       const approvisionnement = await this.findOne(id, organizationId);
@@ -421,6 +440,14 @@ export class ApprovisionnementService {
         if (otherFields.total !== undefined || otherFields.montantPaye !== undefined) {
           const newTotal = otherFields.total ?? oldTotal;
           const newMontantPaye = otherFields.montantPaye ?? oldMontantPaye;
+
+          // Fix Issue #5: Valider que total >= montantPaye
+          if (newTotal < newMontantPaye) {
+            throw new BadRequestException(
+              `Le total (${newTotal} GNF) ne peut pas être inférieur au montant déjà payé (${newMontantPaye} GNF)`,
+            );
+          }
+
           otherFields.montantRestant = newTotal - newMontantPaye;
         }
 
@@ -477,7 +504,7 @@ export class ApprovisionnementService {
   ): Promise<Approvisionnement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.startTransaction('SERIALIZABLE'); // Fix Issue #7
 
     try {
       const approvisionnement = await this.findOne(id, organizationId);
@@ -486,6 +513,19 @@ export class ApprovisionnementService {
       if (approvisionnement.statut === 'ANNULE') {
         throw new BadRequestException(
           'Cet approvisionnement est déjà annulé',
+        );
+      }
+
+      // Fix Issue #9: Vérifier qu'il n'y a pas de versements liés
+      const versementsLies = await queryRunner.manager.query(
+        `SELECT COUNT(*) as count FROM versement
+         WHERE "approvisionnementId" = $1 AND "organizationId" = $2`,
+        [id, organizationId],
+      );
+
+      if (versementsLies[0].count > 0) {
+        throw new BadRequestException(
+          `Impossible d'annuler cet approvisionnement : ${versementsLies[0].count} versement(s) associé(s). Supprimez d'abord les versements.`,
         );
       }
 
@@ -560,6 +600,8 @@ export class ApprovisionnementService {
       await queryRunner.manager.query(
         `UPDATE approvisionnement
          SET statut = 'ANNULE',
+             "montantPaye" = 0,
+             "montantRestant" = 0,
              "annuleLe" = CURRENT_TIMESTAMP,
              "annulePar" = $1,
              "motifAnnulation" = $2

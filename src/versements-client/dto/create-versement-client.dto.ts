@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, IsUUID, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, IsUUID, IsDateString, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ModeVersementClient } from '../entities/versement-client.entity';
 
@@ -18,8 +18,9 @@ export class CreateVersementClientDto {
   @IsNotEmpty()
   venteId: string;
 
-  @ApiProperty({ description: 'Montant du versement' })
+  @ApiProperty({ description: 'Montant du versement', minimum: 1 })
   @IsNumber()
+  @Min(1, { message: 'Le montant doit être au moins 1 GNF' })
   @IsNotEmpty()
   montant: number;
 

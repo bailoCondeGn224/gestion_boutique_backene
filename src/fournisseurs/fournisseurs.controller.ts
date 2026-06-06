@@ -113,6 +113,20 @@ export class FournisseursController {
   }
 
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('fournisseurs.update')
+  @Post(':id/sync-dette')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Synchroniser la dette avec les approvisionnements réels' })
+  @ApiResponse({ status: 200, description: 'Dette synchronisée avec succès' })
+  @ApiResponse({ status: 404, description: 'Fournisseur introuvable' })
+  syncDette(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.fournisseursService.syncDette(id, organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @Permissions('fournisseurs.read')
   @Get(':id')
   @ApiBearerAuth()

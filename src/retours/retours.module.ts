@@ -15,6 +15,13 @@ import { Transaction } from '../finances/entities/transaction.entity';
 import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module';
 import { ValidationModule } from '../validation/validation.module';
 
+// Import des nouveaux repositories
+import { ArticleRepository } from '../stock/repositories/article.repository';
+import { MouvementStockRepository } from '../mouvements-stock/repositories/mouvement-stock.repository';
+import { ClientRepository } from '../clients/repositories/client.repository';
+import { VenteRepository } from '../ventes/repositories/vente.repository';
+import { TransactionRepository } from '../finances/repositories/transaction.repository';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -33,7 +40,14 @@ import { ValidationModule } from '../validation/validation.module';
     ValidationModule,
   ],
   controllers: [RetoursController],
-  providers: [RetoursService],
+  providers: [
+    RetoursService,
+    ArticleRepository,
+    MouvementStockRepository,
+    ClientRepository,
+    VenteRepository,
+    TransactionRepository,
+  ],
   exports: [RetoursService],
 })
 export class RetoursModule {}

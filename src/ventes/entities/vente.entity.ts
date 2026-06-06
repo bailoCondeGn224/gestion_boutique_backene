@@ -19,6 +19,11 @@ export enum ModePaiement {
   ACOMPTE_50 = 'acompte_50',
 }
 
+export enum StatutVente {
+  ACTIVE = 'active',
+  ANNULEE = 'annulee',
+}
+
 @Entity('vente')
 @Unique(['numero', 'organizationId'])
 export class Vente extends BaseTenantEntity {
@@ -69,6 +74,13 @@ export class Vente extends BaseTenantEntity {
 
   @Column({ type: 'time' })
   heure: string;
+
+  @Column({
+    type: 'enum',
+    enum: StatutVente,
+    default: StatutVente.ACTIVE,
+  })
+  statut: StatutVente;
 
   @CreateDateColumn()
   createdAt: Date;

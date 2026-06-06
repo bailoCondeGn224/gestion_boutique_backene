@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Fournisseur } from './entities/fournisseur.entity';
-import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
+import { Approvisionnement, StatutApprovisionnement } from '../approvisionnements/entities/approvisionnement.entity';
 import { Versement } from '../versements/entities/versement.entity';
 import { CreateFournisseurDto } from './dto/create-fournisseur.dto';
 import { UpdateFournisseurDto } from './dto/update-fournisseur.dto';
@@ -76,7 +76,25 @@ export class FournisseursService {
       .take(limit)
       .getManyAndCount();
 
-    return createPaginatedResponse(data, total, page, limit);
+    // Calculer la dette réelle pour chaque fournisseur à partir des approvisionnements
+    const fournisseursWithDette = await Promise.all(
+      data.map(async (fournisseur) => {
+        const result = await this.approvisionnementRepository
+          .createQueryBuilder('appro')
+          .select('SUM(appro.montantRestant)', 'totalRestant')
+          .where('appro.fournisseurId = :fournisseurId', { fournisseurId: fournisseur.id })
+          .andWhere('appro.organizationId = :organizationId', { organizationId })
+          .andWhere('appro.statut = :statut', { statut: 'VALIDE' })
+          .getRawOne();
+
+        return {
+          ...fournisseur,
+          dette: Number(result?.totalRestant || 0),
+        };
+      })
+    );
+
+    return createPaginatedResponse(fournisseursWithDette, total, page, limit);
   }
 
   async findOne(id: string, organizationId: string): Promise<Fournisseur> {
@@ -89,6 +107,17 @@ export class FournisseursService {
         `Fournisseur avec l'ID ${id} introuvable`,
       );
     }
+
+    // Calculer la dette réelle à partir des approvisionnements
+    const result = await this.approvisionnementRepository
+      .createQueryBuilder('appro')
+      .select('SUM(appro.montantRestant)', 'totalRestant')
+      .where('appro.fournisseurId = :fournisseurId', { fournisseurId: id })
+      .andWhere('appro.organizationId = :organizationId', { organizationId })
+      .andWhere('appro.statut = :statut', { statut: 'VALIDE' })
+      .getRawOne();
+
+    fournisseur.dette = Number(result?.totalRestant || 0);
 
     return fournisseur;
   }
@@ -115,7 +144,16 @@ export class FournisseursService {
 
     Object.assign(fournisseur, updateFournisseurDto);
 
-    fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
+    // Fix Issue #8: Recalculer dette à partir des approvisionnements VALIDES
+    const result = await this.approvisionnementRepository
+      .createQueryBuilder('appro')
+      .select('SUM(appro.montantRestant)', 'totalRestant')
+      .where('appro.fournisseurId = :fournisseurId', { fournisseurId: id })
+      .andWhere('appro.organizationId = :organizationId', { organizationId })
+      .andWhere('appro.statut = :statut', { statut: StatutApprovisionnement.VALIDE })
+      .getRawOne();
+
+    fournisseur.dette = Number(result?.totalRestant || 0);
 
     return this.fournisseursRepository.save(fournisseur);
   }
@@ -176,15 +214,45 @@ export class FournisseursService {
   }
 
   async getDette(id: string, organizationId: string): Promise<{ dette: number }> {
+    // Calculer la dette à partir de la somme des montantRestant des approvisionnements VALIDES
+    const result = await this.approvisionnementRepository
+      .createQueryBuilder('appro')
+      .select('SUM(appro.montantRestant)', 'totalRestant')
+      .where('appro.fournisseurId = :fournisseurId', { fournisseurId: id })
+      .andWhere('appro.organizationId = :organizationId', { organizationId })
+      .andWhere('appro.statut = :statut', { statut: 'VALIDE' })
+      .getRawOne();
+
+    const detteReelle = Number(result?.totalRestant || 0);
+
+    return { dette: detteReelle };
+  }
+
+  async syncDette(id: string, organizationId: string): Promise<Fournisseur> {
     const fournisseur = await this.findOne(id, organizationId);
-    return { dette: Number(fournisseur.dette) };
+
+    // Calculer la somme réelle des montantRestant des approvisionnements VALIDES
+    const result = await this.approvisionnementRepository
+      .createQueryBuilder('appro')
+      .select('SUM(appro.montantRestant)', 'totalRestant')
+      .where('appro.fournisseurId = :fournisseurId', { fournisseurId: id })
+      .andWhere('appro.organizationId = :organizationId', { organizationId })
+      .andWhere('appro.statut = :statut', { statut: 'VALIDE' })
+      .getRawOne();
+
+    const detteReelle = Number(result?.totalRestant || 0);
+
+    // Mettre à jour la dette du fournisseur
+    fournisseur.dette = detteReelle;
+
+    return this.fournisseursRepository.save(fournisseur);
   }
 
   async getStats(id: string, organizationId: string): Promise<any> {
     const fournisseur = await this.findOne(id, organizationId);
 
     const approvisionnements = await this.approvisionnementRepository.find({
-      where: { fournisseurId: id, organizationId },
+      where: { fournisseurId: id, organizationId, statut: StatutApprovisionnement.VALIDE },
       order: { dateLivraison: 'DESC' },
     });
 
@@ -225,9 +293,9 @@ export class FournisseursService {
   ): Promise<any> {
     const fournisseur = await this.findOne(id, organizationId);
 
-    // Récupérer les approvisionnements avec pagination
+    // Récupérer les approvisionnements VALIDES avec pagination
     const [approvisionnements, totalAppros] = await this.approvisionnementRepository.findAndCount({
-      where: { fournisseurId: id, organizationId },
+      where: { fournisseurId: id, organizationId, statut: StatutApprovisionnement.VALIDE },
       order: { dateLivraison: 'DESC' },
       skip: (approPage - 1) * approLimit,
       take: approLimit,
@@ -292,19 +360,26 @@ export class FournisseursService {
       .andWhere('fournisseur.statut = :statut', { statut: 'actif' })
       .getCount();
 
+    // Calculer la dette totale à partir des approvisionnements VALIDES
+    const detteResult = await this.approvisionnementRepository
+      .createQueryBuilder('appro')
+      .where('appro.organizationId = :organizationId', { organizationId })
+      .andWhere('appro.statut = :statut', { statut: 'VALIDE' })
+      .select('SUM(appro.montantRestant)', 'detteTotal')
+      .addSelect('COUNT(DISTINCT CASE WHEN appro.montantRestant > 0 THEN appro.fournisseurId END)', 'nombreCreanciers')
+      .getRawOne();
+
     const statsResult = await this.fournisseursRepository
       .createQueryBuilder('fournisseur')
       .where('fournisseur.organizationId = :organizationId', { organizationId })
       .select('SUM(fournisseur.totalAchats)', 'totalAchats')
-      .addSelect('SUM(fournisseur.dette)', 'detteTotal')
-      .addSelect('COUNT(CASE WHEN fournisseur.dette > 0 THEN 1 END)', 'nombreCreanciers')
       .getRawOne();
 
     return {
       total,
       actifs: totalActifs,
-      totalDette: parseFloat(statsResult?.detteTotal || '0'),
-      fournisseursEnDette: parseInt(statsResult?.nombreCreanciers || '0', 10),
+      totalDette: parseFloat(detteResult?.detteTotal || '0'),
+      fournisseursEnDette: parseInt(detteResult?.nombreCreanciers || '0', 10),
       totalAchats: parseFloat(statsResult?.totalAchats || '0'),
     };
   }

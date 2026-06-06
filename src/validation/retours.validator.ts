@@ -90,6 +90,24 @@ export class RetoursValidator {
           `La quantité à retourner doit être supérieure à 0 pour "${ligne.nom}"`,
         );
       }
+
+      // 7. NOUVELLE VALIDATION: Vérifier que le prix unitaire correspond au prix de vente original
+      if (ligneActuelle) {
+        const prixUnitaireVente = Number(ligneActuelle.prixUnitaire);
+        const prixUnitaireRetour = Number(ligne.prixUnitaire);
+
+        // Tolérance de 0.01 FG pour les erreurs d'arrondi
+        const tolerance = 0.01;
+
+        if (Math.abs(prixUnitaireRetour - prixUnitaireVente) > tolerance) {
+          throw new BadRequestException(
+            `Prix unitaire incorrect pour "${ligne.nom}": ` +
+              `Prix de vente original: ${prixUnitaireVente} FG, ` +
+              `Prix du retour: ${prixUnitaireRetour} FG. ` +
+              `Le prix du retour doit correspondre au prix de vente original.`,
+          );
+        }
+      }
     }
   }
 

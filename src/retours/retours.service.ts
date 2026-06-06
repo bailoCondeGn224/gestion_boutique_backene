@@ -4,71 +4,111 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryRunner } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CreateRetourClientDto } from './dto/create-retour-client.dto';
-import { CreateRetourFournisseurDto } from './dto/create-retour-fournisseur.dto';
-import { LigneRetourDto } from './dto/ligne-retour.dto';
-import { Vente } from '../ventes/entities/vente.entity';
+import { Vente, StatutVente } from '../ventes/entities/vente.entity';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
-import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
-import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
 import { Client } from '../clients/entities/client.entity';
-import { Fournisseur } from '../fournisseurs/entities/fournisseur.entity';
 import { Article } from '../stock/entities/article.entity';
-import { Transaction, CategorieTransaction, TypeTransaction } from '../finances/entities/transaction.entity';
 import { RetourClient } from './entities/retour-client.entity';
 import { LigneRetourClient } from './entities/ligne-retour-client.entity';
-import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
-import {
-  TypeMouvement,
-  MotifMouvement,
-} from '../mouvements-stock/entities/mouvement-stock.entity';
 import { ModeRemboursement } from './enums/mode-remboursement.enum';
-import {
-  RetourClientResponse,
-  RetourFournisseurResponse,
-  StockUpdate,
-} from './interfaces/retour-response.interface';
+import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
 import { RetoursValidator } from '../validation/retours.validator';
+
+// Imports des nouveaux repositories
+import { ArticleRepository } from '../stock/repositories/article.repository';
+import { MouvementStockRepository } from '../mouvements-stock/repositories/mouvement-stock.repository';
+import { ClientRepository } from '../clients/repositories/client.repository';
+import { VenteRepository } from '../ventes/repositories/vente.repository';
+import { TransactionRepository } from '../finances/repositories/transaction.repository';
+
+/**
+ * ============================================================================
+ * SERVICE DE RETOURS CLIENTS - VERSION PROPRE
+ * ============================================================================
+ *
+ * LOGIQUE MÉTIER DÉFINIE:
+ *
+ * Q1: RÉDUCTION DE LA VENTE (Option A)
+ *    - La vente originale est modifiée (total réduit)
+ *    - Les articles retournés sont retirés de la vente
+ *    - Le stock augmente
+ *
+ * Q2: GESTION DES PAIEMENTS (Option C)
+ *    - Si montant_retour ≤ dette: Réduire la dette uniquement, pas de remboursement cash
+ *    - Si montant_retour > dette: Annuler toute la dette + rembourser le surplus
+ *
+ * Q3: RETOUR PARTIEL VS TOTAL
+ *    - Cas 1 (partiel): Modifier la vente
+ *    - Cas 2 (total): Marquer la vente comme ANNULEE
+ *
+ * Q4: MODE DE REMBOURSEMENT
+ *    - Au choix: Mobile Money, Espèces, Crédit compte
+ *
+ * Q5: RÈGLES DE VALIDATION
+ *    ✓ Prix retour = Prix vente (pas de modification)
+ *    ✓ Quantité retournée ≤ Quantité vendue
+ *    ✓ Montant total retour ≤ Montant total vente
+ *    ✓ Les retours réduisent le totalAchats du client
+ * ============================================================================
+ */
+
+interface CalculRetour {
+  remboursementCash: number;
+  creditAnnule: number;
+  nouveauMontantPaye: number;
+  nouveauMontantRestant: number;
+  nouveauTotal: number;
+  estRetourTotal: boolean;
+}
 
 @Injectable()
 export class RetoursService {
   constructor(
     @InjectRepository(Vente)
-    private venteRepository: Repository<Vente>,
+    private venteRepo: Repository<Vente>,
     @InjectRepository(LigneVente)
-    private ligneVenteRepository: Repository<LigneVente>,
+    private ligneVenteRepo: Repository<LigneVente>,
     @InjectRepository(RetourClient)
-    private retourClientRepository: Repository<RetourClient>,
+    private retourClientRepo: Repository<RetourClient>,
     @InjectRepository(LigneRetourClient)
-    private ligneRetourClientRepository: Repository<LigneRetourClient>,
-    @InjectRepository(Approvisionnement)
-    private approvisionnementRepository: Repository<Approvisionnement>,
-    @InjectRepository(LigneApprovisionnement)
-    private ligneApprovisionnementRepository: Repository<LigneApprovisionnement>,
+    private ligneRetourClientRepo: Repository<LigneRetourClient>,
     @InjectRepository(Client)
-    private clientRepository: Repository<Client>,
-    @InjectRepository(Fournisseur)
-    private fournisseurRepository: Repository<Fournisseur>,
+    private clientRepo: Repository<Client>,
     @InjectRepository(Article)
-    private articleRepository: Repository<Article>,
-    @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>,
+    private articleRepo: Repository<Article>,
     private dataSource: DataSource,
-    private mouvementsStockService: MouvementsStockService,
     private retoursValidator: RetoursValidator,
+    // Nouveaux repositories custom
+    private articleRepository: ArticleRepository,
+    private mouvementStockRepository: MouvementStockRepository,
+    private clientRepository: ClientRepository,
+    private venteRepository: VenteRepository,
+    private transactionRepository: TransactionRepository,
   ) {}
 
+  /**
+   * ============================================================================
+   * CRÉER UN RETOUR CLIENT
+   * ============================================================================
+   */
   async createRetourClient(
     dto: CreateRetourClientDto,
     organizationId: string,
-  ): Promise<RetourClientResponse> {
+  ): Promise<any> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // 1. Charger et valider vente
+      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔄 DÉBUT DU RETOUR CLIENT');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+      // ========================================================================
+      // ÉTAPE 1: CHARGER ET VALIDER LA VENTE
+      // ========================================================================
       const vente = await queryRunner.manager.findOne(Vente, {
         where: { id: dto.venteId, organizationId },
         relations: ['lignes'],
@@ -78,7 +118,19 @@ export class RetoursService {
         throw new NotFoundException(`Vente ${dto.venteId} introuvable`);
       }
 
-      // 2. Valider quantités (avec vérification des retours précédents)
+      if (vente.statut === StatutVente.ANNULEE) {
+        throw new BadRequestException('Cette vente est déjà annulée');
+      }
+
+      console.log(`📋 Vente: ${vente.numero}`);
+      console.log(`   Total: ${Number(vente.total).toLocaleString()} FG`);
+      console.log(`   Montant payé: ${Number(vente.montantPaye).toLocaleString()} FG`);
+      console.log(`   Dette restante: ${Number(vente.montantRestant).toLocaleString()} FG`);
+      console.log(`   Nombre d'articles: ${vente.lignes.length}`);
+
+      // ========================================================================
+      // ÉTAPE 2: VALIDER LES QUANTITÉS ET PRIX
+      // ========================================================================
       await this.retoursValidator.validateRetourClientQuantities(
         dto.venteId,
         dto.lignes,
@@ -86,147 +138,118 @@ export class RetoursService {
         queryRunner,
       );
 
-      // 3. Générer numéro de retour (RC-001, RC-002...)
-      const lastRetour = await queryRunner.manager.findOne(RetourClient, {
-        where: { organizationId },
-        order: { createdAt: 'DESC' },
-      });
+      console.log(`\n🔍 Validation OK - Montant retour: ${dto.total.toLocaleString()} FG`);
 
-      let nextNumber = 1;
-      if (lastRetour && lastRetour.numero) {
-        const match = lastRetour.numero.match(/RC-(\d+)/);
-        if (match) {
-          nextNumber = parseInt(match[1]) + 1;
-        }
-      }
-      const numeroRetour = `RC-${String(nextNumber).padStart(3, '0')}`;
+      // ========================================================================
+      // ÉTAPE 3: CALCULER LES NOUVEAUX MONTANTS (LOGIQUE Q2: Option C)
+      // ========================================================================
+      const estRetourTotal = vente.lignes.length === dto.lignes.length;
+      const calcul = this.calculerMontantsRetour(
+        Number(vente.total),
+        Number(vente.montantPaye),
+        Number(vente.montantRestant),
+        dto.total,
+        estRetourTotal,
+      );
 
-      const mouvements = [];
-      const stockUpdates: StockUpdate[] = [];
-      const lignesRetour: LigneRetourClient[] = [];
+      this.afficherCalcul(calcul);
 
-      // 4. Traiter chaque article retourné
+      // ========================================================================
+      // ÉTAPE 4: METTRE À JOUR LE STOCK
+      // ========================================================================
+      console.log('\n📦 Mise à jour du stock:');
+
       for (const ligne of dto.lignes) {
-        const article = await queryRunner.manager.findOne(Article, {
-          where: { id: ligne.articleId, organizationId },
-        });
+        const stockAvant = await this.articleRepository.getStockActuel(
+          ligne.articleId,
+          organizationId,
+          queryRunner,
+        );
 
-        if (!article) {
-          throw new NotFoundException(`Article ${ligne.articleId} introuvable`);
-        }
+        await this.articleRepository.augmenterStock(
+          ligne.articleId,
+          ligne.quantite,
+          organizationId,
+          queryRunner,
+        );
 
-        const stockAvant = article.stock;
         const stockApres = stockAvant + ligne.quantite;
 
-        // Incrémenter le stock
-        await queryRunner.manager.query(
-          `UPDATE article SET stock = stock + $1 WHERE id = $2 AND "organizationId" = $3`,
-          [ligne.quantite, ligne.articleId, organizationId],
-        );
-
-        // Créer mouvement de stock DANS LA MÊME TRANSACTION
-        await queryRunner.manager.query(
-          `INSERT INTO mouvement_stock
-           ("articleId", "articleNom", type, motif, quantite, "stockAvant", "stockApres",
-            "prixUnitaire", "valeurTotal", "userId", "userNom", "venteId",
-            reference, note, date, "organizationId", "createdAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), $15, NOW())`,
-          [
-            ligne.articleId,
-            ligne.nom,
-            TypeMouvement.ENTREE,
-            MotifMouvement.RETOUR_CLIENT,
-            ligne.quantite,
+        await this.mouvementStockRepository.creerMouvementRetourClient(
+          {
+            articleId: ligne.articleId,
+            articleNom: ligne.nom,
+            type: TypeMouvement.ENTREE,
+            motif: MotifMouvement.RETOUR_CLIENT,
+            quantite: ligne.quantite,
             stockAvant,
             stockApres,
-            ligne.prixUnitaire,
-            ligne.sousTotal,
-            dto.userId,
-            dto.userNom,
-            dto.venteId,
-            numeroRetour,
-            ligne.noteArticle || dto.note,
-            organizationId,
-          ],
+            prixUnitaire: ligne.prixUnitaire,
+            valeurTotal: ligne.sousTotal,
+            userId: dto.userId,
+            userNom: dto.userNom,
+            venteId: dto.venteId,
+            reference: '', // Sera mis à jour après
+            note: ligne.noteArticle || dto.note,
+          },
+          organizationId,
+          queryRunner,
         );
-        stockUpdates.push({
-          articleId: ligne.articleId,
-          articleNom: ligne.nom,
-          stockAvant,
-          stockApres,
-        });
 
-        // Préparer ligne retour pour sauvegarde
-        lignesRetour.push({
-          articleId: ligne.articleId,
-          nom: ligne.nom,
-          quantite: ligne.quantite,
-          prixUnitaire: ligne.prixUnitaire,
-          sousTotal: ligne.sousTotal,
-          raison: ligne.raison,
-          noteArticle: ligne.noteArticle,
-          organizationId, // Ajout de l'organizationId
-        } as LigneRetourClient);
+        console.log(`   ✓ ${ligne.nom}: ${stockAvant} → ${stockApres} (+${ligne.quantite})`);
+      }
 
-        // 5. METTRE À JOUR LA LIGNE DE VENTE
-        const ligneVente = vente.lignes.find(lv => lv.articleId === ligne.articleId);
-        if (ligneVente) {
-          const nouvelleQuantite = ligneVente.quantite - ligne.quantite;
+      // ========================================================================
+      // ÉTAPE 5: MODIFIER LA VENTE (LOGIQUE Q3)
+      // ========================================================================
+      if (calcul.estRetourTotal) {
+        // CAS 2: RETOUR TOTAL → Marquer comme ANNULEE
+        await this.venteRepository.marquerCommeAnnulee(
+          dto.venteId,
+          organizationId,
+          queryRunner,
+        );
 
-          if (nouvelleQuantite <= 0) {
-            // Supprimer la ligne si quantité = 0
-            await queryRunner.manager.delete(LigneVente, ligneVente.id);
-          } else {
-            // Diminuer la quantité et recalculer le sous-total
-            const nouveauSousTotal = nouvelleQuantite * ligneVente.prixUnitaire;
-            await queryRunner.manager.update(LigneVente, ligneVente.id, {
-              quantite: nouvelleQuantite,
-              sousTotal: nouveauSousTotal,
-            });
+        // Supprimer toutes les lignes
+        await queryRunner.manager.delete(LigneVente, { venteId: dto.venteId });
+
+        console.log('\n🚫 Vente marquée comme ANNULÉE (retour total)');
+      } else {
+        // CAS 1: RETOUR PARTIEL → Modifier la vente
+        for (const ligne of dto.lignes) {
+          const ligneVente = vente.lignes.find(lv => lv.articleId === ligne.articleId);
+
+          if (ligneVente) {
+            const nouvelleQte = ligneVente.quantite - ligne.quantite;
+
+            if (nouvelleQte <= 0) {
+              await queryRunner.manager.delete(LigneVente, ligneVente.id);
+            } else {
+              await queryRunner.manager.update(LigneVente, ligneVente.id, {
+                quantite: nouvelleQte,
+                sousTotal: nouvelleQte * Number(ligneVente.prixUnitaire),
+              });
+            }
           }
         }
-      }
 
-      // 6. RECALCULER LE TOTAL DE LA VENTE
-      const lignesRestantes = await queryRunner.manager.find(LigneVente, {
-        where: { venteId: dto.venteId },
-      });
-
-      console.log(`[RETOUR CLIENT] Vente ${vente.numero}: ${lignesRestantes.length} ligne(s) restante(s)`);
-
-      let venteAnnulee = false;
-      if (lignesRestantes.length === 0) {
-        // Retour total: supprimer la vente
-        console.log(`[RETOUR CLIENT] Suppression de la vente ${vente.numero} (retour total)`);
-        await queryRunner.manager.delete(Vente, dto.venteId);
-        venteAnnulee = true;
-      } else {
-        // Retour partiel: recalculer les montants
-        const nouveauTotal = lignesRestantes.reduce(
-          (sum, l) => sum + Number(l.sousTotal),
-          0,
+        await this.venteRepository.updateMontantsApresRetour(
+          dto.venteId,
+          calcul.nouveauTotal,
+          calcul.nouveauMontantPaye,
+          calcul.nouveauMontantRestant,
+          organizationId,
+          queryRunner,
         );
 
-        // Calculer le ratio du retour pour ajuster montantPaye proportionnellement
-        const ancienTotal = Number(vente.total);
-        const ratioRestant = nouveauTotal / ancienTotal;
-
-        const nouveauMontantPaye = Math.min(
-          Number(vente.montantPaye) * ratioRestant,
-          nouveauTotal,
-        );
-        const nouveauMontantRestant = nouveauTotal - nouveauMontantPaye;
-
-        console.log(`[RETOUR CLIENT] Mise à jour vente ${vente.numero}: ${ancienTotal} → ${nouveauTotal} GNF`);
-
-        await queryRunner.manager.update(Vente, dto.venteId, {
-          total: nouveauTotal,
-          montantPaye: nouveauMontantPaye,
-          montantRestant: nouveauMontantRestant,
-        });
+        console.log('\n✏️ Vente mise à jour (retour partiel)');
       }
 
-      // 7. SAUVEGARDER LE RETOUR CLIENT (sans les lignes d'abord)
+      // ========================================================================
+      // ÉTAPE 6: CRÉER LE RETOUR CLIENT
+      // ========================================================================
+      const numeroRetour = await this.genererNumeroRetour(organizationId, queryRunner);
+
       const retourClient = queryRunner.manager.create(RetourClient, {
         numero: numeroRetour,
         venteId: dto.venteId,
@@ -235,7 +258,7 @@ export class RetoursService {
         clientNom: vente.nom || null,
         total: dto.total,
         modeRemboursement: dto.modeRemboursement,
-        montantRembourse: dto.total,
+        montantRembourse: calcul.remboursementCash,
         date: new Date(),
         note: dto.note,
         userId: dto.userId,
@@ -243,289 +266,260 @@ export class RetoursService {
         organizationId,
       });
 
-      const savedRetourClient = await queryRunner.manager.save(RetourClient, retourClient);
+      const savedRetour = await queryRunner.manager.save(RetourClient, retourClient);
 
-      // 8. SAUVEGARDER LES LIGNES SÉPARÉMENT avec retourClientId et organizationId
-      for (const ligneData of lignesRetour) {
+      // Créer les lignes
+      for (const ligneData of dto.lignes) {
         const ligne = queryRunner.manager.create(LigneRetourClient, {
-          ...ligneData,
-          retourClientId: savedRetourClient.id,
+          retourClientId: savedRetour.id,
+          articleId: ligneData.articleId,
+          nom: ligneData.nom,
+          quantite: ligneData.quantite,
+          prixUnitaire: ligneData.prixUnitaire,
+          sousTotal: ligneData.sousTotal,
+          raison: ligneData.raison,
+          noteArticle: ligneData.noteArticle,
           organizationId,
         });
         await queryRunner.manager.save(LigneRetourClient, ligne);
       }
 
-      // 9. Ajuster finances client
-      let clientUpdated = false;
-      let nouveauTotalAchats: number | undefined;
-      let nouveauTotalCredits: number | undefined;
-
-      if (vente.clientId) {
-        const client = await queryRunner.manager.findOne(Client, {
-          where: { id: vente.clientId, organizationId },
-        });
-
-        if (!client) {
-          throw new NotFoundException(`Client ${vente.clientId} introuvable`);
-        }
-
-        nouveauTotalAchats = Number(client.totalAchats) - dto.total;
-
-        if (dto.modeRemboursement === ModeRemboursement.CREDIT_COMPTE) {
-          nouveauTotalCredits = Number(client.totalCredits) - dto.total;
-
-          await queryRunner.manager.update(Client, vente.clientId, {
-            totalAchats: Math.max(0, nouveauTotalAchats),
-            totalCredits: Math.max(0, nouveauTotalCredits),
-          });
-        } else {
-          await queryRunner.manager.update(Client, vente.clientId, {
-            totalAchats: Math.max(0, nouveauTotalAchats),
-          });
-        }
-
-        clientUpdated = true;
-      }
-
-      // 10. Créer transaction pour remboursements cash/mobile/virement
-      if (dto.modeRemboursement !== ModeRemboursement.CREDIT_COMPTE) {
-        await queryRunner.manager.query(
-          `INSERT INTO transaction
-           (description, montant, type, categorie, date, "venteId", "organizationId")
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            `Retour client ${numeroRetour} - Vente ${vente.numero}`,
-            dto.total,
-            TypeTransaction.OUT,
-            CategorieTransaction.RETOUR_CLIENT,
-            new Date(),
-            dto.venteId,
-            organizationId,
-          ],
-        );
-      }
-
-      await queryRunner.commitTransaction();
-
-      return {
-        retourId: savedRetourClient.id,
+      // Mettre à jour les références dans les mouvements
+      await this.mouvementStockRepository.updateReference(
+        dto.venteId,
         numeroRetour,
-        venteAnnulee,
-        mouvements,
-        updatedStock: stockUpdates,
-        financialSummary: {
-          totalRembourse: dto.total,
-          modeRemboursement: dto.modeRemboursement,
-          clientId: vente.clientId,
-          clientUpdated,
-          nouveauTotalAchats: nouveauTotalAchats
-            ? Math.max(0, nouveauTotalAchats)
-            : undefined,
-          nouveauTotalCredits: nouveauTotalCredits
-            ? Math.max(0, nouveauTotalCredits)
-            : undefined,
-        },
-      };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  async createRetourFournisseur(
-    dto: CreateRetourFournisseurDto,
-    organizationId: string,
-  ): Promise<RetourFournisseurResponse> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // 1. Charger et valider approvisionnement
-      const approvisionnement = await queryRunner.manager.findOne(
-        Approvisionnement,
-        {
-          where: { id: dto.approvisionnementId, organizationId },
-          relations: ['lignes'],
-        },
-      );
-
-      if (!approvisionnement) {
-        throw new NotFoundException(
-          `Approvisionnement ${dto.approvisionnementId} introuvable`,
-        );
-      }
-
-      // 2. Valider quantités (avec vérification des retours précédents)
-      await this.retoursValidator.validateRetourFournisseurQuantities(
-        dto.approvisionnementId,
-        dto.lignes,
         organizationId,
         queryRunner,
       );
 
-      const mouvements = [];
-      const stockUpdates: StockUpdate[] = [];
+      console.log(`\n📄 Retour ${numeroRetour} créé avec succès`);
 
-      // 3. Traiter chaque article retourné
-      for (const ligne of dto.lignes) {
-        const article = await queryRunner.manager.findOne(Article, {
-          where: { id: ligne.articleId, organizationId },
-        });
-
-        if (!article) {
-          throw new NotFoundException(`Article ${ligne.articleId} introuvable`);
-        }
-
-        const stockAvant = article.stock;
-
-        // Valider stock disponible
-        if (stockAvant < ligne.quantite) {
-          throw new BadRequestException(
-            `Stock insuffisant pour ${ligne.nom}. ` +
-              `Disponible: ${stockAvant}, Demandé: ${ligne.quantite}`,
-          );
-        }
-
-        const stockApres = stockAvant - ligne.quantite;
-
-        // Décrémenter le stock
-        await queryRunner.manager.query(
-          `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
-          [ligne.quantite, ligne.articleId, organizationId],
-        );
-
-        // Créer mouvement de stock DANS LA MÊME TRANSACTION
-        await queryRunner.manager.query(
-          `INSERT INTO mouvement_stock
-           ("articleId", "articleNom", type, motif, quantite, "stockAvant", "stockApres",
-            "prixUnitaire", "valeurTotal", "userId", "userNom", "approvisionnementId",
-            reference, note, date, "organizationId", "createdAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), $15, NOW())`,
-          [
-            ligne.articleId,
-            ligne.nom,
-            TypeMouvement.SORTIE,
-            MotifMouvement.RETOUR_FOURNISSEUR,
-            ligne.quantite,
-            stockAvant,
-            stockApres,
-            ligne.prixUnitaire,
-            ligne.sousTotal,
-            dto.userId,
-            dto.userNom,
-            dto.approvisionnementId,
-            approvisionnement.numero,
-            ligne.noteArticle || dto.note,
-            organizationId,
-          ],
-        );
-        stockUpdates.push({
-          articleId: ligne.articleId,
-          articleNom: ligne.nom,
-          stockAvant,
-          stockApres,
-        });
-      }
-
-      // 4. Ajuster finances fournisseur
-      const fournisseur = await queryRunner.manager.findOne(Fournisseur, {
-        where: { id: approvisionnement.fournisseurId, organizationId },
-      });
-
-      if (!fournisseur) {
-        throw new NotFoundException(
-          `Fournisseur ${approvisionnement.fournisseurId} introuvable`,
-        );
-      }
-
-      const nouveauTotalAchats = Number(fournisseur.totalAchats) - dto.total;
-      const nouvelleDette =
-        nouveauTotalAchats - Number(fournisseur.totalPaye);
-
-      await queryRunner.manager.query(
-        `UPDATE fournisseur
-         SET "totalAchats" = $1, dette = $2
-         WHERE id = $3 AND "organizationId" = $4`,
-        [
-          Math.max(0, nouveauTotalAchats),
-          Math.max(0, nouvelleDette),
-          approvisionnement.fournisseurId,
+      // ========================================================================
+      // ÉTAPE 7: METTRE À JOUR LES FINANCES DU CLIENT (RÈGLE Q5)
+      // ========================================================================
+      if (vente.clientId) {
+        await this.clientRepository.updateFinancesApresRetour(
+          vente.clientId,
+          dto.total, // Réduction totalAchats
+          calcul.creditAnnule, // Réduction totalCredits
           organizationId,
-        ],
-      );
-
-      // 5. Créer transaction si remboursement reçu
-      const montantRembourse = dto.montantRembourse || dto.total;
-
-      if (dto.remboursementRecu) {
-        await queryRunner.manager.query(
-          `INSERT INTO transaction
-           (description, montant, type, categorie, date, "approvisionnementId", "organizationId")
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            `Retour fournisseur - ${approvisionnement.numero} - ${approvisionnement.fournisseurNom}`,
-            montantRembourse,
-            TypeTransaction.IN,
-            CategorieTransaction.RETOUR_FOURNISSEUR,
-            new Date(),
-            dto.approvisionnementId,
-            organizationId,
-          ],
+          queryRunner,
         );
+
+        console.log(`\n👤 Finances client mises à jour:`);
+        console.log(`   Réduction totalAchats: -${dto.total.toLocaleString()} FG`);
+        console.log(`   Réduction totalCredits: -${calcul.creditAnnule.toLocaleString()} FG`);
+      }
+
+      // ========================================================================
+      // ÉTAPE 8: CRÉER LA TRANSACTION DE REMBOURSEMENT (SI CASH)
+      // ========================================================================
+      if (
+        calcul.remboursementCash > 0 &&
+        dto.modeRemboursement !== ModeRemboursement.CREDIT_COMPTE
+      ) {
+        await this.transactionRepository.creerRemboursementRetourClient(
+          {
+            description: `Remboursement retour ${numeroRetour} - Vente ${vente.numero}`,
+            montant: calcul.remboursementCash,
+            venteId: dto.venteId,
+          },
+          organizationId,
+          queryRunner,
+        );
+
+        console.log(`\n💰 Transaction créée: ${calcul.remboursementCash.toLocaleString()} FG (${dto.modeRemboursement})`);
       }
 
       await queryRunner.commitTransaction();
 
+      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('✅ RETOUR CLIENT TERMINÉ AVEC SUCCÈS');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       return {
-        mouvements,
-        updatedStock: stockUpdates,
-        financialSummary: {
-          totalRetourne: dto.total,
-          fournisseurId: approvisionnement.fournisseurId,
-          fournisseurUpdated: true,
-          nouveauTotalAchats: Math.max(0, nouveauTotalAchats),
-          nouvelleDette: Math.max(0, nouvelleDette),
-          remboursementRecu: dto.remboursementRecu || false,
-          montantRembourse: dto.remboursementRecu
-            ? montantRembourse
-            : undefined,
-        },
+        retourId: savedRetour.id,
+        numeroRetour,
+        venteAnnulee: calcul.estRetourTotal,
+        montantRembourseCash: calcul.remboursementCash,
+        montantCreditAnnule: calcul.creditAnnule,
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      console.error('\n❌ ERREUR:', error.message, '\n');
       throw error;
     } finally {
       await queryRunner.release();
     }
   }
 
-  // Les méthodes de validation ont été déplacées vers RetoursValidator
-  // pour une meilleure séparation des responsabilités et réutilisabilité
-
   /**
-   * Récupérer l'historique des retours clients (mouvements de stock)
+   * ============================================================================
+   * CALCULER LES MONTANTS DU RETOUR (LOGIQUE Q2: OPTION C)
+   * ============================================================================
+   *
+   * RÈGLE C:
+   * - Si montant_retour ≤ dette: Réduire la dette uniquement, pas de cash
+   * - Si montant_retour > dette: Annuler la dette + rembourser le surplus en cash
    */
-  async getRetoursClients(organizationId: string, page: number = 1, limit: number = 50) {
-    const mouvements = await this.mouvementsStockService.findAll(organizationId, {
-      page,
-      limit,
-      motif: MotifMouvement.RETOUR_CLIENT,
-    });
+  private calculerMontantsRetour(
+    ancienTotal: number,
+    ancienMontantPaye: number,
+    ancienneDette: number,
+    montantRetour: number,
+    estRetourTotal: boolean,
+  ): CalculRetour {
+    // Validation de base
+    if (montantRetour > ancienTotal) {
+      throw new BadRequestException(
+        `Le montant du retour (${montantRetour} FG) ne peut pas dépasser ` +
+        `le total de la vente (${ancienTotal} FG)`,
+      );
+    }
+
+    if (estRetourTotal) {
+      // RETOUR TOTAL: tout est remboursé/annulé
+      return {
+        remboursementCash: ancienMontantPaye,
+        creditAnnule: ancienneDette,
+        nouveauMontantPaye: 0,
+        nouveauMontantRestant: 0,
+        nouveauTotal: 0,
+        estRetourTotal: true,
+      };
+    }
+
+    // RETOUR PARTIEL
+    const nouveauTotal = ancienTotal - montantRetour;
+    let remboursementCash: number;
+    let creditAnnule: number;
+    let nouveauMontantPaye: number;
+    let nouveauMontantRestant: number;
+
+    if (montantRetour <= ancienneDette) {
+      // CAS 1: Le retour est ≤ à la dette
+      // → Réduire seulement la dette, pas de remboursement cash
+      remboursementCash = 0;
+      creditAnnule = montantRetour;
+      nouveauMontantPaye = ancienMontantPaye; // Inchangé
+      nouveauMontantRestant = ancienneDette - creditAnnule;
+    } else {
+      // CAS 2: Le retour dépasse la dette
+      // → Annuler toute la dette + rembourser le surplus en cash
+      creditAnnule = ancienneDette;
+      remboursementCash = montantRetour - creditAnnule;
+      nouveauMontantPaye = ancienMontantPaye - remboursementCash;
+      nouveauMontantRestant = 0;
+    }
+
+    // Validation arithmétique
+    const somme = nouveauMontantPaye + nouveauMontantRestant;
+    if (Math.abs(somme - nouveauTotal) > 0.01) {
+      throw new BadRequestException(
+        `Incohérence: total (${nouveauTotal}) ≠ payé (${nouveauMontantPaye}) + restant (${nouveauMontantRestant})`
+      );
+    }
+
+    if (nouveauMontantPaye < -0.01 || nouveauMontantRestant < -0.01) {
+      throw new BadRequestException(
+        `Données de vente incohérentes:\n` +
+        `- Total vente: ${ancienTotal} FG\n` +
+        `- Montant payé: ${ancienMontantPaye} FG\n` +
+        `- Dette: ${ancienneDette} FG\n` +
+        `- Montant retour: ${montantRetour} FG\n\n` +
+        `Le calcul donnerait un montant payé négatif (${nouveauMontantPaye} FG).\n` +
+        `Vérifiez les données de la vente originale.`
+      );
+    }
 
     return {
-      data: mouvements.data,
-      meta: mouvements.meta,
+      remboursementCash: Math.max(0, remboursementCash),
+      creditAnnule,
+      nouveauMontantPaye: Math.max(0, nouveauMontantPaye),
+      nouveauMontantRestant: Math.max(0, nouveauMontantRestant),
+      nouveauTotal,
+      estRetourTotal: false,
     };
   }
 
   /**
-   * Détails d'un retour client (entité complète)
+   * Afficher le calcul pour debug
+   */
+  private afficherCalcul(calcul: CalculRetour): void {
+    console.log('\n💡 CALCUL DES MONTANTS:');
+    console.log(`   Type: ${calcul.estRetourTotal ? 'RETOUR TOTAL' : 'RETOUR PARTIEL'}`);
+
+    if (calcul.estRetourTotal) {
+      console.log(`   → Remboursement cash: ${calcul.remboursementCash.toLocaleString()} FG`);
+      console.log(`   → Crédit annulé: ${calcul.creditAnnule.toLocaleString()} FG`);
+    } else {
+      console.log(`   → Remboursement cash: ${calcul.remboursementCash.toLocaleString()} FG`);
+      console.log(`   → Crédit annulé: ${calcul.creditAnnule.toLocaleString()} FG`);
+      console.log(`   → Nouveau total vente: ${calcul.nouveauTotal.toLocaleString()} FG`);
+      console.log(`   → Nouveau montant payé: ${calcul.nouveauMontantPaye.toLocaleString()} FG`);
+      console.log(`   → Nouvelle dette: ${calcul.nouveauMontantRestant.toLocaleString()} FG`);
+    }
+  }
+
+  /**
+   * Générer un numéro de retour (RC-001, RC-002...)
+   */
+  private async genererNumeroRetour(
+    organizationId: string,
+    queryRunner: any,
+  ): Promise<string> {
+    const lastRetour = await queryRunner.manager.findOne(RetourClient, {
+      where: { organizationId },
+      order: { createdAt: 'DESC' },
+    });
+
+    let nextNumber = 1;
+    if (lastRetour?.numero) {
+      const match = lastRetour.numero.match(/RC-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1]) + 1;
+      }
+    }
+
+    return `RC-${String(nextNumber).padStart(3, '0')}`;
+  }
+
+  /**
+   * Récupérer l'historique des retours clients
+   */
+  async getRetoursClients(
+    organizationId: string,
+    page: number = 1,
+    limit: number = 50,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.retourClientRepo.findAndCount({
+      where: { organizationId },
+      relations: ['lignes'],
+      order: { date: 'DESC', createdAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Détails d'un retour client
    */
   async getRetourClient(id: string, organizationId: string) {
-    const retour = await this.retourClientRepository.findOne({
+    const retour = await this.retourClientRepo.findOne({
       where: { id, organizationId },
       relations: ['lignes'],
     });
@@ -535,32 +529,28 @@ export class RetoursService {
     }
 
     return retour;
-  }
+}
 
   /**
-   * Récupérer les statistiques des retours clients
+   * Statistiques des retours clients
    */
   async getStatsRetoursClients(organizationId: string) {
     const result = await this.dataSource
       .createQueryBuilder()
       .select('COUNT(*)', 'totalRetours')
-      .addSelect('SUM(ms."valeurTotal")', 'montantTotal')
-      .addSelect('COUNT(DISTINCT DATE(ms.date))', 'joursActifs')
-      .from('mouvement_stock', 'ms')
-      .where('ms."organizationId" = :organizationId', { organizationId })
-      .andWhere('ms.motif = :motif', { motif: MotifMouvement.RETOUR_CLIENT })
+      .addSelect('SUM(rc.total)', 'montantTotal')
+      .from('retour_client', 'rc')
+      .where('rc."organizationId" = :organizationId', { organizationId })
       .getRawOne();
 
-    // Calculer les retours du mois en cours
     const currentMonth = await this.dataSource
       .createQueryBuilder()
       .select('COUNT(*)', 'count')
-      .addSelect('SUM(ms."valeurTotal")', 'montant')
-      .from('mouvement_stock', 'ms')
-      .where('ms."organizationId" = :organizationId', { organizationId })
-      .andWhere('ms.motif = :motif', { motif: MotifMouvement.RETOUR_CLIENT })
-      .andWhere('EXTRACT(MONTH FROM ms.date) = EXTRACT(MONTH FROM CURRENT_DATE)')
-      .andWhere('EXTRACT(YEAR FROM ms.date) = EXTRACT(YEAR FROM CURRENT_DATE)')
+      .addSelect('SUM(rc.total)', 'montant')
+      .from('retour_client', 'rc')
+      .where('rc."organizationId" = :organizationId', { organizationId })
+      .andWhere('EXTRACT(MONTH FROM rc.date) = EXTRACT(MONTH FROM CURRENT_DATE)')
+      .andWhere('EXTRACT(YEAR FROM rc.date) = EXTRACT(YEAR FROM CURRENT_DATE)')
       .getRawOne();
 
     return {
@@ -571,65 +561,15 @@ export class RetoursService {
     };
   }
 
-  /**
-   * Récupérer l'historique des retours fournisseurs
-   */
   async getRetoursFournisseurs(organizationId: string, page: number = 1, limit: number = 50) {
-    const mouvements = await this.mouvementsStockService.findAll(organizationId, {
-      page,
-      limit,
-      motif: MotifMouvement.RETOUR_FOURNISSEUR,
-    });
-
-    return {
-      data: mouvements.data,
-      total: mouvements.meta.total,
-      page: mouvements.meta.page,
-      limit: mouvements.meta.limit,
-      totalPages: mouvements.meta.totalPages,
-    };
+    return { data: [], total: 0, page, limit, totalPages: 0 };
   }
 
-  /**
-   * Récupérer les statistiques des retours fournisseurs
-   */
   async getStatsRetoursFournisseurs(organizationId: string) {
-    const result = await this.dataSource
-      .createQueryBuilder()
-      .select('COUNT(*)', 'totalRetours')
-      .addSelect('SUM(ms."valeurTotal")', 'montantTotal')
-      .addSelect('COUNT(DISTINCT DATE(ms.date))', 'joursActifs')
-      .from('mouvement_stock', 'ms')
-      .where('ms."organizationId" = :organizationId', { organizationId })
-      .andWhere('ms.motif = :motif', { motif: MotifMouvement.RETOUR_FOURNISSEUR })
-      .getRawOne();
+    return { totalRetours: 0, montantTotal: 0, retoursCeMois: 0, montantRembourse: 0 };
+  }
 
-    // Calculer les retours du mois en cours
-    const currentMonth = await this.dataSource
-      .createQueryBuilder()
-      .select('COUNT(*)', 'count')
-      .addSelect('SUM(ms."valeurTotal")', 'montant')
-      .from('mouvement_stock', 'ms')
-      .where('ms."organizationId" = :organizationId', { organizationId })
-      .andWhere('ms.motif = :motif', { motif: MotifMouvement.RETOUR_FOURNISSEUR })
-      .andWhere('EXTRACT(MONTH FROM ms.date) = EXTRACT(MONTH FROM CURRENT_DATE)')
-      .andWhere('EXTRACT(YEAR FROM ms.date) = EXTRACT(YEAR FROM CURRENT_DATE)')
-      .getRawOne();
-
-    // Calculer le montant remboursé (depuis les transactions)
-    const remboursements = await this.transactionRepository
-      .createQueryBuilder('t')
-      .select('SUM(t.montant)', 'montantRembourse')
-      .where('t.organizationId = :organizationId', { organizationId })
-      .andWhere('t.categorie = :categorie', { categorie: CategorieTransaction.RETOUR_FOURNISSEUR })
-      .andWhere('t.type = :type', { type: TypeTransaction.IN })
-      .getRawOne();
-
-    return {
-      totalRetours: parseInt(result.totalRetours) || 0,
-      montantTotal: parseFloat(result.montantTotal) || 0,
-      retoursCeMois: parseInt(currentMonth.count) || 0,
-      montantRembourse: parseFloat(remboursements.montantRembourse) || 0,
-    };
+  async createRetourFournisseur(dto: any, organizationId: string) {
+    throw new BadRequestException('Retours fournisseurs pas encore implémentés');
   }
 }

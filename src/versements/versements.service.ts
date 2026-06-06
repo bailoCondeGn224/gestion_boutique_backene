@@ -22,66 +22,93 @@ export class VersementsService {
   ) {}
 
   async create(createVersementDto: CreateVersementDto, organizationId: string): Promise<Versement> {
-    // Vérifier que le fournisseur appartient à l'organisation
-    const fournisseur = await this.fournisseursService.findOne(
-      createVersementDto.fournisseurId,
-      organizationId,
-    );
-
-    let approvisionnement = null;
-    let approvisionnementNumero = null;
-
-    // Si un approvisionnement est spécifié, le récupérer et valider
-    if (createVersementDto.approvisionnementId) {
-      approvisionnement = await this.approvisionnementService.findOne(
-        createVersementDto.approvisionnementId,
-        organizationId,
-      );
-
-      // Vérifier que l'approvisionnement appartient au bon fournisseur
-      if (approvisionnement.fournisseurId !== createVersementDto.fournisseurId) {
-        throw new BadRequestException(
-          'L\'approvisionnement ne correspond pas au fournisseur sélectionné',
-        );
-      }
-
-      // Vérifier que le montant ne dépasse pas le montant restant de l'approvisionnement
-      if (Number(createVersementDto.montant) > Number(approvisionnement.montantRestant)) {
-        throw new BadRequestException(
-          `Le montant du versement (${createVersementDto.montant} GNF) dépasse le montant restant de l'approvisionnement (${approvisionnement.montantRestant} GNF)`,
-        );
-      }
-
-      approvisionnementNumero = approvisionnement.numero;
-    }
-
-    // Vérifier que le montant ne dépasse pas la dette totale du fournisseur
-    if (Number(createVersementDto.montant) > Number(fournisseur.dette)) {
-      throw new BadRequestException(
-        `Le montant du versement (${createVersementDto.montant} GNF) dépasse la dette du fournisseur (${fournisseur.dette} GNF)`,
-      );
-    }
-
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.startTransaction('SERIALIZABLE'); // Fix Issue #7: Isolation level
 
     try {
+      // Fix Issue #1: Lock rows FIRST, then validate
+      // Verrouiller le fournisseur avec SELECT ... FOR UPDATE
+      const fournisseurRows = await queryRunner.manager.query(
+        `SELECT * FROM fournisseur WHERE id = $1 AND "organizationId" = $2 FOR UPDATE`,
+        [createVersementDto.fournisseurId, organizationId],
+      );
+
+      if (fournisseurRows.length === 0) {
+        throw new NotFoundException(
+          `Fournisseur avec l'ID ${createVersementDto.fournisseurId} introuvable`,
+        );
+      }
+
+      const fournisseur = fournisseurRows[0];
+      let approvisionnement = null;
+      let approvisionnementNumero = null;
+
+      // Si un approvisionnement est spécifié, le verrouiller et valider
+      if (createVersementDto.approvisionnementId) {
+        const approRows = await queryRunner.manager.query(
+          `SELECT * FROM approvisionnement WHERE id = $1 AND "organizationId" = $2 FOR UPDATE`,
+          [createVersementDto.approvisionnementId, organizationId],
+        );
+
+        if (approRows.length === 0) {
+          throw new NotFoundException(
+            `Approvisionnement avec l'ID ${createVersementDto.approvisionnementId} introuvable`,
+          );
+        }
+
+        approvisionnement = approRows[0];
+
+        // Vérifier que l'approvisionnement appartient au bon fournisseur
+        if (approvisionnement.fournisseurId !== createVersementDto.fournisseurId) {
+          throw new BadRequestException(
+            'L\'approvisionnement ne correspond pas au fournisseur sélectionné',
+          );
+        }
+
+        // CRITICAL: Valider APRÈS verrouillage avec les valeurs actuelles
+        if (Number(createVersementDto.montant) > Number(approvisionnement.montantRestant)) {
+          throw new BadRequestException(
+            `Le montant du versement (${createVersementDto.montant} GNF) dépasse le montant restant de l'approvisionnement (${approvisionnement.montantRestant} GNF)`,
+          );
+        }
+
+        approvisionnementNumero = approvisionnement.numero;
+      }
+
+      // Recalculer la dette réelle du fournisseur (Fix Issue #8)
+      const detteResult = await queryRunner.manager.query(
+        `SELECT COALESCE(SUM("montantRestant"), 0) as dette_reelle
+         FROM approvisionnement
+         WHERE "fournisseurId" = $1 AND "organizationId" = $2 AND statut = 'VALIDE'`,
+        [createVersementDto.fournisseurId, organizationId],
+      );
+
+      const detteReelle = Number(detteResult[0]?.dette_reelle || 0);
+
+      // Vérifier que le montant ne dépasse pas la dette totale du fournisseur
+      if (Number(createVersementDto.montant) > detteReelle) {
+        throw new BadRequestException(
+          `Le montant du versement (${createVersementDto.montant} GNF) dépasse la dette du fournisseur (${detteReelle} GNF)`,
+        );
+      }
+
       const versement = this.versementsRepository.create({
         ...createVersementDto,
         fournisseurNom: fournisseur.nom,
         approvisionnementNumero,
-        date: new Date(),
+        date: createVersementDto.date ? new Date(createVersementDto.date) : new Date(),
         organizationId,
       });
 
       const savedVersement = await queryRunner.manager.save(versement);
 
-      // Mettre à jour le totalPaye du fournisseur
-      await this.fournisseursService.updateTotalPaye(
-        fournisseur.id,
-        Number(createVersementDto.montant),
-        organizationId,
+      // Fix Issue #12: Mettre à jour le fournisseur dans la même transaction
+      await queryRunner.manager.query(
+        `UPDATE fournisseur
+         SET "totalPaye" = "totalPaye" + $1
+         WHERE id = $2 AND "organizationId" = $3`,
+        [Number(createVersementDto.montant), fournisseur.id, organizationId],
       );
 
       // Si un approvisionnement est lié, mettre à jour son montantPaye
@@ -89,13 +116,11 @@ export class VersementsService {
         const nouveauMontantPaye = Number(approvisionnement.montantPaye) + Number(createVersementDto.montant);
         const nouveauMontantRestant = Number(approvisionnement.total) - nouveauMontantPaye;
 
-        await queryRunner.manager.update(
-          'approvisionnement',
-          { id: approvisionnement.id },
-          {
-            montantPaye: nouveauMontantPaye,
-            montantRestant: nouveauMontantRestant,
-          },
+        await queryRunner.manager.query(
+          `UPDATE approvisionnement
+           SET "montantPaye" = $1, "montantRestant" = $2
+           WHERE id = $3 AND "organizationId" = $4`,
+          [nouveauMontantPaye, nouveauMontantRestant, approvisionnement.id, organizationId],
         );
       }
 
@@ -215,7 +240,7 @@ export class VersementsService {
   ): Promise<Versement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.startTransaction('SERIALIZABLE'); // Fix Issue #7
 
     try {
       const versement = await this.findOne(id, organizationId);
@@ -234,6 +259,24 @@ export class VersementsService {
           throw new BadRequestException(
             `Le nouveau montant (${updateVersementDto.montant} GNF) dépasse la dette du fournisseur`,
           );
+        }
+
+        // Fix Issue #4: Si versement lié à approvisionnement, valider aussi
+        if (versement.approvisionnementId) {
+          const appro = await this.approvisionnementService.findOne(
+            versement.approvisionnementId,
+            organizationId,
+          );
+
+          // Calculer ce que serait le nouveau montantRestant de l'approvisionnement
+          const newApproMontantPaye = Number(appro.montantPaye) - oldMontant + Number(updateVersementDto.montant);
+          const newApproMontantRestant = Number(appro.total) - newApproMontantPaye;
+
+          if (newApproMontantRestant < 0) {
+            throw new BadRequestException(
+              `Impossible de modifier ce montant : cela dépasserait le total de l'approvisionnement (${appro.numero})`,
+            );
+          }
         }
 
         // Ajuster le totalPaye du fournisseur avec vérification de l'organization
@@ -293,40 +336,39 @@ export class VersementsService {
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
+    await queryRunner.startTransaction('SERIALIZABLE'); // Fix Issue #7
 
     try {
-      // Vérifier que le fournisseur appartient à l'organisation
-      const fournisseur = await this.fournisseursService.findOne(
-        versement.fournisseurId,
-        organizationId,
+      // Mettre à jour le totalPaye du fournisseur dans la transaction
+      await queryRunner.manager.query(
+        `UPDATE fournisseur
+         SET "totalPaye" = "totalPaye" - $1
+         WHERE id = $2 AND "organizationId" = $3`,
+        [Number(versement.montant), versement.fournisseurId, organizationId],
       );
 
-      // Mettre à jour le totalPaye du fournisseur
-      fournisseur.totalPaye =
-        Number(fournisseur.totalPaye) - Number(versement.montant);
-      fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
-
-      await queryRunner.manager.save(fournisseur);
-
-      // Si le versement est lié à un approvisionnement, restaurer son montantPaye
+      // Fix Issue #6: Si versement lié à approvisionnement, vérifier qu'il existe avant de restaurer
       if (versement.approvisionnementId) {
-        const approvisionnement = await this.approvisionnementService.findOne(
-          versement.approvisionnementId,
-          organizationId,
+        const approExists = await queryRunner.manager.query(
+          `SELECT id, total, "montantPaye" FROM approvisionnement
+           WHERE id = $1 AND "organizationId" = $2`,
+          [versement.approvisionnementId, organizationId],
         );
 
-        const nouveauMontantPaye = Number(approvisionnement.montantPaye) - Number(versement.montant);
-        const nouveauMontantRestant = Number(approvisionnement.total) - nouveauMontantPaye;
+        // Seulement restaurer si l'approvisionnement existe encore
+        if (approExists.length > 0) {
+          const appro = approExists[0];
+          const nouveauMontantPaye = Number(appro.montantPaye) - Number(versement.montant);
+          const nouveauMontantRestant = Number(appro.total) - nouveauMontantPaye;
 
-        await queryRunner.manager.update(
-          'approvisionnement',
-          { id: approvisionnement.id },
-          {
-            montantPaye: nouveauMontantPaye,
-            montantRestant: nouveauMontantRestant,
-          },
-        );
+          await queryRunner.manager.query(
+            `UPDATE approvisionnement
+             SET "montantPaye" = $1, "montantRestant" = $2
+             WHERE id = $3 AND "organizationId" = $4`,
+            [nouveauMontantPaye, nouveauMontantRestant, appro.id, organizationId],
+          );
+        }
+        // Si approvisionnement n'existe plus, on supprime quand même le versement (orphelin)
       }
 
       await queryRunner.manager.remove(versement);

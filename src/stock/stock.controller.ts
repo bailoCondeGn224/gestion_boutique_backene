@@ -148,6 +148,36 @@ export class StockController {
   }
 
   @Permissions('stock.read')
+  @Get(':id/stats')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les statistiques d\'un article' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques de l\'article (total vendu, approvisionné, etc.)',
+    schema: {
+      type: 'object',
+      properties: {
+        articleId: { type: 'string' },
+        nom: { type: 'string' },
+        stockActuel: { type: 'number' },
+        totalVendu: { type: 'number' },
+        totalApprovisionne: { type: 'number' },
+        totalEntrees: { type: 'number' },
+        totalSorties: { type: 'number' },
+        totalRetoursClients: { type: 'number' },
+        totalRetoursFournisseurs: { type: 'number' },
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Article introuvable' })
+  getArticleStats(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.stockService.getArticleStats(id, organizationId);
+  }
+
+  @Permissions('stock.read')
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Récupérer un article par ID' })

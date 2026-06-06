@@ -6,6 +6,7 @@ import { CreateVenteDto } from './dto/create-vente.dto';
 import { UpdateVenteDto } from './dto/update-vente.dto';
 import { StockService } from '../stock/stock.service';
 import { VenteFilterDto } from './dto/vente-filter.dto';
+import { VenteStatsFilterDto } from './dto/vente-stats-filter.dto';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { createPaginatedResponse } from '../common/utils/pagination.util';
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
@@ -28,15 +29,16 @@ export class VentesService {
   ) {}
 
   async generateNumero(organizationId: string): Promise<string> {
-    // Trouver la dernière vente pour éviter les doublons lors de suppressions
-    const lastVente = await this.ventesRepository.findOne({
-      where: { organizationId },
-      order: { createdAt: 'DESC' },
-    });
+    // Génération atomique du numéro pour éviter les doublons
+    const result = await this.ventesRepository
+      .createQueryBuilder('vente')
+      .select('MAX(vente.numero)', 'maxNumero')
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .getRawOne();
 
     let nextNumber = 1;
-    if (lastVente && lastVente.numero) {
-      const match = lastVente.numero.match(/V-(\d+)/);
+    if (result?.maxNumero) {
+      const match = result.maxNumero.match(/V-(\d+)/);
       if (match) {
         nextNumber = parseInt(match[1], 10) + 1;
       }
@@ -55,6 +57,17 @@ export class VentesService {
       throw new BadRequestException(
         'Un client doit être enregistré pour les ventes à crédit ou avec un montant restant. ' +
         'Veuillez créer ou sélectionner un client avant de continuer.'
+      );
+    }
+
+    // VALIDATION: Vérifier que le total correspond à la somme des lignes
+    const calculatedTotal = createVenteDto.lignes.reduce(
+      (sum, ligne) => sum + Number(ligne.sousTotal),
+      0,
+    );
+    if (Math.abs(Number(createVenteDto.total) - calculatedTotal) > 0.01) {
+      throw new BadRequestException(
+        `Le total (${createVenteDto.total} GNF) ne correspond pas à la somme des lignes (${calculatedTotal} GNF)`,
       );
     }
 
@@ -280,7 +293,7 @@ export class VentesService {
       .getMany();
   }
 
-  async getStats(organizationId: string): Promise<any> {
+  async getStats(organizationId: string, filterDto?: VenteStatsFilterDto): Promise<any> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -308,8 +321,12 @@ export class VentesService {
       0,
     );
 
-    // Stats du mois
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    // Stats du mois - utiliser mois/annee fournis ou mois/annee actuels
+    const targetYear = filterDto?.annee ?? today.getFullYear();
+    const targetMonth = filterDto?.mois ? filterDto.mois - 1 : today.getMonth(); // mois est 1-12, Date.getMonth() est 0-11
+
+    const monthStart = new Date(targetYear, targetMonth, 1);
+    const monthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999); // Dernier jour du mois
 
     // Utiliser queryBuilder pour la condition >= sur la date
     const ventesMois = await this.ventesRepository
@@ -317,6 +334,7 @@ export class VentesService {
       .leftJoinAndSelect('vente.lignes', 'lignes')
       .where('vente.organizationId = :organizationId', { organizationId })
       .andWhere('vente.date >= :monthStart', { monthStart })
+      .andWhere('vente.date <= :monthEnd', { monthEnd })
       .getMany();
 
     const totalMois = ventesMois.reduce((sum, v) => sum + Number(v.total), 0);
@@ -476,6 +494,17 @@ export class VentesService {
   async remove(id: string, organizationId: string): Promise<void> {
     const vente = await this.findOne(id, organizationId);
 
+    // Vérifier s'il existe des versements pour cette vente
+    const versementsCount = await this.versementClientRepository.count({
+      where: { venteId: id, organizationId },
+    });
+
+    if (versementsCount > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer cette vente : ${versementsCount} paiement(s) associé(s). Supprimez d'abord les paiements.`,
+      );
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -528,5 +557,20 @@ export class VentesService {
 
     // Filtrer seulement les ventes avec montant restant > 0
     return ventes.filter(vente => Number(vente.montantRestant) > 0);
+  }
+
+  async getMoisDisponibles(organizationId: string): Promise<{ annee: number; mois: number }[]> {
+    // Récupérer les mois/années distincts qui ont au moins une vente
+    const result = await this.ventesRepository
+      .createQueryBuilder('vente')
+      .select('EXTRACT(YEAR FROM vente.date)::INTEGER', 'annee')
+      .addSelect('EXTRACT(MONTH FROM vente.date)::INTEGER', 'mois')
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .groupBy('annee, mois')
+      .orderBy('annee', 'DESC')
+      .addOrderBy('mois', 'DESC')
+      .getRawMany();
+
+    return result.map(r => ({ annee: r.annee, mois: r.mois }));
   }
 }

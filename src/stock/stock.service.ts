@@ -485,4 +485,53 @@ export class StockService {
       },
     };
   }
+
+  /**
+   * Récupérer les statistiques agrégées d'un article
+   */
+  async getArticleStats(articleId: string, organizationId: string) {
+    // Vérifier que l'article existe et appartient à l'organisation
+    const article = await this.articlesRepository.findOne({
+      where: { id: articleId, organizationId },
+    });
+
+    if (!article) {
+      throw new NotFoundException(`Article avec l'ID ${articleId} introuvable`);
+    }
+
+    // Calculer les statistiques à partir des mouvements de stock
+    const stats = await this.mouvementStockRepository
+      .createQueryBuilder('m')
+      .select([
+        'COALESCE(SUM(CASE WHEN m.type = :sortie AND m.motif = :vente THEN m.quantite ELSE 0 END), 0) as "totalVendu"',
+        'COALESCE(SUM(CASE WHEN m.type = :entree AND m.motif = :approvisionnement THEN m.quantite ELSE 0 END), 0) as "totalApprovisionne"',
+        'COALESCE(SUM(CASE WHEN m.type = :entree THEN m.quantite ELSE 0 END), 0) as "totalEntrees"',
+        'COALESCE(SUM(CASE WHEN m.type = :sortie THEN m.quantite ELSE 0 END), 0) as "totalSorties"',
+        'COALESCE(SUM(CASE WHEN m.type = :sortie AND m.motif = :retour_client THEN m.quantite ELSE 0 END), 0) as "totalRetoursClients"',
+        'COALESCE(SUM(CASE WHEN m.type = :sortie AND m.motif = :retour_fournisseur THEN m.quantite ELSE 0 END), 0) as "totalRetoursFournisseurs"',
+      ])
+      .where('m.articleId = :articleId', { articleId })
+      .andWhere('m.organizationId = :organizationId', { organizationId })
+      .setParameters({
+        sortie: TypeMouvement.SORTIE,
+        entree: TypeMouvement.ENTREE,
+        vente: MotifMouvement.VENTE,
+        approvisionnement: MotifMouvement.APPROVISIONNEMENT,
+        retour_client: MotifMouvement.RETOUR_CLIENT,
+        retour_fournisseur: MotifMouvement.RETOUR_FOURNISSEUR,
+      })
+      .getRawOne();
+
+    return {
+      articleId: article.id,
+      nom: article.nom,
+      stockActuel: article.stock,
+      totalVendu: parseInt(stats.totalVendu) || 0,
+      totalApprovisionne: parseInt(stats.totalApprovisionne) || 0,
+      totalEntrees: parseInt(stats.totalEntrees) || 0,
+      totalSorties: parseInt(stats.totalSorties) || 0,
+      totalRetoursClients: parseInt(stats.totalRetoursClients) || 0,
+      totalRetoursFournisseurs: parseInt(stats.totalRetoursFournisseurs) || 0,
+    };
+  }
 }
