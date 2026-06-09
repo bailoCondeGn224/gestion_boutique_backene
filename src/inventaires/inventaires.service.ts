@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Between } from 'typeorm';
 import { Inventaire, StatutInventaire } from './entities/inventaire.entity';
 import { ComptageInventaire } from './entities/comptage-inventaire.entity';
 import { Article } from '../stock/entities/article.entity';
@@ -916,5 +916,380 @@ export class InventairesService {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Récupérer les statistiques du dashboard inventaires
+   */
+  async getDashboardStats(
+    organizationId: string,
+    filterDto?: any,
+  ): Promise<any> {
+    // Calculer la plage de dates selon le filtre
+    let dateDebut: Date | undefined;
+    let dateFin: Date | undefined;
+
+    if (filterDto?.dateDebut && filterDto?.dateFin) {
+      // Dates personnalisées
+      dateDebut = new Date(filterDto.dateDebut);
+      dateFin = new Date(filterDto.dateFin);
+    } else if (filterDto?.periode && filterDto.periode !== 'tout') {
+      // Période prédéfinie
+      const moisEnArriere = parseInt(filterDto.periode);
+      dateFin = new Date();
+      dateDebut = new Date();
+      dateDebut.setMonth(dateDebut.getMonth() - moisEnArriere);
+    }
+    // Si pas de filtre ou 'tout', dateDebut et dateFin restent undefined
+
+    // Construire le where pour les filtres de date
+    const whereWithDate: any = { organizationId };
+    if (dateDebut && dateFin) {
+      whereWithDate.dateFin = Between(dateDebut, dateFin);
+    }
+
+    // 1. Statistiques globales
+    const totalInventaires = await this.inventaireRepository.count({
+      where: whereWithDate,
+    });
+
+    const inventaireEnCours = await this.inventaireRepository.findOne({
+      where: { organizationId, statut: StatutInventaire.EN_COURS },
+      order: { createdAt: 'DESC' },
+    });
+
+    const dernierInventaire = await this.inventaireRepository.findOne({
+      where: { organizationId, statut: StatutInventaire.TERMINE },
+      order: { termineLe: 'DESC' },
+    });
+
+    // 2. Les 2 derniers inventaires terminés pour comparaison
+    const whereComparaison: any = {
+      organizationId,
+      statut: StatutInventaire.TERMINE,
+      financesCalcules: true
+    };
+    if (dateDebut && dateFin) {
+      whereComparaison.dateFin = Between(dateDebut, dateFin);
+    }
+    const deuxDerniers = await this.inventaireRepository.find({
+      where: whereComparaison,
+      order: { dateFin: 'DESC' },
+      take: 2,
+    });
+
+    const inventaireActuel = deuxDerniers[0] || null;
+    const inventairePrecedent = deuxDerniers[1] || null;
+
+    // 3. Comparaison période actuelle vs précédente
+    let comparaison = null;
+    if (inventaireActuel && inventairePrecedent) {
+      const calculerEvolution = (actuel: number, precedent: number) => {
+        if (precedent === 0) return actuel > 0 ? 100 : 0;
+        return ((actuel - precedent) / precedent) * 100;
+      };
+
+      comparaison = {
+        ca: {
+          actuel: Number(inventaireActuel.chiffreAffaires),
+          precedent: Number(inventairePrecedent.chiffreAffaires),
+          evolution: calculerEvolution(
+            Number(inventaireActuel.chiffreAffaires),
+            Number(inventairePrecedent.chiffreAffaires),
+          ),
+        },
+        benefice: {
+          actuel: Number(inventaireActuel.beneficeNet),
+          precedent: Number(inventairePrecedent.beneficeNet),
+          evolution: calculerEvolution(
+            Number(inventaireActuel.beneficeNet),
+            Number(inventairePrecedent.beneficeNet),
+          ),
+        },
+        pertes: {
+          actuel: Number(inventaireActuel.totalPertes),
+          precedent: Number(inventairePrecedent.totalPertes),
+          evolution: calculerEvolution(
+            Number(inventaireActuel.totalPertes),
+            Number(inventairePrecedent.totalPertes),
+          ),
+        },
+        tauxMarge: {
+          actuel: Number(inventaireActuel.tauxMarge),
+          precedent: Number(inventairePrecedent.tauxMarge),
+          evolution: Number(inventaireActuel.tauxMarge) - Number(inventairePrecedent.tauxMarge),
+        },
+      };
+    }
+
+    // 4. Top 10 articles avec écarts fréquents
+    let topArticlesQuery = this.comptageRepository
+      .createQueryBuilder('c')
+      .innerJoin('inventaire', 'i', 'i.id = c.inventaireId')
+      .select('c.articleId', 'articleId')
+      .addSelect('c.articleNom', 'articleNom')
+      .addSelect('COUNT(*)', 'nombreEcarts')
+      .addSelect('SUM(ABS(c.quantiteComptee - c.quantiteSysteme))', 'ecartTotal')
+      .addSelect('AVG(ABS(c.quantiteComptee - c.quantiteSysteme))', 'ecartMoyen')
+      .where('i.organizationId = :organizationId', { organizationId })
+      .andWhere('c.quantiteComptee != c.quantiteSysteme');
+
+    if (dateDebut && dateFin) {
+      topArticlesQuery = topArticlesQuery.andWhere(
+        'i.dateFin BETWEEN :dateDebut AND :dateFin',
+        { dateDebut, dateFin }
+      );
+    }
+
+    const topArticlesEcarts = await topArticlesQuery
+      .groupBy('c.articleId, c.articleNom')
+      .orderBy('COUNT(*)', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    // 5. Évolution CA et pertes sur les 6 derniers inventaires
+    const whereEvolution: any = {
+      organizationId,
+      statut: StatutInventaire.TERMINE,
+      financesCalcules: true
+    };
+    if (dateDebut && dateFin) {
+      whereEvolution.dateFin = Between(dateDebut, dateFin);
+    }
+    const sixDerniers = await this.inventaireRepository.find({
+      where: whereEvolution,
+      order: { dateFin: 'DESC' },
+      take: 6,
+    });
+
+    const evolutionCA = sixDerniers.reverse().map((inv) => ({
+      date: inv.dateFin,
+      montant: Number(inv.chiffreAffaires),
+      benefice: Number(inv.beneficeNet),
+    }));
+
+    const evolutionPertes = sixDerniers.map((inv) => ({
+      date: inv.dateFin,
+      montant: Number(inv.totalPertes),
+      articlesManquants: Number(inv.valeurArticlesManquants),
+      articlesAbimes: Number(inv.valeurArticlesAbimes),
+    }));
+
+    // 6. Moyenne taux de rentabilité
+    let statsQuery = this.inventaireRepository
+      .createQueryBuilder('inv')
+      .select('AVG(inv.tauxRentabilite)', 'tauxRentabiliteMoyen')
+      .addSelect('AVG(inv.tauxMarge)', 'tauxMargeMoyen')
+      .addSelect('SUM(inv.totalPertes)', 'pertesTotales')
+      .where('inv.organizationId = :organizationId', { organizationId })
+      .andWhere('inv.financesCalcules = true');
+
+    if (dateDebut && dateFin) {
+      statsQuery = statsQuery.andWhere(
+        'inv.dateFin BETWEEN :dateDebut AND :dateFin',
+        { dateDebut, dateFin }
+      );
+    }
+
+    const statsFinancieres = await statsQuery.getRawOne();
+
+    return {
+      global: {
+        totalInventaires,
+        inventaireEnCours: inventaireEnCours ? {
+          id: inventaireEnCours.id,
+          date: inventaireEnCours.date,
+          articlesComptes: inventaireEnCours.articlesComptes,
+          totalArticles: inventaireEnCours.totalArticles,
+          progression: inventaireEnCours.totalArticles > 0
+            ? Math.round((inventaireEnCours.articlesComptes / inventaireEnCours.totalArticles) * 100)
+            : 0,
+        } : null,
+        dernierInventaire: dernierInventaire ? {
+          id: dernierInventaire.id,
+          date: dernierInventaire.termineLe,
+          ca: Number(dernierInventaire.chiffreAffaires),
+          benefice: Number(dernierInventaire.beneficeNet),
+          pertes: Number(dernierInventaire.totalPertes),
+        } : null,
+      },
+      comparaison,
+      topArticlesEcarts: topArticlesEcarts.map((article) => ({
+        articleId: article.articleId,
+        articleNom: article.articleNom,
+        nombreEcarts: Number(article.nombreEcarts),
+        ecartTotal: Number(article.ecartTotal),
+        ecartMoyen: Number(article.ecartMoyen).toFixed(1),
+      })),
+      evolution: {
+        ca: evolutionCA,
+        pertes: evolutionPertes,
+      },
+      moyennes: {
+        tauxRentabilite: Number(statsFinancieres?.tauxRentabiliteMoyen || 0).toFixed(2),
+        tauxMarge: Number(statsFinancieres?.tauxMargeMoyen || 0).toFixed(2),
+        pertesTotales: Number(statsFinancieres?.pertesTotales || 0),
+      },
+    };
+  }
+
+  /**
+   * Exporter les comptages d'un inventaire en Excel
+   */
+  async exportComptagesExcel(
+    inventaireId: string,
+    organizationId: string,
+    res: Response,
+  ): Promise<void> {
+    const ExcelJS = require('exceljs');
+    const inventaire = await this.findOne(inventaireId, organizationId);
+
+    // Récupérer tous les comptages
+    const comptages = await this.comptageRepository.find({
+      where: { inventaireId },
+      order: { articleNom: 'ASC' },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Comptages');
+
+    // En-têtes
+    worksheet.columns = [
+      { header: 'Article', key: 'articleNom', width: 30 },
+      { header: 'Qté Système', key: 'quantiteSysteme', width: 15 },
+      { header: 'Qté Comptée', key: 'quantiteComptee', width: 15 },
+      { header: 'Écart', key: 'ecart', width: 12 },
+      { header: 'Note', key: 'note', width: 30 },
+      { header: 'Compté par', key: 'comptePar', width: 20 },
+    ];
+
+    // Style des en-têtes
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' },
+    };
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+    // Ajouter les données
+    comptages.forEach((comptage) => {
+      const ecart = comptage.quantiteComptee - comptage.quantiteSysteme;
+      const row = worksheet.addRow({
+        articleNom: comptage.articleNom,
+        quantiteSysteme: comptage.quantiteSysteme,
+        quantiteComptee: comptage.quantiteComptee,
+        ecart: ecart,
+        note: comptage.note || '',
+        comptePar: comptage.comptePar,
+      });
+
+      // Colorer les écarts en rouge si négatif, vert si positif
+      if (ecart !== 0) {
+        row.getCell('ecart').fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: ecart < 0 ? 'FFFFCCCC' : 'FFCCFFCC' },
+        };
+      }
+    });
+
+    // Ajouter une ligne de résumé
+    worksheet.addRow([]);
+    const summaryRow = worksheet.addRow({
+      articleNom: 'TOTAL',
+      quantiteSysteme: { formula: `SUM(B2:B${comptages.length + 1})` },
+      quantiteComptee: { formula: `SUM(C2:C${comptages.length + 1})` },
+      ecart: { formula: `SUM(D2:D${comptages.length + 1})` },
+    });
+    summaryRow.font = { bold: true };
+
+    // Envoyer le fichier
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=comptages-inventaire-${inventaireId}.xlsx`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  }
+
+  /**
+   * Exporter la liste des inventaires en Excel
+   */
+  async exportInventairesExcel(
+    organizationId: string,
+    res: Response,
+  ): Promise<void> {
+    const ExcelJS = require('exceljs');
+
+    const inventaires = await this.inventaireRepository.find({
+      where: { organizationId },
+      order: { date: 'DESC' },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Inventaires');
+
+    // En-têtes
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Statut', key: 'statut', width: 12 },
+      { header: 'Note', key: 'note', width: 30 },
+      { header: 'Articles comptés', key: 'articlesComptes', width: 15 },
+      { header: 'Total articles', key: 'totalArticles', width: 15 },
+      { header: 'Écarts', key: 'articlesAvecEcarts', width: 12 },
+      { header: 'CA', key: 'chiffreAffaires', width: 15 },
+      { header: 'Bénéfice Net', key: 'beneficeNet', width: 15 },
+      { header: 'Pertes', key: 'totalPertes', width: 15 },
+      { header: 'Responsable', key: 'responsableNom', width: 20 },
+    ];
+
+    // Style des en-têtes
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' },
+    };
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+    // Ajouter les données
+    inventaires.forEach((inv) => {
+      worksheet.addRow({
+        date: inv.date ? new Date(inv.date).toLocaleDateString('fr-FR') : '',
+        statut: inv.statut,
+        note: inv.note || '',
+        articlesComptes: inv.articlesComptes,
+        totalArticles: inv.totalArticles,
+        articlesAvecEcarts: inv.articlesAvecEcarts,
+        chiffreAffaires: inv.financesCalcules ? Number(inv.chiffreAffaires) : '',
+        beneficeNet: inv.financesCalcules ? Number(inv.beneficeNet) : '',
+        totalPertes: inv.financesCalcules ? Number(inv.totalPertes) : '',
+        responsableNom: inv.responsableNom || '',
+      });
+    });
+
+    // Format des nombres
+    worksheet.getColumn('chiffreAffaires').numFmt = '#,##0';
+    worksheet.getColumn('beneficeNet').numFmt = '#,##0';
+    worksheet.getColumn('totalPertes').numFmt = '#,##0';
+
+    // Envoyer le fichier
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=inventaires-${new Date().toISOString().split('T')[0]}.xlsx`,
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
   }
 }

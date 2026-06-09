@@ -51,10 +51,34 @@ export class InventairesController {
     return this.inventairesService.findAll(req.user.organizationId, pageNum, limitNum);
   }
 
+  @Get('dashboard/stats')
+  @ApiOperation({ summary: 'Statistiques du dashboard inventaires avec filtres' })
+  getDashboardStats(
+    @Request() req,
+    @Query() filterDto: any,
+  ): Promise<any> {
+    return this.inventairesService.getDashboardStats(
+      req.user.organizationId,
+      filterDto,
+    );
+  }
+
   @Get('date-min')
   @ApiOperation({ summary: 'Date minimale autorisée pour un nouvel inventaire' })
   async getDateMin(@Request() req): Promise<{ dateMin: string | null }> {
     return this.inventairesService.getDateMin(req.user.organizationId);
+  }
+
+  @Get('export-excel')
+  @ApiOperation({ summary: 'Exporter la liste des inventaires en Excel' })
+  async exportInventairesExcel(
+    @Request() req,
+    @Res() res: Response,
+  ): Promise<void> {
+    return this.inventairesService.exportInventairesExcel(
+      req.user.organizationId,
+      res,
+    );
   }
 
   @Get(':id')
@@ -140,6 +164,20 @@ export class InventairesController {
     return this.inventairesService.savePDFToFile(
       id,
       req.user.organizationId,
+    );
+  }
+
+  @Get(':id/export-comptages-excel')
+  @ApiOperation({ summary: 'Exporter les comptages en Excel' })
+  async exportComptagesExcel(
+    @Param('id') id: string,
+    @Request() req,
+    @Res() res: Response,
+  ): Promise<void> {
+    return this.inventairesService.exportComptagesExcel(
+      id,
+      req.user.organizationId,
+      res,
     );
   }
 }
