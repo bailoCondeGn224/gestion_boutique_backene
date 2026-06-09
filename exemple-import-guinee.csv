@@ -1,0 +1,21 @@
+Code Article,Nom,Catégorie,Zone,Prix Vente (GNF),Prix Achat (GNF),Seuil Alerte,Quantité,Fournisseur,Date Livraison,N° Facture,Photo
+PAR001,Paracétamol 500mg - Boîte de 10,Médicaments,A,5000,3500,50,500,224 622 00 00 00,2026-06-15,FACT-2026-001,paracetamol.jpg
+IBU001,Ibuprofène 400mg - Boîte de 20,Médicaments,A,12000,8000,30,300,224 622 00 00 00,2026-06-15,FACT-2026-001,ibuprofene.jpg
+ASP001,Aspirine 100mg - Boîte de 30,Médicaments,A,8000,5500,40,200,224 622 00 00 00,2026-06-15,FACT-2026-001,aspirine.jpg
+AMOX001,Amoxicilline 500mg - Boîte de 12,Antibiotiques,B,25000,18000,20,150,+224 623 11 22 33,2026-06-16,FACT-2026-002,amoxicilline.jpg
+AZIT001,Azithromycine 250mg - Boîte de 6,Antibiotiques,B,35000,25000,15,100,+224 623 11 22 33,2026-06-16,FACT-2026-002,azithromycine.jpg
+VIT001,Vitamine C 1000mg - Boîte de 30,Compléments,C,15000,10000,25,250,224-624-33-44-55,2026-06-17,FACT-2026-003,vitamine-c.jpg
+VIT002,Vitamine D3 - Boîte de 60,Compléments,C,28000,20000,15,120,224-624-33-44-55,2026-06-17,FACT-2026-003,vitamine-d.jpg
+FER001,Fer + Acide Folique - Boîte de 90,Compléments,C,18000,12000,20,180,224-624-33-44-55,2026-06-17,FACT-2026-003,
+DOLI001,Doliprane 1000mg - Boîte de 8,Médicaments,A,7500,5000,35,400,Pharmacie Centrale Conakry,,FACT-2026-004,doliprane.jpg
+EFFE001,Efferalgan 500mg - Boîte de 16,Médicaments,A,10000,7000,30,350,Pharmacie Centrale Conakry,,FACT-2026-004,efferalgan.jpg
+NURO001,Nurofen 400mg - Boîte de 12,Médicaments,A,15000,10500,25,200,Pharmacie Centrale Conakry,,FACT-2026-004,nurofen.jpg
+SPAS001,Spasfon 80mg - Boîte de 30,Médicaments,B,22000,15000,20,150,contact@grossiste-medicaments.gn,2026-06-18,FACT-2026-005,spasfon.jpg
+DOLI002,Doliprane Sirop 100ml,Pédiatrie,D,12000,8500,15,80,contact@grossiste-medicaments.gn,2026-06-18,FACT-2026-005,doliprane-sirop.jpg
+AMOX002,Amoxicilline Sirop 250mg/5ml,Pédiatrie,D,18000,13000,10,60,contact@grossiste-medicaments.gn,2026-06-18,FACT-2026-005,
+MASK001,Masques Chirurgicaux - Boîte de 50,Consommables,E,45000,32000,10,100,,,FACT-2026-006,masques.jpg
+GLOV001,Gants Latex - Boîte de 100,Consommables,E,35000,25000,15,80,,,FACT-2026-006,gants.jpg
+ALCO001,Alcool 70° - Flacon 500ml,Désinfectants,E,8000,5500,20,150,,,FACT-2026-006,alcool.jpg
+BETA001,Bétadine Solution - Flacon 125ml,Désinfectants,E,12000,8500,15,100,,,FACT-2026-006,betadine.jpg
+PANS001,Pansements Assortis - Boîte de 100,Consommables,E,25000,18000,10,60,,,,pansements.jpg
+SERI001,Seringues 5ml - Boîte de 100,Consommables,E,30000,22000,15,75,,,,seringues.jpg

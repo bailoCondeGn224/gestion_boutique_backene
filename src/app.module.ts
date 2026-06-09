@@ -26,6 +26,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CommandesModule } from './commandes/commandes.module';
 import { DepensesModule } from './depenses/depenses.module';
+import { BulkImportModule } from './bulk-import/bulk-import.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { DepensesModule } from './depenses/depenses.module';
     PermissionsModule,
     RolesModule,
     AdminDashboardModule,
+    BulkImportModule,
   ],
   controllers: [AppController],
   providers: [AppService],
