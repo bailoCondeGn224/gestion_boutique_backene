@@ -20,6 +20,8 @@ export class AnalyticsService {
   ) {}
 
   async getDashboardStats(organizationId: string) {
+    console.log('🔍 [ANALYTICS DEBUG] getDashboardStats called with organizationId:', organizationId);
+
     // Exécuter toutes les requêtes en parallèle pour optimiser les performances
     const [stockStats, fournisseursStats, ventesStats, clientsStats] = await Promise.all([
       this.getStockStats(organizationId),
@@ -27,6 +29,9 @@ export class AnalyticsService {
       this.getVentesStats(organizationId),
       this.getClientsStats(organizationId),
     ]);
+
+    console.log('📊 [ANALYTICS DEBUG] Stock stats:', stockStats);
+    console.log('📊 [ANALYTICS DEBUG] Fournisseurs stats:', fournisseursStats);
 
     return {
       stock: stockStats,
@@ -43,14 +48,14 @@ export class AnalyticsService {
 
     const articlesEnRupture = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('article.organizationId = :organizationId', { organizationId })
       .andWhere('article.stock = 0')
       .getCount();
 
     // Stock Faible : articles avec stock entre 1 et 5
     const articlesStockFaible = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('article.organizationId = :organizationId', { organizationId })
       .andWhere('article.stock >= 1 AND article.stock <= 5')
       .getCount();
 
@@ -60,7 +65,7 @@ export class AnalyticsService {
     const valeurResult = await this.articlesRepository
       .createQueryBuilder('article')
       .select('SUM(article.stock * article.prixAchat)', 'valeurTotale')
-      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('article.organizationId = :organizationId', { organizationId })
       .getRawOne();
 
     const valeurTotale = parseFloat(valeurResult?.valeurTotale || '0');
@@ -81,7 +86,7 @@ export class AnalyticsService {
 
     const totalActifs = await this.fournisseursRepository
       .createQueryBuilder('fournisseur')
-      .where('fournisseur.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('fournisseur.organizationId = :organizationId', { organizationId })
       .andWhere('fournisseur.statut = :statut', { statut: 'actif' })
       .getCount();
 
@@ -90,7 +95,7 @@ export class AnalyticsService {
       .select('SUM(fournisseur.totalAchats)', 'totalAchats')
       .addSelect('SUM(fournisseur.dette)', 'detteTotal')
       .addSelect('COUNT(CASE WHEN fournisseur.dette > 0 THEN 1 END)', 'nombreCreanciers')
-      .where('fournisseur.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('fournisseur.organizationId = :organizationId', { organizationId })
       .getRawOne();
 
     return {
@@ -114,7 +119,7 @@ export class AnalyticsService {
       .createQueryBuilder('vente')
       .select('SUM(vente.total)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .where('vente.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('vente.organizationId = :organizationId', { organizationId })
       .andWhere('DATE(vente.date) = DATE(:today)', { today })
       .getRawOne();
 
@@ -122,7 +127,7 @@ export class AnalyticsService {
     const semaineStats = await this.ventesRepository
       .createQueryBuilder('vente')
       .select('SUM(vente.total)', 'total')
-      .where('vente.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('vente.organizationId = :organizationId', { organizationId })
       .andWhere('vente.date >= :weekAgo', { weekAgo })
       .getRawOne();
 
@@ -131,7 +136,7 @@ export class AnalyticsService {
       .createQueryBuilder('vente')
       .select('SUM(vente.total)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .where('vente.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('vente.organizationId = :organizationId', { organizationId })
       .andWhere('vente.date >= :monthStart', { monthStart })
       .getRawOne();
 
@@ -153,7 +158,7 @@ export class AnalyticsService {
       .createQueryBuilder('client')
       .select('COUNT(CASE WHEN client.totalCredits > 0 THEN 1 END)', 'avecCredits')
       .addSelect('SUM(client.totalCredits)', 'totalCreditsEnCours')
-      .where('client.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('client.organizationId = :organizationId', { organizationId })
       .getRawOne();
 
     return {
@@ -173,7 +178,7 @@ export class AnalyticsService {
     // Produits déjà expirés (avec stock > 0)
     const articlesExpires = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('article.organizationId = :organizationId', { organizationId })
       .andWhere('article.dateExpiration IS NOT NULL')
       .andWhere('article.dateExpiration < :aujourdhui', { aujourdhui })
       .andWhere('article.stock > 0')
@@ -183,7 +188,7 @@ export class AnalyticsService {
     // Produits qui expirent bientôt (dans les X jours définis par delaiAlerteExpiration)
     const articlesExpirantBientot = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .where('article.organizationId = :organizationId', { organizationId })
       .andWhere('article.dateExpiration IS NOT NULL')
       .andWhere('article.dateExpiration >= :aujourdhui', { aujourdhui })
       .andWhere(
