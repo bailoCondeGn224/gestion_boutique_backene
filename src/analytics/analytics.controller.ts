@@ -11,7 +11,7 @@ import { TenantGuard, CurrentOrganization } from '../common';
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @Permissions('analytics.read')
   @Get('dashboard')
   @ApiBearerAuth()
@@ -20,8 +20,8 @@ export class AnalyticsController {
     status: 200,
     description: 'Statistiques complètes pour le dashboard analytics',
   })
-  getDashboard() {
-    return this.analyticsService.getDashboardStats();
+  getDashboard(@CurrentOrganization() organizationId: string) {
+    return this.analyticsService.getDashboardStats(organizationId);
   }
 
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)

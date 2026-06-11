@@ -19,13 +19,13 @@ export class AnalyticsService {
     private fournisseursRepository: Repository<Fournisseur>,
   ) {}
 
-  async getDashboardStats() {
+  async getDashboardStats(organizationId: string) {
     // Exécuter toutes les requêtes en parallèle pour optimiser les performances
     const [stockStats, fournisseursStats, ventesStats, clientsStats] = await Promise.all([
-      this.getStockStats(),
-      this.getFournisseursStats(),
-      this.getVentesStats(),
-      this.getClientsStats(),
+      this.getStockStats(organizationId),
+      this.getFournisseursStats(organizationId),
+      this.getVentesStats(organizationId),
+      this.getClientsStats(organizationId),
     ]);
 
     return {
@@ -36,18 +36,22 @@ export class AnalyticsService {
     };
   }
 
-  private async getStockStats() {
-    const totalArticles = await this.articlesRepository.count();
+  private async getStockStats(organizationId: string) {
+    const totalArticles = await this.articlesRepository.count({
+      where: { organizationId },
+    });
 
     const articlesEnRupture = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.stock = 0')
+      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('article.stock = 0')
       .getCount();
 
     // Stock Faible : articles avec stock entre 1 et 5
     const articlesStockFaible = await this.articlesRepository
       .createQueryBuilder('article')
-      .where('article.stock >= 1 AND article.stock <= 5')
+      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('article.stock >= 1 AND article.stock <= 5')
       .getCount();
 
     const articlesEnAlerte = articlesEnRupture + articlesStockFaible;
@@ -56,6 +60,7 @@ export class AnalyticsService {
     const valeurResult = await this.articlesRepository
       .createQueryBuilder('article')
       .select('SUM(article.stock * article.prixAchat)', 'valeurTotale')
+      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
       .getRawOne();
 
     const valeurTotale = parseFloat(valeurResult?.valeurTotale || '0');
@@ -69,12 +74,15 @@ export class AnalyticsService {
     };
   }
 
-  private async getFournisseursStats() {
-    const totalFournisseurs = await this.fournisseursRepository.count();
+  private async getFournisseursStats(organizationId: string) {
+    const totalFournisseurs = await this.fournisseursRepository.count({
+      where: { organizationId },
+    });
 
     const totalActifs = await this.fournisseursRepository
       .createQueryBuilder('fournisseur')
-      .where('fournisseur.statut = :statut', { statut: 'actif' })
+      .where('fournisseur.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('fournisseur.statut = :statut', { statut: 'actif' })
       .getCount();
 
     const statsResult = await this.fournisseursRepository
@@ -82,6 +90,7 @@ export class AnalyticsService {
       .select('SUM(fournisseur.totalAchats)', 'totalAchats')
       .addSelect('SUM(fournisseur.dette)', 'detteTotal')
       .addSelect('COUNT(CASE WHEN fournisseur.dette > 0 THEN 1 END)', 'nombreCreanciers')
+      .where('fournisseur.organizationId = CAST(:organizationId AS uuid)', { organizationId })
       .getRawOne();
 
     return {
@@ -93,7 +102,7 @@ export class AnalyticsService {
     };
   }
 
-  private async getVentesStats() {
+  private async getVentesStats(organizationId: string) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(today);
@@ -105,14 +114,16 @@ export class AnalyticsService {
       .createQueryBuilder('vente')
       .select('SUM(vente.total)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .where('DATE(vente.date) = DATE(:today)', { today })
+      .where('vente.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('DATE(vente.date) = DATE(:today)', { today })
       .getRawOne();
 
     // Stats de la semaine
     const semaineStats = await this.ventesRepository
       .createQueryBuilder('vente')
       .select('SUM(vente.total)', 'total')
-      .where('vente.date >= :weekAgo', { weekAgo })
+      .where('vente.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('vente.date >= :weekAgo', { weekAgo })
       .getRawOne();
 
     // Stats du mois
@@ -120,7 +131,8 @@ export class AnalyticsService {
       .createQueryBuilder('vente')
       .select('SUM(vente.total)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .where('vente.date >= :monthStart', { monthStart })
+      .where('vente.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('vente.date >= :monthStart', { monthStart })
       .getRawOne();
 
     return {
@@ -132,13 +144,16 @@ export class AnalyticsService {
     };
   }
 
-  private async getClientsStats() {
-    const total = await this.clientsRepository.count();
+  private async getClientsStats(organizationId: string) {
+    const total = await this.clientsRepository.count({
+      where: { organizationId },
+    });
 
     const statsResult = await this.clientsRepository
       .createQueryBuilder('client')
       .select('COUNT(CASE WHEN client.totalCredits > 0 THEN 1 END)', 'avecCredits')
       .addSelect('SUM(client.totalCredits)', 'totalCreditsEnCours')
+      .where('client.organizationId = CAST(:organizationId AS uuid)', { organizationId })
       .getRawOne();
 
     return {
