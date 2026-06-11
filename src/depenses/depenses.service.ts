@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Like, DataSource } from 'typeorm';
-import { Depense, CategorieDepense } from './entities/depense.entity';
+import { Depense, CategorieDepense, StatutDepense } from './entities/depense.entity';
 import { CreateDepenseDto } from './dto/create-depense.dto';
 import { UpdateDepenseDto } from './dto/update-depense.dto';
 import { DepenseFilterDto } from './dto/depense-filter.dto';
@@ -97,7 +97,7 @@ export class DepensesService {
     organizationId: string,
     filters: DepenseFilterDto,
   ): Promise<{ data: Depense[]; meta: any }> {
-    const { page = 1, limit = 20, dateDebut, dateFin, type, categorie, search } = filters;
+    const { page = 1, limit = 20, dateDebut, dateFin, type, categorie, statut, search } = filters;
 
     const query = this.depenseRepository
       .createQueryBuilder('depense')
@@ -124,6 +124,11 @@ export class DepensesService {
     // Filtrer par catégorie
     if (categorie) {
       query.andWhere('depense.categorie = :categorie', { categorie });
+    }
+
+    // Filtrer par statut
+    if (statut) {
+      query.andWhere('depense.statut = :statut', { statut });
     }
 
     // Recherche textuelle
@@ -367,7 +372,10 @@ export class DepensesService {
     const result = await this.depenseRepository
       .createQueryBuilder()
       .update()
-      .set({ inventaireId })
+      .set({
+        inventaireId,
+        statut: StatutDepense.INCLUSE, // Marquer la dépense comme incluse dans un inventaire
+      })
       .where('organizationId = CAST(:organizationId AS uuid)', { organizationId })
       .andWhere('date >= :dateDebut AND date < :dateFin', {
         dateDebut,

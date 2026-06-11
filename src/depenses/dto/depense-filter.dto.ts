@@ -8,7 +8,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { TypeDepense, CategorieDepense } from '../entities/depense.entity';
+import { TypeDepense, CategorieDepense, StatutDepense } from '../entities/depense.entity';
 
 /**
  * DTO pour filtrer les dépenses
@@ -44,6 +44,13 @@ export class DepenseFilterDto {
   })
   @IsOptional()
   categorie?: CategorieDepense;
+
+  @Transform(({ value }) => value === '' ? undefined : value)
+  @IsEnum(StatutDepense, {
+    message: 'Le statut doit être EN_ATTENTE ou INCLUSE',
+  })
+  @IsOptional()
+  statut?: StatutDepense;
 
   @Transform(({ value }) => value === '' ? undefined : value)
   @IsString({ message: 'La recherche doit être une chaîne de caractères' })

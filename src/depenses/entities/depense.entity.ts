@@ -41,6 +41,14 @@ export enum CategorieDepense {
 }
 
 /**
+ * Statut d'une dépense
+ */
+export enum StatutDepense {
+  EN_ATTENTE = 'EN_ATTENTE', // Dépense enregistrée mais pas encore calculée dans un inventaire
+  INCLUSE = 'INCLUSE', // Dépense incluse dans le calcul financier d'un inventaire
+}
+
+/**
  * Mapping strict entre les types et catégories de dépenses
  * Chaque type de dépense a une catégorie logique prédéfinie
  */
@@ -144,6 +152,14 @@ export class Depense {
     comment: "Inventaire auquel cette dépense est rattachée (null si pas encore clôturée)",
   })
   inventaireId: string;
+
+  @Column({
+    type: 'enum',
+    enum: StatutDepense,
+    default: StatutDepense.EN_ATTENTE,
+    comment: 'Statut de la dépense (EN_ATTENTE ou INCLUSE dans un inventaire)',
+  })
+  statut: StatutDepense;
 
   @CreateDateColumn()
   createdAt: Date;
