@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsNumber, Min, Max, IsOptional } from 'class-validator';
+import { IsString, IsUUID, IsNumber, Min, Max, IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateArticleDto {
@@ -80,4 +80,24 @@ export class CreateArticleDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiProperty({
+    example: '2025-12-31',
+    description: 'Date d\'expiration du produit (YYYY-MM-DD)',
+    required: false,
+  })
+  @IsDateString({}, { message: 'La date d\'expiration doit être au format ISO (YYYY-MM-DD)' })
+  @IsOptional()
+  dateExpiration?: string;
+
+  @ApiProperty({
+    example: 30,
+    description: 'Jours avant expiration pour déclencher une alerte (défaut: 30)',
+    minimum: 1,
+    required: false,
+  })
+  @IsNumber()
+  @Min(1, { message: 'Le délai d\'alerte doit être d\'au moins 1 jour' })
+  @IsOptional()
+  delaiAlerteExpiration?: number;
 }

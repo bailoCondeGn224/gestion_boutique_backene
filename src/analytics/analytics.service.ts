@@ -147,4 +147,43 @@ export class AnalyticsService {
       totalCreditsEnCours: parseFloat(statsResult?.totalCreditsEnCours || '0'),
     };
   }
+
+  /**
+   * Récupère les statistiques sur les produits expirés et expirant bientôt
+   */
+  async getExpirationStats(organizationId: string) {
+    const aujourdhui = new Date();
+    aujourdhui.setHours(0, 0, 0, 0);
+
+    // Produits déjà expirés (avec stock > 0)
+    const articlesExpires = await this.articlesRepository
+      .createQueryBuilder('article')
+      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('article.dateExpiration IS NOT NULL')
+      .andWhere('article.dateExpiration < :aujourdhui', { aujourdhui })
+      .andWhere('article.stock > 0')
+      .orderBy('article.dateExpiration', 'ASC')
+      .getMany();
+
+    // Produits qui expirent bientôt (dans les X jours définis par delaiAlerteExpiration)
+    const articlesExpirantBientot = await this.articlesRepository
+      .createQueryBuilder('article')
+      .where('article.organizationId = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere('article.dateExpiration IS NOT NULL')
+      .andWhere('article.dateExpiration >= :aujourdhui', { aujourdhui })
+      .andWhere(
+        `article.dateExpiration <= :aujourdhui::date + (article."delaiAlerteExpiration" || ' days')::interval`,
+        { aujourdhui },
+      )
+      .andWhere('article.stock > 0')
+      .orderBy('article.dateExpiration', 'ASC')
+      .getMany();
+
+    return {
+      expires: articlesExpires.length,
+      expirantBientot: articlesExpirantBientot.length,
+      articlesExpires,
+      articlesExpirantBientot,
+    };
+  }
 }

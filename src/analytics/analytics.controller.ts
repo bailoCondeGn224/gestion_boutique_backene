@@ -4,6 +4,7 @@ import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { TenantGuard, CurrentOrganization } from '../common';
 
 @ApiTags('analytics')
 @Controller('analytics')
@@ -21,5 +22,18 @@ export class AnalyticsController {
   })
   getDashboard() {
     return this.analyticsService.getDashboardStats();
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('stock.read')
+  @Get('expiration')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les statistiques sur les produits expirés et expirant bientôt' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistiques sur les dates d\'expiration',
+  })
+  getExpirationStats(@CurrentOrganization() organizationId: string) {
+    return this.analyticsService.getExpirationStats(organizationId);
   }
 }

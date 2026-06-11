@@ -49,6 +49,12 @@ export class Article extends BaseTenantEntity {
   @Column({ type: 'text', nullable: true })
   photo: string; // Chemin relatif: articles/{organizationId}/{filename}
 
+  @Column({ type: 'date', nullable: true })
+  dateExpiration?: Date; // Date d'expiration du produit (ou du lot le plus proche si plusieurs)
+
+  @Column({ type: 'int', default: 30 })
+  delaiAlerteExpiration: number; // Jours avant expiration pour déclencher une alerte (défaut: 30j)
+
   @CreateDateColumn()
   createdAt: Date;
 
