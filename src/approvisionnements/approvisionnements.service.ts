@@ -120,6 +120,32 @@ export class ApprovisionnementService {
           [ligne.prixUnitaire, ligne.articleId, organizationId],
         );
 
+        // Mettre à jour la date d'expiration si fournie dans la ligne
+        if (ligne.dateExpiration || ligne.delaiAlerteExpiration) {
+          const updates: string[] = [];
+          const values: any[] = [];
+          let paramIndex = 1;
+
+          if (ligne.dateExpiration) {
+            updates.push(`"dateExpiration" = $${paramIndex++}`);
+            values.push(ligne.dateExpiration);
+          }
+
+          if (ligne.delaiAlerteExpiration) {
+            updates.push(`"delaiAlerteExpiration" = $${paramIndex++}`);
+            values.push(ligne.delaiAlerteExpiration);
+          }
+
+          if (updates.length > 0) {
+            values.push(ligne.articleId, organizationId);
+            await queryRunner.manager.query(
+              `UPDATE article SET ${updates.join(', ')}
+               WHERE id = $${paramIndex++} AND "organizationId" = $${paramIndex}`,
+              values,
+            );
+          }
+        }
+
         // Enregistrer le mouvement de stock DANS LA MÊME TRANSACTION
         if (createDto.userId) {
           await queryRunner.manager.query(

@@ -42,6 +42,27 @@ export class LigneApprovisionnementDto {
   @IsNumber()
   @Min(0, { message: 'Le sous-total ne peut pas être négatif' })
   sousTotal: number;
+
+  @ApiProperty({
+    example: '2026-12-31',
+    description: 'Date d\'expiration du lot (optionnel)',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  dateExpiration?: string;
+
+  @ApiProperty({
+    example: 30,
+    minimum: 1,
+    maximum: 365,
+    description: 'Jours avant expiration pour déclencher une alerte (optionnel)',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  delaiAlerteExpiration?: number;
 }
 
 export class CreateApprovisionnementDto {
