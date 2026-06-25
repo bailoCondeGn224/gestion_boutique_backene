@@ -41,6 +41,10 @@ export class User {
   @Column({ default: true })
   mustChangePassword: boolean;
 
+  // Statut actif/inactif de l'utilisateur
+  @Column({ default: true })
+  actif: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

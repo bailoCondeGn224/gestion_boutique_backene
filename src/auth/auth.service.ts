@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { OrganizationStatus } from '../organizations/enums/organization-status.enum';
 
 @Injectable()
 export class AuthService {
@@ -13,11 +14,62 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-    if (user && (await bcrypt.compare(password, user.password))) {
+
+    if (!user) {
+      return null;
+    }
+
+    // Vérifier le mot de passe
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    // Les super admins peuvent toujours se connecter
+    if (user.isSuperAdmin) {
       const { password, ...result } = user;
       return result;
     }
-    return null;
+
+    // Vérifier que l'utilisateur est actif
+    if (user.actif === false) {
+      throw new UnauthorizedException(
+        'Votre compte a été désactivé. Contactez votre administrateur.'
+      );
+    }
+
+    // Vérifier que l'organisation existe et est approuvée
+    if (user.organization) {
+      const orgStatus = user.organization.statut;
+
+      if (orgStatus === OrganizationStatus.EN_ATTENTE) {
+        throw new UnauthorizedException(
+          'Votre organisation est en attente d\'approbation. Vous recevrez un SMS dès que votre compte sera activé.'
+        );
+      }
+
+      if (orgStatus === OrganizationStatus.REJETE) {
+        throw new UnauthorizedException(
+          'Votre demande d\'inscription a été rejetée. Contactez le support pour plus d\'informations.'
+        );
+      }
+
+      if (orgStatus === OrganizationStatus.SUSPENDU) {
+        throw new UnauthorizedException(
+          'Votre organisation a été suspendue. Contactez le support pour plus d\'informations.'
+        );
+      }
+
+      // Vérifier aussi que l'organisation est active
+      if (!user.organization.actif) {
+        throw new UnauthorizedException(
+          'Votre organisation est inactive. Contactez le support pour plus d\'informations.'
+        );
+      }
+    }
+
+    const { password: pwd, ...result } = user;
+    return result;
   }
 
   async login(user: User) {

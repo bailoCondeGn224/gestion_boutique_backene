@@ -27,6 +27,7 @@ import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CommandesModule } from './commandes/commandes.module';
 import { DepensesModule } from './depenses/depenses.module';
 import { BulkImportModule } from './bulk-import/bulk-import.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { BulkImportModule } from './bulk-import/bulk-import.module';
     RolesModule,
     AdminDashboardModule,
     BulkImportModule,
+    SmsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,17 +1,32 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Organization } from './entities/organization.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
+import { RegisterOrganizationDto } from './dto/register-organization.dto';
+import { RejectOrganizationDto } from './dto/reject-organization.dto';
 import { PlansService } from '../plans/plans.service';
+import { RolesService } from '../roles/roles.service';
+import { SmsService } from '../sms/sms.service';
+import { OrganizationStatus } from './enums/organization-status.enum';
+import { PlanCode } from '../plans/enums/plan-code.enum';
+import { generateRandomPassword } from '../common/utils/password-generator.util';
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     @InjectRepository(Organization)
     private organizationsRepository: Repository<Organization>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+    private dataSource: DataSource,
     private plansService: PlansService,
+    @Inject(forwardRef(() => RolesService))
+    private rolesService: RolesService,
+    private smsService: SmsService,
   ) {}
 
   async create(createOrganizationDto: CreateOrganizationDto): Promise<Organization> {
@@ -244,5 +259,271 @@ export class OrganizationsService {
   async remove(id: string): Promise<void> {
     const organization = await this.findOne(id);
     await this.organizationsRepository.remove(organization);
+  }
+
+  // ==================== NOUVELLES MÉTHODES POUR INSCRIPTION CLIENT ====================
+
+  /**
+   * Inscription d'une nouvelle organisation par un client
+   * L'organisation est créée avec statut "en_attente" et plan gratuit
+   * Un utilisateur admin est créé en même temps (transaction)
+   */
+  async register(registerDto: RegisterOrganizationDto): Promise<{ organization: Organization; message: string }> {
+    const { proprietaire, ...orgData } = registerDto;
+
+    // Vérifications d'unicité pour l'organisation
+    await this.checkUniqueFields(orgData);
+
+    // Vérifier si l'email du propriétaire existe déjà
+    const existingUser = await this.usersRepository.findOne({
+      where: { email: proprietaire.email },
+    });
+    if (existingUser) {
+      throw new ConflictException(
+        `Un utilisateur avec l'email "${proprietaire.email}" existe déjà`,
+      );
+    }
+
+    // Récupérer le plan gratuit
+    const planGratuit = await this.plansService.findByCode(PlanCode.FREE);
+
+    // Récupérer le rôle ADMIN
+    const roleAdmin = await this.rolesService.findByNom('ADMIN');
+    if (!roleAdmin) {
+      throw new BadRequestException('Le rôle ADMIN n\'existe pas dans le système');
+    }
+
+    // Générer un mot de passe aléatoire
+    const generatedPassword = generateRandomPassword(10);
+    const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+    // Utiliser une transaction pour créer organisation + utilisateur
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. Créer l'organisation
+      const organization = queryRunner.manager.create(Organization, {
+        ...orgData,
+        plan: planGratuit,
+        statut: OrganizationStatus.EN_ATTENTE,
+        actif: false,
+        // Stocker temporairement le mot de passe généré (sera effacé après approbation)
+        motifRejet: `PWD:${generatedPassword}`,
+      });
+      const savedOrganization = await queryRunner.manager.save(Organization, organization);
+
+      // 2. Créer l'utilisateur admin lié à l'organisation
+      const adminUser = queryRunner.manager.create(User, {
+        nom: proprietaire.nom,
+        email: proprietaire.email,
+        password: hashedPassword,
+        role: roleAdmin,
+        organization: savedOrganization,
+        mustChangePassword: true,
+      });
+      await queryRunner.manager.save(User, adminUser);
+
+      // 3. Commit de la transaction
+      await queryRunner.commitTransaction();
+
+      // 4. Envoyer SMS de confirmation (après le commit)
+      await this.smsService.sendPendingRegistrationSms(
+        proprietaire.telephone,
+        orgData.nom,
+      );
+
+      return {
+        organization: savedOrganization,
+        message: 'Votre demande d\'inscription a été soumise avec succès. Vous recevrez un SMS une fois votre compte approuvé.',
+      };
+    } catch (error) {
+      // Rollback en cas d'erreur
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      // Libérer le queryRunner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Liste des organisations en attente d'approbation
+   */
+  async findPending(): Promise<Organization[]> {
+    return this.organizationsRepository.find({
+      where: { statut: OrganizationStatus.EN_ATTENTE },
+      relations: ['plan'],
+      order: { createdAt: 'ASC' }, // Les plus anciennes en premier
+    });
+  }
+
+  /**
+   * Approuver une organisation et envoyer les identifiants par SMS
+   */
+  async approve(id: string): Promise<{ organization: Organization; message: string }> {
+    const organization = await this.findOne(id);
+
+    if (organization.statut === OrganizationStatus.APPROUVE) {
+      throw new BadRequestException('Cette organisation est déjà approuvée');
+    }
+
+    // Récupérer l'utilisateur admin de cette organisation
+    const adminUser = await this.usersRepository.findOne({
+      where: { organization: { id: organization.id } },
+      relations: ['role'],
+    });
+
+    if (!adminUser) {
+      throw new BadRequestException('Aucun utilisateur admin trouvé pour cette organisation');
+    }
+
+    // Extraire le mot de passe temporaire stocké
+    let generatedPassword = '';
+    if (organization.motifRejet && organization.motifRejet.startsWith('PWD:')) {
+      generatedPassword = organization.motifRejet.replace('PWD:', '');
+    } else {
+      // Générer un nouveau mot de passe si non trouvé
+      generatedPassword = generateRandomPassword(10);
+      const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+      adminUser.password = hashedPassword;
+      adminUser.mustChangePassword = true;
+      await this.usersRepository.save(adminUser);
+    }
+
+    // Activer l'organisation
+    organization.statut = OrganizationStatus.APPROUVE;
+    organization.actif = true;
+    organization.motifRejet = null; // Effacer le mot de passe temporaire
+
+    const savedOrganization = await this.organizationsRepository.save(organization);
+
+    // Envoyer SMS avec les identifiants
+    await this.smsService.sendApprovalSms(
+      organization.telephone,
+      organization.nom,
+      adminUser.email,
+      generatedPassword,
+    );
+
+    return {
+      organization: savedOrganization,
+      message: `Organisation approuvée. SMS envoyé à ${organization.telephone} avec les identifiants.`,
+    };
+  }
+
+  /**
+   * Rejeter une organisation et envoyer un SMS de notification
+   */
+  async reject(id: string, rejectDto: RejectOrganizationDto): Promise<{ organization: Organization; message: string }> {
+    const organization = await this.findOne(id);
+
+    if (organization.statut === OrganizationStatus.REJETE) {
+      throw new BadRequestException('Cette organisation est déjà rejetée');
+    }
+
+    organization.statut = OrganizationStatus.REJETE;
+    organization.actif = false;
+    organization.motifRejet = rejectDto.motif;
+
+    const savedOrganization = await this.organizationsRepository.save(organization);
+
+    // Envoyer SMS de rejet
+    await this.smsService.sendRejectionSms(
+      organization.telephone,
+      organization.nom,
+      rejectDto.motif,
+    );
+
+    return {
+      organization: savedOrganization,
+      message: `Organisation rejetée. SMS envoyé à ${organization.telephone}.`,
+    };
+  }
+
+  /**
+   * Suspendre une organisation
+   */
+  async suspend(id: string, motif: string): Promise<{ organization: Organization; message: string }> {
+    const organization = await this.findOne(id);
+
+    if (organization.statut === OrganizationStatus.SUSPENDU) {
+      throw new BadRequestException('Cette organisation est déjà suspendue');
+    }
+
+    organization.statut = OrganizationStatus.SUSPENDU;
+    organization.actif = false;
+    organization.motifRejet = motif;
+
+    const savedOrganization = await this.organizationsRepository.save(organization);
+
+    // Envoyer SMS de suspension
+    await this.smsService.sendSuspensionSms(
+      organization.telephone,
+      organization.nom,
+      motif,
+    );
+
+    return {
+      organization: savedOrganization,
+      message: `Organisation suspendue. SMS envoyé à ${organization.telephone}.`,
+    };
+  }
+
+  /**
+   * Réactiver une organisation suspendue
+   */
+  async reactivate(id: string): Promise<{ organization: Organization; message: string }> {
+    const organization = await this.findOne(id);
+
+    if (organization.statut !== OrganizationStatus.SUSPENDU) {
+      throw new BadRequestException('Seule une organisation suspendue peut être réactivée');
+    }
+
+    organization.statut = OrganizationStatus.APPROUVE;
+    organization.actif = true;
+    organization.motifRejet = null;
+
+    const savedOrganization = await this.organizationsRepository.save(organization);
+
+    // Envoyer SMS de réactivation
+    await this.smsService.sendReactivationSms(
+      organization.telephone,
+      organization.nom,
+    );
+
+    return {
+      organization: savedOrganization,
+      message: `Organisation réactivée. SMS envoyé à ${organization.telephone}.`,
+    };
+  }
+
+  /**
+   * Vérifier l'unicité des champs (méthode utilitaire)
+   */
+  private async checkUniqueFields(dto: Partial<RegisterOrganizationDto>, excludeId?: string): Promise<void> {
+    const checks = [
+      { field: 'nom', value: dto.nom },
+      { field: 'slug', value: dto.slug },
+      { field: 'email', value: dto.email },
+      { field: 'telephone', value: dto.telephone },
+      { field: 'rccm', value: dto.rccm },
+      { field: 'nif', value: dto.nif },
+      { field: 'registreCommerce', value: dto.registreCommerce },
+    ];
+
+    for (const check of checks) {
+      if (check.value) {
+        const existing = await this.organizationsRepository.findOne({
+          where: { [check.field]: check.value },
+        });
+        if (existing && existing.id !== excludeId) {
+          throw new ConflictException(
+            `Une organisation avec ce ${check.field} existe déjà`,
+          );
+        }
+      }
+    }
   }
 }

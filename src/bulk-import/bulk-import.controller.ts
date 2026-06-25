@@ -27,7 +27,11 @@ export class BulkImportController {
   @Post('articles')
   @ApiOperation({ summary: 'Importer des articles en masse depuis Excel' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50 MB pour les ZIP avec photos
+    },
+  }))
   async importArticles(
     @UploadedFile() file: Express.Multer.File,
     @Request() req,

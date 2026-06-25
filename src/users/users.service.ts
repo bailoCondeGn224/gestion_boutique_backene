@@ -100,6 +100,7 @@ export class UsersService {
         'user.nom',
         'user.roleId',
         'user.isSuperAdmin',
+        'user.actif',
         'user.createdAt',
         'user.updatedAt',
         'role.id',
@@ -134,7 +135,7 @@ export class UsersService {
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      select: ['id', 'email', 'nom', 'isSuperAdmin', 'createdAt', 'updatedAt'],
+      select: ['id', 'email', 'nom', 'isSuperAdmin', 'actif', 'createdAt', 'updatedAt'],
       relations: ['role', 'role.permissions', 'organization', 'organization.plan'],
     });
 
@@ -228,5 +229,25 @@ export class UsersService {
       password: hashedPassword,
       mustChangePassword: false,
     });
+  }
+
+  async toggleStatus(id: string, actif: boolean, currentUserId?: string): Promise<User> {
+    const user = await this.findOne(id);
+
+    // Empêcher la désactivation de son propre compte
+    if (currentUserId && id === currentUserId && !actif) {
+      throw new BadRequestException('Vous ne pouvez pas désactiver votre propre compte');
+    }
+
+    // Empêcher la désactivation d'un super admin
+    if (user.isSuperAdmin) {
+      throw new BadRequestException('Impossible de désactiver un super administrateur');
+    }
+
+    // Mettre à jour le statut
+    await this.usersRepository.update(id, { actif });
+
+    // Retourner l'utilisateur complet avec toutes les relations
+    return this.findOne(id);
   }
 }

@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
+import { OrganizationStatus } from '../enums/organization-status.enum';
 
 @Entity('organization')
 export class Organization {
@@ -29,8 +30,18 @@ export class Organization {
   @Column({ type: 'text', nullable: true })
   logo: string;
 
-  @Column({ default: true })
+  @Column({ default: false })
   actif: boolean;
+
+  @Column({
+    type: 'varchar',
+    default: OrganizationStatus.EN_ATTENTE,
+  })
+  statut: OrganizationStatus;
+
+  // Motif de rejet (si applicable)
+  @Column({ type: 'text', nullable: true })
+  motifRejet: string;
 
   // Relation vers le plan (TypeORM gère planId automatiquement)
   @ManyToOne(() => Plan, { eager: true })

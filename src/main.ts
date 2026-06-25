@@ -4,9 +4,16 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false, // Désactiver le body parser par défaut pour configurer manuellement
+  });
+
+  // Configurer les limites de taille pour les uploads
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // Servir les fichiers statiques depuis le dossier storage/uploads
   app.useStaticAssets(join(__dirname, '..', 'storage', 'uploads'), {

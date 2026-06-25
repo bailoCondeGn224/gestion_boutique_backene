@@ -105,4 +105,20 @@ export class UsersController {
   remove(@Param('id') id: string, @Request() req) {
     return this.usersService.remove(id, req.user.id);
   }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users.update')
+  @Patch(':id/toggle-status')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Activer ou désactiver un utilisateur' })
+  @ApiResponse({ status: 200, description: 'Statut de l\'utilisateur mis à jour' })
+  @ApiResponse({ status: 400, description: 'Impossible de désactiver son propre compte ou un super admin' })
+  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
+  toggleStatus(
+    @Param('id') id: string,
+    @Body() body: { actif: boolean },
+    @Request() req,
+  ) {
+    return this.usersService.toggleStatus(id, body.actif, req.user.id);
+  }
 }
