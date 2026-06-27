@@ -28,6 +28,7 @@ import { CommandesModule } from './commandes/commandes.module';
 import { DepensesModule } from './depenses/depenses.module';
 import { BulkImportModule } from './bulk-import/bulk-import.module';
 import { SmsModule } from './sms/sms.module';
+import { ZakatModule } from './zakat/zakat.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { SmsModule } from './sms/sms.module';
     AdminDashboardModule,
     BulkImportModule,
     SmsModule,
+    ZakatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
