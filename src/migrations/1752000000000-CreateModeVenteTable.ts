@@ -4,9 +4,9 @@ export class CreateModeVenteTable1752000000000 implements MigrationInterface {
   name = 'CreateModeVenteTable1752000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Créer la table mode_vente
+    // 1. Créer la table mode_vente (IF NOT EXISTS)
     await queryRunner.query(`
-      CREATE TABLE "mode_vente" (
+      CREATE TABLE IF NOT EXISTS "mode_vente" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "organizationId" uuid NOT NULL,
         "articleId" uuid NOT NULL,
@@ -21,24 +21,34 @@ export class CreateModeVenteTable1752000000000 implements MigrationInterface {
       )
     `);
 
-    // 2. Ajouter les index
+    // 2. Ajouter les index (IF NOT EXISTS)
     await queryRunner.query(`
-      CREATE INDEX "IDX_mode_vente_organization" ON "mode_vente" ("organizationId")
+      CREATE INDEX IF NOT EXISTS "IDX_mode_vente_organization" ON "mode_vente" ("organizationId")
     `);
     await queryRunner.query(`
-      CREATE INDEX "IDX_mode_vente_article_org" ON "mode_vente" ("articleId", "organizationId")
+      CREATE INDEX IF NOT EXISTS "IDX_mode_vente_article_org" ON "mode_vente" ("articleId", "organizationId")
     `);
 
-    // 3. Ajouter les clés étrangères
+    // 3. Ajouter les clés étrangères (avec vérification)
     await queryRunner.query(`
-      ALTER TABLE "mode_vente"
-      ADD CONSTRAINT "FK_mode_vente_article"
-      FOREIGN KEY ("articleId") REFERENCES "article"("id") ON DELETE CASCADE
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_mode_vente_article') THEN
+          ALTER TABLE "mode_vente"
+          ADD CONSTRAINT "FK_mode_vente_article"
+          FOREIGN KEY ("articleId") REFERENCES "article"("id") ON DELETE CASCADE;
+        END IF;
+      END $$;
     `);
     await queryRunner.query(`
-      ALTER TABLE "mode_vente"
-      ADD CONSTRAINT "FK_mode_vente_organization"
-      FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_mode_vente_organization') THEN
+          ALTER TABLE "mode_vente"
+          ADD CONSTRAINT "FK_mode_vente_organization"
+          FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE;
+        END IF;
+      END $$;
     `);
 
     // 4. Ajouter le champ uniteStock à la table article
@@ -54,11 +64,16 @@ export class CreateModeVenteTable1752000000000 implements MigrationInterface {
       ADD COLUMN IF NOT EXISTS "quantiteBase" integer
     `);
 
-    // 6. Ajouter la clé étrangère pour modeVenteId
+    // 6. Ajouter la clé étrangère pour modeVenteId (avec vérification)
     await queryRunner.query(`
-      ALTER TABLE "ligne_vente"
-      ADD CONSTRAINT "FK_ligne_vente_mode_vente"
-      FOREIGN KEY ("modeVenteId") REFERENCES "mode_vente"("id") ON DELETE SET NULL
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_ligne_vente_mode_vente') THEN
+          ALTER TABLE "ligne_vente"
+          ADD CONSTRAINT "FK_ligne_vente_mode_vente"
+          FOREIGN KEY ("modeVenteId") REFERENCES "mode_vente"("id") ON DELETE SET NULL;
+        END IF;
+      END $$;
     `);
   }
 
