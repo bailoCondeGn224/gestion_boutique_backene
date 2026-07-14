@@ -14,6 +14,7 @@ import { deleteFile } from '../common/utils/file.util';
 import { compressImage } from '../common/utils/image.util';
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
 import { TypeMouvement, MotifMouvement, MouvementStock } from '../mouvements-stock/entities/mouvement-stock.entity';
+import { ModeVenteService } from './mode-vente.service';
 
 @Injectable()
 export class StockService {
@@ -27,6 +28,7 @@ export class StockService {
     @InjectRepository(MouvementStock)
     private mouvementStockRepository: Repository<MouvementStock>,
     private mouvementsStockService: MouvementsStockService,
+    private modeVenteService: ModeVenteService,
   ) {}
 
   async create(
@@ -45,13 +47,25 @@ export class StockService {
       });
     }
 
+    // Extraire modesVente du DTO
+    const { modesVente, ...articleData } = createArticleDto;
+
     const article = this.articlesRepository.create({
-      ...createArticleDto,
+      ...articleData,
       photo: photoPath,
       organizationId,
     });
 
     const savedArticle = await this.articlesRepository.save(article);
+
+    // Créer les modes de vente si fournis
+    if (modesVente && modesVente.length > 0) {
+      await this.modeVenteService.createMany(
+        savedArticle.id,
+        modesVente,
+        organizationId,
+      );
+    }
 
     // Créer un mouvement de stock si l'article a un stock initial > 0
     if (savedArticle.stock > 0) {
@@ -161,6 +175,7 @@ export class StockService {
     const queryBuilder = this.articlesRepository
       .createQueryBuilder('article')
       .leftJoinAndSelect('article.categorie', 'categorie')
+      .leftJoinAndSelect('article.modesVente', 'modesVente')
       .where('article.organizationId = :organizationId', { organizationId });
 
     // Filtre par recherche (nom ou référence)
@@ -193,7 +208,7 @@ export class StockService {
   async findOne(id: string, organizationId: string): Promise<Article> {
     const article = await this.articlesRepository.findOne({
       where: { id, organizationId },
-      relations: ['categorie'],
+      relations: ['categorie', 'modesVente'],
     });
     if (!article) {
       throw new NotFoundException(`Article avec l'ID ${id} introuvable`);
