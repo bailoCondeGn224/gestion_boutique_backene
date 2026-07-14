@@ -81,7 +81,6 @@ export class BulkImportService {
             fs.writeFileSync(photoPath, entry.getData());
             // Stocker avec le nom en minuscules comme clé pour comparaison insensible à la casse
             photosMap.set(originalBaseName.toLowerCase(), photoPath);
-            console.log(`📸 Photo extraite: ${originalBaseName} -> ${photoPath}`);
           }
         }
 

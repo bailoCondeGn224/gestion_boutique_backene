@@ -20,8 +20,6 @@ export class AnalyticsService {
   ) {}
 
   async getDashboardStats(organizationId: string) {
-    console.log('🔍 [ANALYTICS DEBUG] getDashboardStats called with organizationId:', organizationId);
-
     // Exécuter toutes les requêtes en parallèle pour optimiser les performances
     const [stockStats, fournisseursStats, ventesStats, clientsStats] = await Promise.all([
       this.getStockStats(organizationId),
@@ -29,9 +27,6 @@ export class AnalyticsService {
       this.getVentesStats(organizationId),
       this.getClientsStats(organizationId),
     ]);
-
-    console.log('📊 [ANALYTICS DEBUG] Stock stats:', stockStats);
-    console.log('📊 [ANALYTICS DEBUG] Fournisseurs stats:', fournisseursStats);
 
     return {
       stock: stockStats,

@@ -490,9 +490,7 @@ export class InventairesService {
     organizationId: string,
   ): Promise<Inventaire> {
     try {
-      console.log('🔢 Calcul finances pour inventaire:', inventaireId);
       const inventaire = await this.findOne(inventaireId, organizationId);
-      console.log('✅ Inventaire trouvé:', inventaire?.id);
 
     if (inventaire.statut !== StatutInventaire.TERMINE) {
       throw new BadRequestException(
@@ -539,7 +537,6 @@ export class InventairesService {
 
     // 2. Calculer le CA et nombre de ventes
     // Utilise l'intervalle semi-ouvert [dateDebut, dateFin) : dateDebut incluse, dateFin exclue
-    console.log('📊 Calcul CA - Période:', dateDebut, 'à', dateFin, '(dateFin exclue)');
     const ventesStats = await this.dataSource
       .createQueryBuilder()
       .select('COUNT(*)', 'nombreVentes')
@@ -552,7 +549,6 @@ export class InventairesService {
       })
       .getRawOne();
 
-    console.log('✅ CA calculé:', ventesStats);
     const chiffreAffaires = parseFloat(ventesStats.chiffreAffaires);
     const nombreVentes = parseInt(ventesStats.nombreVentes);
     const panierMoyen = nombreVentes > 0 ? chiffreAffaires / nombreVentes : 0;
@@ -560,7 +556,6 @@ export class InventairesService {
     // 3. Calculer le CMV (Coût Marchandises Vendues)
     // Somme des (quantité * prixAchat) pour toutes les lignes de vente de la période
     // Utilise l'intervalle semi-ouvert [dateDebut, dateFin) : dateDebut incluse, dateFin exclue
-    console.log('💰 Calcul CMV...');
     const cmv = await this.dataSource
       .createQueryBuilder()
       .select('COALESCE(SUM(lv.quantite * a."prixAchat"), 0)', 'total')
@@ -574,11 +569,9 @@ export class InventairesService {
       })
       .getRawOne();
 
-    console.log('✅ CMV calculé:', cmv);
     const coutMarchandises = parseFloat(cmv.total);
 
     // 4. Récupérer les dépenses par catégorie
-    console.log('💸 Récupération dépenses...');
     const isRecalcul = inventaire.financesCalcules;
     const depenses = await this.depensesService.getTotalsByCategorie(
       organizationId,
@@ -588,17 +581,14 @@ export class InventairesService {
       isRecalcul,
       inventaire.createdAt, // Passer la date de création pour filtrer les dépenses
     );
-    console.log('✅ Dépenses:', depenses);
 
     // 5. Calculer les pertes (articles manquants/abîmés)
-    console.log('⚠️  Calcul pertes...');
     const pertesStats = await this.comptageRepository
       .createQueryBuilder('c')
       .select('COALESCE(SUM(CASE WHEN c.ecart < 0 THEN ABS(c.ecart) * a."prixAchat" ELSE 0 END), 0)', 'valeurManquants')
       .innerJoin('article', 'a', 'CAST(a.id AS text) = CAST(c."articleId" AS text)')
       .where('c."inventaireId" = CAST(:inventaireId AS uuid)', { inventaireId })
       .getRawOne();
-    console.log('✅ Pertes:', pertesStats);
 
     const valeurArticlesManquants = parseFloat(pertesStats.valeurManquants);
     const valeurArticlesAbimes = 0; // À implémenter si nécessaire
@@ -641,22 +631,17 @@ export class InventairesService {
 
     // 8. Attacher les dépenses à l'inventaire (seulement pour le premier calcul)
     if (!isRecalcul) {
-      console.log('🔗 Attachement des dépenses à l\'inventaire...');
-      const depensesAttachees = await this.depensesService.attacherAInventaire(
+      await this.depensesService.attacherAInventaire(
         organizationId,
         dateDebut,
         dateFin,
         inventaireId,
         inventaire.createdAt, // Passer la date de création pour filtrer par createdAt
       );
-      console.log(`✅ ${depensesAttachees} dépense(s) attachée(s)`);
     }
 
-    console.log('✅ Finances calculées avec succès');
     return this.findOne(inventaireId, organizationId);
   } catch (error) {
-    console.error('❌ ERREUR lors du calcul des finances:', error);
-    console.error('Stack trace:', error.stack);
     throw error;
   }
 }
