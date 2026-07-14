@@ -3,6 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { StockService } from './stock.service';
 import { StockController } from './stock.controller';
 import { Article } from './entities/article.entity';
+import { ModeVente } from './entities/mode-vente.entity';
+import { ModeVenteService } from './mode-vente.service';
+import { ModeVenteController } from './mode-vente.controller';
 import { CategoriesModule } from '../categories/categories.module';
 import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module';
 import { MouvementStock } from '../mouvements-stock/entities/mouvement-stock.entity';
@@ -11,12 +14,18 @@ import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-app
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Article, LigneVente, LigneApprovisionnement, MouvementStock]),
+    TypeOrmModule.forFeature([
+      Article,
+      ModeVente,
+      LigneVente,
+      LigneApprovisionnement,
+      MouvementStock,
+    ]),
     CategoriesModule,
     MouvementsStockModule,
   ],
-  controllers: [StockController],
-  providers: [StockService],
-  exports: [StockService],
+  controllers: [StockController, ModeVenteController],
+  providers: [StockService, ModeVenteService],
+  exports: [StockService, ModeVenteService],
 })
 export class StockModule {}
