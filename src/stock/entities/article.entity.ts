@@ -5,10 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Categorie } from '../../categories/entities/categorie.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
+import { ModeVente } from './mode-vente.entity';
 
 @Entity('article')
 export class Article extends BaseTenantEntity {
@@ -46,6 +48,9 @@ export class Article extends BaseTenantEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ default: 'Unité' })
+  uniteStock: string;
+
   @Column({ type: 'text', nullable: true })
   photo: string; // Chemin relatif: articles/{organizationId}/{filename}
 
@@ -54,6 +59,12 @@ export class Article extends BaseTenantEntity {
 
   @Column({ type: 'int', default: 30 })
   delaiAlerteExpiration: number; // Jours avant expiration pour déclencher une alerte (défaut: 30j)
+
+  @OneToMany(() => ModeVente, (mode) => mode.article, {
+    cascade: true,
+    eager: false,
+  })
+  modesVente: ModeVente[];
 
   @CreateDateColumn()
   createdAt: Date;
