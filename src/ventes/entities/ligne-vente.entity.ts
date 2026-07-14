@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Vente } from './vente.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
+import { ModeVente } from '../../stock/entities/mode-vente.entity';
 
 @Entity('ligne_vente')
 export class LigneVente extends BaseTenantEntity {
@@ -25,6 +26,16 @@ export class LigneVente extends BaseTenantEntity {
 
   @Column()
   articleId: string;
+
+  @Column({ nullable: true })
+  modeVenteId: string;
+
+  @ManyToOne(() => ModeVente, { nullable: true })
+  @JoinColumn({ name: 'modeVenteId' })
+  modeVente: ModeVente;
+
+  @Column({ type: 'int', nullable: true })
+  quantiteBase: number;
 
   @Column()
   nom: string;
