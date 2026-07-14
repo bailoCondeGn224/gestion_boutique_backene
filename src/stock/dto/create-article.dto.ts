@@ -82,6 +82,15 @@ export class CreateArticleDto {
   description?: string;
 
   @ApiProperty({
+    example: 'Bouteille',
+    description: 'Unité de stockage de base (ex: Bouteille, Kilo, Pièce)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  uniteStock?: string;
+
+  @ApiProperty({
     example: '2025-12-31',
     description: 'Date d\'expiration du produit (YYYY-MM-DD)',
     required: false,
