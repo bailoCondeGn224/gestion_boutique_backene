@@ -17,6 +17,15 @@ export class LigneVenteDto {
   @IsUUID()
   articleId: string;
 
+  @ApiProperty({
+    example: 'uuid-mode-vente',
+    description: 'ID du mode de vente (optionnel, sinon vente en unité de base)',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  modeVenteId?: string;
+
   @ApiProperty({ example: 'Abaya Noire Premium' })
   @IsString()
   nom: string;

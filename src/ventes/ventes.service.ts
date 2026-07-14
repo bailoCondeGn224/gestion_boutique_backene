@@ -13,6 +13,8 @@ import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.ser
 import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
 import { Client } from '../clients/entities/client.entity';
 import { VersementClient } from '../versements-client/entities/versement-client.entity';
+import { ModeVenteService } from '../stock/mode-vente.service';
+import { ModeVente } from '../stock/entities/mode-vente.entity';
 
 @Injectable()
 export class VentesService {
@@ -26,6 +28,7 @@ export class VentesService {
     private stockService: StockService,
     private dataSource: DataSource,
     private mouvementsStockService: MouvementsStockService,
+    private modeVenteService: ModeVenteService,
   ) {}
 
   async generateNumero(organizationId: string): Promise<string> {
@@ -76,20 +79,43 @@ export class VentesService {
     await queryRunner.startTransaction();
 
     try {
-      // Décrémenter le stock et enregistrer les mouvements
+      // Variable pour stocker les quantités de base calculées pour chaque ligne
+      const lignesWithBase: Array<{ ligne: any; quantiteBase: number }> = [];
+
       for (const item of createVenteDto.lignes) {
         // Récupérer le stock avant modification
         const article = await this.stockService.findOne(item.articleId, organizationId);
         const stockAvant = article.stock;
+
+        // Calculer la quantité en unité de base
+        let quantiteBase = item.quantite;
+        let modeVente: ModeVente | null = null;
+
+        if (item.modeVenteId) {
+          modeVente = await this.modeVenteService.findOne(item.modeVenteId, organizationId);
+          quantiteBase = item.quantite * Number(modeVente.quantiteStock);
+        }
+
+        // Vérifier le stock disponible
+        if (article.stock < quantiteBase) {
+          throw new BadRequestException(
+            `Stock insuffisant pour ${article.nom}. ` +
+            `Disponible: ${article.stock} ${article.uniteStock || 'unités'}, ` +
+            `Demandé: ${quantiteBase} ${article.uniteStock || 'unités'}`,
+          );
+        }
 
         // Stocker le prixAchat de l'article dans la ligne (pour calculer le bénéfice)
         if (!item.prixAchat) {
           item.prixAchat = Number(article.prixAchat) || 0;
         }
 
-        // Décrémenter le stock
-        await this.stockService.decrementStock(item.articleId, item.quantite, organizationId);
-        const stockApres = stockAvant - item.quantite;
+        // Décrémenter le stock en unité de base
+        await this.stockService.decrementStock(item.articleId, quantiteBase, organizationId);
+        const stockApres = stockAvant - quantiteBase;
+
+        // Stocker la quantiteBase pour l'insertion de la ligne
+        lignesWithBase.push({ ligne: item, quantiteBase });
 
         // Enregistrer le mouvement de stock DANS LA MÊME TRANSACTION
         if (createVenteDto.userId) {
@@ -104,7 +130,7 @@ export class VentesService {
               item.nom,
               TypeMouvement.SORTIE,
               MotifMouvement.VENTE,
-              item.quantite,
+              quantiteBase,
               stockAvant,
               stockApres,
               item.prixUnitaire,
@@ -133,19 +159,21 @@ export class VentesService {
 
       const savedVente = await queryRunner.manager.save(vente);
 
-      // Créer manuellement les lignes avec organizationId
-      for (const ligne of lignes) {
+      // Créer manuellement les lignes avec organizationId et quantiteBase
+      for (const { ligne, quantiteBase } of lignesWithBase) {
         const prixAchat = ligne.prixAchat || 0;
 
         await queryRunner.manager.query(
           `INSERT INTO ligne_vente
-           ("venteId", "articleId", nom, quantite, "prixUnitaire", "prixAchat", "sousTotal", "organizationId", "createdAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+           ("venteId", "articleId", "modeVenteId", nom, quantite, "quantiteBase", "prixUnitaire", "prixAchat", "sousTotal", "organizationId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
           [
             savedVente.id,
             ligne.articleId,
+            ligne.modeVenteId || null,
             ligne.nom,
             ligne.quantite,
+            quantiteBase,
             ligne.prixUnitaire,
             prixAchat,
             ligne.sousTotal,
