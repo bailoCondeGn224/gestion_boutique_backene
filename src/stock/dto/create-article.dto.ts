@@ -1,5 +1,7 @@
-import { IsString, IsUUID, IsNumber, Min, Max, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsUUID, IsNumber, Min, Max, IsOptional, IsDateString, ValidateNested, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { ModeVenteInlineDto } from './mode-vente-inline.dto';
 
 export class CreateArticleDto {
   @ApiProperty({
@@ -89,6 +91,21 @@ export class CreateArticleDto {
   @IsString()
   @IsOptional()
   uniteStock?: string;
+
+  @ApiProperty({
+    type: [ModeVenteInlineDto],
+    description: 'Modes de vente disponibles pour cet article',
+    required: false,
+    example: [
+      { nom: 'Casier', quantiteStock: 12, prixVente: 60000, parDefaut: true },
+      { nom: 'Bouteille', quantiteStock: 1, prixVente: 5500 },
+    ],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ModeVenteInlineDto)
+  @IsOptional()
+  modesVente?: ModeVenteInlineDto[];
 
   @ApiProperty({
     example: '2025-12-31',
