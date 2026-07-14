@@ -15,11 +15,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ModeVenteService } from './mode-vente.service';
 import { CreateModeVenteDto } from './dto/create-mode-vente.dto';
 import { UpdateModeVenteDto } from './dto/update-mode-vente.dto';
-import { SubscriptionGuard } from '../common/guards/subscription.guard';
+import { TenantGuard } from '../common';
 
 @ApiTags('Modes de Vente')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, SubscriptionGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('modes-vente')
 export class ModeVenteController {
   constructor(private readonly modeVenteService: ModeVenteService) {}
