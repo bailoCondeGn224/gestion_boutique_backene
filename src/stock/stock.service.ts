@@ -129,13 +129,26 @@ export class StockService {
           });
         }
 
+        // Extraire modesVente du DTO
+        const { modesVente, ...articleData } = articleDto;
+
         const article = this.articlesRepository.create({
-          ...articleDto,
+          ...articleData,
           photo: photoPath,
           organizationId,
         });
 
         const savedArticle = await this.articlesRepository.save(article);
+
+        // Créer les modes de vente si fournis
+        if (modesVente && modesVente.length > 0) {
+          await this.modeVenteService.createMany(
+            savedArticle.id,
+            modesVente,
+            organizationId,
+          );
+        }
+
         created.push(savedArticle);
 
         // Créer un mouvement de stock si l'article a un stock initial > 0
