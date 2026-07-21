@@ -60,6 +60,12 @@ export class Article extends BaseTenantEntity {
   @Column({ type: 'int', default: 30 })
   delaiAlerteExpiration: number; // Jours avant expiration pour déclencher une alerte (défaut: 30j)
 
+  @Column({ type: 'boolean', default: false })
+  disponibleEnLigne: boolean;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  prixEnLigne: number;
+
   @OneToMany(() => ModeVente, (mode) => mode.article, {
     cascade: true,
     eager: false,

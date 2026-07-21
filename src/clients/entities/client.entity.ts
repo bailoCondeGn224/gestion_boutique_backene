@@ -30,6 +30,9 @@ export class Client extends BaseTenantEntity {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   totalCredits: number;
 
+  @Column({ type: 'uuid', nullable: true })
+  customerAccountId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
