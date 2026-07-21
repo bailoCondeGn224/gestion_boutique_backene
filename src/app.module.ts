@@ -29,6 +29,7 @@ import { DepensesModule } from './depenses/depenses.module';
 import { BulkImportModule } from './bulk-import/bulk-import.module';
 import { SmsModule } from './sms/sms.module';
 import { ZakatModule } from './zakat/zakat.module';
+import { CustomerAuthModule } from './customer-auth/customer-auth.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { ZakatModule } from './zakat/zakat.module';
     BulkImportModule,
     SmsModule,
     ZakatModule,
+    CustomerAuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
