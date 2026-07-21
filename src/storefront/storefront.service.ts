@@ -136,25 +136,47 @@ export class StorefrontService {
   }
 
   async getBySlug(slug: string): Promise<StorefrontResponseDto> {
-    const storefront = await this.storefrontRepository.findOne({
-      where: { slug, isActive: true },
+    // Chercher d'abord par slug de l'organisation
+    const organization = await this.organizationRepository.findOne({
+      where: { slug, actif: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Boutique non trouvée');
+    }
+
+    // Récupérer ou créer la vitrine pour cette organisation
+    let storefront = await this.storefrontRepository.findOne({
+      where: { organizationId: organization.id, isActive: true },
       relations: ['organization'],
     });
 
     if (!storefront) {
-      throw new NotFoundException('Boutique non trouvée');
+      throw new NotFoundException('Vitrine non activée pour cette boutique');
     }
+
+    // S'assurer que le slug de la vitrine correspond à celui de l'organisation
+    storefront.organization = organization;
 
     return this.toResponseDto(storefront);
   }
 
   async getProducts(slug: string, page: number = 1, limit: number = 20, search?: string, categorieId?: string): Promise<any> {
+    // Chercher par slug de l'organisation
+    const organization = await this.organizationRepository.findOne({
+      where: { slug, actif: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Boutique non trouvée');
+    }
+
     const storefront = await this.storefrontRepository.findOne({
-      where: { slug, isActive: true },
+      where: { organizationId: organization.id, isActive: true },
     });
 
     if (!storefront) {
-      throw new NotFoundException('Boutique non trouvée');
+      throw new NotFoundException('Vitrine non activée');
     }
 
     const skip = (page - 1) * limit;
@@ -194,12 +216,21 @@ export class StorefrontService {
   }
 
   async getProduct(slug: string, productId: string): Promise<any> {
+    // Chercher par slug de l'organisation
+    const organization = await this.organizationRepository.findOne({
+      where: { slug, actif: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Boutique non trouvée');
+    }
+
     const storefront = await this.storefrontRepository.findOne({
-      where: { slug, isActive: true },
+      where: { organizationId: organization.id, isActive: true },
     });
 
     if (!storefront) {
-      throw new NotFoundException('Boutique non trouvée');
+      throw new NotFoundException('Vitrine non activée');
     }
 
     const article = await this.articleRepository.findOne({
@@ -219,12 +250,21 @@ export class StorefrontService {
   }
 
   async getCategories(slug: string): Promise<any[]> {
+    // Chercher par slug de l'organisation
+    const organization = await this.organizationRepository.findOne({
+      where: { slug, actif: true },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Boutique non trouvée');
+    }
+
     const storefront = await this.storefrontRepository.findOne({
-      where: { slug, isActive: true },
+      where: { organizationId: organization.id, isActive: true },
     });
 
     if (!storefront) {
-      throw new NotFoundException('Boutique non trouvée');
+      throw new NotFoundException('Vitrine non activée');
     }
 
     // Récupérer les catégories qui ont des articles disponibles en ligne
@@ -274,11 +314,13 @@ export class StorefrontService {
 
   private toResponseDto(storefront: StoreFront): StorefrontResponseDto {
     const baseUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    // Utiliser le slug de l'organisation pour l'URL
+    const orgSlug = storefront.organization?.slug || storefront.slug;
 
     return {
       id: storefront.id,
       organizationId: storefront.organizationId,
-      slug: storefront.slug,
+      slug: orgSlug,
       isActive: storefront.isActive,
       description: storefront.description,
       logoUrl: storefront.logoUrl,
@@ -287,7 +329,7 @@ export class StorefrontService {
       fraisLivraison: Number(storefront.fraisLivraison),
       adresse: storefront.adresse,
       organizationNom: storefront.organization?.nom || '',
-      fullUrl: `${baseUrl}/b/${storefront.slug}`,
+      fullUrl: `${baseUrl}/b/${orgSlug}`,
     };
   }
 }
