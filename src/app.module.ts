@@ -32,6 +32,7 @@ import { ZakatModule } from './zakat/zakat.module';
 import { CustomerAuthModule } from './customer-auth/customer-auth.module';
 import { StorefrontModule } from './storefront/storefront.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OnlineOrdersModule } from './online-orders/online-orders.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CustomerAuthModule,
     StorefrontModule,
     NotificationsModule,
+    OnlineOrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
