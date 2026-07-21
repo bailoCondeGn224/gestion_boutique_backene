@@ -31,6 +31,7 @@ import { SmsModule } from './sms/sms.module';
 import { ZakatModule } from './zakat/zakat.module';
 import { CustomerAuthModule } from './customer-auth/customer-auth.module';
 import { StorefrontModule } from './storefront/storefront.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { StorefrontModule } from './storefront/storefront.module';
     ZakatModule,
     CustomerAuthModule,
     StorefrontModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
