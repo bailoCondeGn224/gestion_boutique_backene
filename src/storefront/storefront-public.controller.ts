@@ -28,12 +28,14 @@ export class StorefrontPublicController {
   @ApiQuery({ name: 'categorieId', required: false, type: String })
   getProducts(
     @Param('slug') slug: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('categorieId') categorieId?: string,
   ) {
-    return this.storefrontService.getProducts(slug, Number(page), Number(limit), search, categorieId);
+    const pageNum = page ? Number(page) : 1;
+    const limitNum = limit ? Number(limit) : 20;
+    return this.storefrontService.getProducts(slug, pageNum, limitNum, search, categorieId);
   }
 
   @Get(':slug/products/:productId')
