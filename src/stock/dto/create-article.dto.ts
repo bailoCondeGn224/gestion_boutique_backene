@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsNumber, Min, Max, IsOptional, IsDateString, ValidateNested, IsArray } from 'class-validator';
+import { IsString, IsUUID, IsNumber, Min, Max, IsOptional, IsDateString, ValidateNested, IsArray, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ModeVenteInlineDto } from './mode-vente-inline.dto';
@@ -126,4 +126,24 @@ export class CreateArticleDto {
   @Min(1, { message: 'Le délai d\'alerte doit être d\'au moins 1 jour' })
   @IsOptional()
   delaiAlerteExpiration?: number;
+
+  @ApiProperty({
+    example: false,
+    description: 'Article disponible sur la vitrine en ligne',
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  disponibleEnLigne?: boolean;
+
+  @ApiProperty({
+    example: 75000,
+    description: 'Prix de vente en ligne (si différent du prix de vente normal)',
+    minimum: 0,
+    required: false,
+  })
+  @IsNumber()
+  @Min(0, { message: 'Le prix en ligne ne peut pas être négatif' })
+  @IsOptional()
+  prixEnLigne?: number;
 }
