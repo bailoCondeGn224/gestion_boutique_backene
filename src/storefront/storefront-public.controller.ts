@@ -24,11 +24,30 @@ export class StorefrontPublicController {
   @ApiOperation({ summary: "Catalogue produits d'une boutique" })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'categorieId', required: false, type: String })
   getProducts(
     @Param('slug') slug: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
+    @Query('search') search?: string,
+    @Query('categorieId') categorieId?: string,
   ) {
-    return this.storefrontService.getProducts(slug, Number(page), Number(limit));
+    return this.storefrontService.getProducts(slug, Number(page), Number(limit), search, categorieId);
+  }
+
+  @Get(':slug/products/:productId')
+  @ApiOperation({ summary: "Détail d'un produit" })
+  getProduct(
+    @Param('slug') slug: string,
+    @Param('productId') productId: string,
+  ) {
+    return this.storefrontService.getProduct(slug, productId);
+  }
+
+  @Get(':slug/categories')
+  @ApiOperation({ summary: "Catégories d'une boutique" })
+  getCategories(@Param('slug') slug: string) {
+    return this.storefrontService.getCategories(slug);
   }
 }

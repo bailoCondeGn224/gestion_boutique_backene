@@ -148,7 +148,7 @@ export class StorefrontService {
     return this.toResponseDto(storefront);
   }
 
-  async getProducts(slug: string, page: number = 1, limit: number = 20): Promise<any> {
+  async getProducts(slug: string, page: number = 1, limit: number = 20, search?: string, categorieId?: string): Promise<any> {
     const storefront = await this.storefrontRepository.findOne({
       where: { slug, isActive: true },
     });
@@ -163,30 +163,22 @@ export class StorefrontService {
       .leftJoinAndSelect('article.categorie', 'categorie')
       .leftJoinAndSelect('article.modesVente', 'modesVente')
       .where('article.organizationId = :organizationId', { organizationId: storefront.organizationId })
-      .andWhere('article.disponibleEnLigne = :disponibleEnLigne', { disponibleEnLigne: true })
-      .orderBy('article.nom', 'ASC')
-      .skip(skip)
-      .take(limit);
+      .andWhere('article.disponibleEnLigne = :disponibleEnLigne', { disponibleEnLigne: true });
+
+    if (search) {
+      queryBuilder.andWhere('LOWER(article.nom) LIKE LOWER(:search)', { search: `%${search}%` });
+    }
+
+    if (categorieId) {
+      queryBuilder.andWhere('article.categorieId = :categorieId', { categorieId });
+    }
+
+    queryBuilder.orderBy('article.nom', 'ASC').skip(skip).take(limit);
 
     const [articles, total] = await queryBuilder.getManyAndCount();
 
     // Transformer pour inclure le prix en ligne
-    const data = articles.map(article => ({
-      id: article.id,
-      nom: article.nom,
-      description: article.description,
-      photoUrl: article.photo,
-      prix: (article as any).prixEnLigne || article.prixVente,
-      prixOriginal: article.prixVente,
-      stock: article.stock,
-      categorie: article.categorie?.nom,
-      modesVente: article.modesVente?.map(mv => ({
-        id: mv.id,
-        nom: mv.nom,
-        quantiteStock: mv.quantiteStock,
-        prix: mv.prixVente,
-      })),
-    }));
+    const data = articles.map(article => this.mapArticleToProduct(article));
 
     return {
       data,
@@ -198,6 +190,76 @@ export class StorefrontService {
         hasNextPage: page < Math.ceil(total / limit),
         hasPreviousPage: page > 1,
       },
+    };
+  }
+
+  async getProduct(slug: string, productId: string): Promise<any> {
+    const storefront = await this.storefrontRepository.findOne({
+      where: { slug, isActive: true },
+    });
+
+    if (!storefront) {
+      throw new NotFoundException('Boutique non trouvée');
+    }
+
+    const article = await this.articleRepository.findOne({
+      where: {
+        id: productId,
+        organizationId: storefront.organizationId,
+        disponibleEnLigne: true,
+      },
+      relations: ['categorie', 'modesVente'],
+    });
+
+    if (!article) {
+      throw new NotFoundException('Produit non trouvé');
+    }
+
+    return this.mapArticleToProduct(article);
+  }
+
+  async getCategories(slug: string): Promise<any[]> {
+    const storefront = await this.storefrontRepository.findOne({
+      where: { slug, isActive: true },
+    });
+
+    if (!storefront) {
+      throw new NotFoundException('Boutique non trouvée');
+    }
+
+    // Récupérer les catégories qui ont des articles disponibles en ligne
+    const categories = await this.articleRepository
+      .createQueryBuilder('article')
+      .leftJoinAndSelect('article.categorie', 'categorie')
+      .where('article.organizationId = :organizationId', { organizationId: storefront.organizationId })
+      .andWhere('article.disponibleEnLigne = :disponibleEnLigne', { disponibleEnLigne: true })
+      .andWhere('article.categorieId IS NOT NULL')
+      .select(['categorie.id', 'categorie.nom'])
+      .distinct(true)
+      .getRawMany();
+
+    return categories.map(c => ({
+      id: c.categorie_id,
+      nom: c.categorie_nom,
+    }));
+  }
+
+  private mapArticleToProduct(article: Article): any {
+    return {
+      id: article.id,
+      nom: article.nom,
+      description: article.description,
+      photo: article.photo,
+      prixEnLigne: (article as any).prixEnLigne || article.prixVente,
+      prixOriginal: article.prixVente,
+      stock: article.stock,
+      categorie: article.categorie?.nom,
+      modesVente: article.modesVente?.map(mv => ({
+        id: mv.id,
+        nom: mv.nom,
+        quantiteStock: mv.quantiteStock,
+        prix: mv.prixVente,
+      })),
     };
   }
 
