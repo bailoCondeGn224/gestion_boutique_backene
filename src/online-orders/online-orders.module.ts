@@ -8,10 +8,14 @@ import { Article } from '../stock/entities/article.entity';
 import { ModeVente } from '../stock/entities/mode-vente.entity';
 import { Client } from '../clients/entities/client.entity';
 import { CustomerAccount } from '../customer-auth/entities/customer-account.entity';
+import { Vente } from '../ventes/entities/vente.entity';
+import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 import { OnlineOrdersPublicController } from './online-orders-public.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { StockModule } from '../stock/stock.module';
+import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module';
 
 @Module({
   imports: [
@@ -23,8 +27,12 @@ import { NotificationsModule } from '../notifications/notifications.module';
       ModeVente,
       Client,
       CustomerAccount,
+      Vente,
+      LigneVente,
     ]),
     NotificationsModule,
+    StockModule,
+    MouvementsStockModule,
   ],
   controllers: [OnlineOrdersController, OnlineOrdersPublicController],
   providers: [OnlineOrdersService],

@@ -16,6 +16,11 @@ import { CustomerAccount } from '../customer-auth/entities/customer-account.enti
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { CreateOnlineOrderDto, OnlineOrderResponseDto, CancelOrderDto } from './dto';
+import { StockService } from '../stock/stock.service';
+import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
+import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
+import { Vente, ModePaiement, StatutVente } from '../ventes/entities/vente.entity';
+import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 
 @Injectable()
 export class OnlineOrdersService {
@@ -34,8 +39,14 @@ export class OnlineOrdersService {
     private clientRepository: Repository<Client>,
     @InjectRepository(CustomerAccount)
     private customerAccountRepository: Repository<CustomerAccount>,
+    @InjectRepository(Vente)
+    private venteRepository: Repository<Vente>,
+    @InjectRepository(LigneVente)
+    private ligneVenteRepository: Repository<LigneVente>,
     private dataSource: DataSource,
     private notificationsService: NotificationsService,
+    private stockService: StockService,
+    private mouvementsStockService: MouvementsStockService,
   ) {}
 
   async create(dto: CreateOnlineOrderDto, customerId: string): Promise<OnlineOrderResponseDto> {
@@ -298,24 +309,173 @@ export class OnlineOrdersService {
       throw new BadRequestException('Cette commande ne peut pas être confirmée');
     }
 
-    // TODO: Décrémenter le stock et créer la vente
-    // Pour l'instant, juste changer le statut
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    order.statut = OnlineOrderStatut.CONFIRMEE;
-    order.confirmeePar = userId;
-    order.confirmeeLe = new Date();
+    try {
+      // Vérifier le stock disponible pour tous les articles
+      for (const item of order.items) {
+        const article = await this.articleRepository.findOne({
+          where: { id: item.articleId, organizationId },
+        });
 
-    await this.onlineOrderRepository.save(order);
+        if (!article) {
+          throw new BadRequestException(`Article ${item.articleNom} non trouvé`);
+        }
 
-    // Notifier le client
-    await this.notificationsService.sendToCustomer(order.customerAccountId, {
-      type: NotificationType.COMMANDE_CONFIRMEE,
-      title: 'Commande confirmée',
-      message: `Votre commande #${order.numero} a été confirmée`,
-      data: { orderId: order.id, numero: order.numero },
-    });
+        // Calculer la quantité de base
+        let quantiteBase = item.quantite;
+        if (item.modeVenteId) {
+          const modeVente = await this.modeVenteRepository.findOne({
+            where: { id: item.modeVenteId },
+          });
+          if (modeVente) {
+            quantiteBase = item.quantite * Number(modeVente.quantiteStock);
+          }
+        }
 
-    return this.toResponseDto(order);
+        if (article.stock < quantiteBase) {
+          throw new BadRequestException(
+            `Stock insuffisant pour ${item.articleNom}. Disponible: ${article.stock}, Demandé: ${quantiteBase}`
+          );
+        }
+      }
+
+      // Générer le numéro de vente
+      const venteNumero = await this.generateVenteNumero(organizationId);
+
+      // Créer la vente
+      const now = new Date();
+      const vente = queryRunner.manager.create(Vente, {
+        numero: venteNumero,
+        date: now,
+        heure: now.toTimeString().slice(0, 8),
+        clientId: order.clientId,
+        modePaiement: ModePaiement.ESPECES,
+        total: order.total,
+        montantPaye: order.total,
+        montantRestant: 0,
+        statut: StatutVente.ACTIVE,
+        organizationId,
+      });
+
+      const savedVente = await queryRunner.manager.save(vente);
+
+      // Créer les lignes de vente et décrémenter le stock
+      for (const item of order.items) {
+        const article = await this.articleRepository.findOne({
+          where: { id: item.articleId },
+        });
+
+        // Calculer la quantité de base pour le stock
+        let quantiteBase = item.quantite;
+        if (item.modeVenteId) {
+          const modeVente = await this.modeVenteRepository.findOne({
+            where: { id: item.modeVenteId },
+          });
+          if (modeVente) {
+            quantiteBase = item.quantite * Number(modeVente.quantiteStock);
+          }
+        }
+
+        const stockAvant = article.stock;
+        const stockApres = stockAvant - quantiteBase;
+
+        // Créer la ligne de vente
+        const ligneVente = queryRunner.manager.create(LigneVente, {
+          venteId: savedVente.id,
+          articleId: item.articleId,
+          articleNom: item.articleNom,
+          modeVenteId: item.modeVenteId,
+          modeVenteNom: item.modeVenteNom,
+          quantite: item.quantite,
+          prixUnitaire: item.prixUnitaire,
+          sousTotal: item.sousTotal,
+          organizationId,
+        });
+        await queryRunner.manager.save(ligneVente);
+
+        // Décrémenter le stock
+        await queryRunner.manager.update(Article, item.articleId, {
+          stock: stockApres,
+        });
+
+        // Enregistrer le mouvement de stock
+        await this.mouvementsStockService.createWithQueryRunner(
+          queryRunner,
+          {
+            articleId: item.articleId,
+            articleNom: item.articleNom,
+            type: TypeMouvement.SORTIE,
+            motif: MotifMouvement.VENTE,
+            quantite: quantiteBase,
+            stockAvant,
+            stockApres,
+            prixUnitaire: Number(item.prixUnitaire),
+            venteId: savedVente.id,
+            reference: venteNumero,
+            userId,
+            organizationId,
+          }
+        );
+
+        // Décrémenter le stock du mode de vente si applicable
+        if (item.modeVenteId) {
+          const modeVente = await this.modeVenteRepository.findOne({
+            where: { id: item.modeVenteId },
+          });
+          if (modeVente) {
+            await queryRunner.manager.update(ModeVente, item.modeVenteId, {
+              quantiteStock: Math.max(0, Number(modeVente.quantiteStock) - item.quantite),
+            });
+          }
+        }
+      }
+
+      // Mettre à jour la commande
+      order.statut = OnlineOrderStatut.CONFIRMEE;
+      order.confirmeePar = userId;
+      order.confirmeeLe = new Date();
+      order.venteId = savedVente.id;
+
+      await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      // Notifier le client
+      await this.notificationsService.sendToCustomer(order.customerAccountId, {
+        type: NotificationType.COMMANDE_CONFIRMEE,
+        title: 'Commande confirmée',
+        message: `Votre commande #${order.numero} a été confirmée`,
+        data: { orderId: order.id, numero: order.numero },
+      });
+
+      return this.toResponseDto(order);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private async generateVenteNumero(organizationId: string): Promise<string> {
+    const result = await this.venteRepository
+      .createQueryBuilder('vente')
+      .select('MAX(vente.numero)', 'maxNumero')
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .getRawOne();
+
+    let nextNumber = 1;
+    if (result?.maxNumero) {
+      const match = result.maxNumero.match(/V-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `V-${String(nextNumber).padStart(3, '0')}`;
   }
 
   async markReady(orderId: string, organizationId: string): Promise<OnlineOrderResponseDto> {

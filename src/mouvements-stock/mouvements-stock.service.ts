@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { MouvementStock } from './entities/mouvement-stock.entity';
+import { Repository, QueryRunner } from 'typeorm';
+import { MouvementStock, TypeMouvement, MotifMouvement } from './entities/mouvement-stock.entity';
 import { CreateMouvementStockDto } from './dto/create-mouvement-stock.dto';
 import { MouvementFilterDto } from './dto/mouvement-filter.dto';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
@@ -26,6 +26,49 @@ export class MouvementsStockService {
       organizationId,
     });
     return await this.mouvementStockRepository.save(mouvement);
+  }
+
+  /**
+   * Créer un mouvement de stock avec QueryRunner (pour transactions)
+   */
+  async createWithQueryRunner(
+    queryRunner: QueryRunner,
+    data: {
+      articleId: string;
+      articleNom: string;
+      type: TypeMouvement;
+      motif: MotifMouvement;
+      quantite: number;
+      stockAvant: number;
+      stockApres: number;
+      prixUnitaire?: number;
+      userId?: string;
+      userNom?: string;
+      venteId?: string;
+      reference?: string;
+      note?: string;
+      organizationId: string;
+    },
+  ): Promise<MouvementStock> {
+    const mouvement = queryRunner.manager.create(MouvementStock, {
+      articleId: data.articleId,
+      articleNom: data.articleNom,
+      type: data.type,
+      motif: data.motif,
+      quantite: data.quantite,
+      stockAvant: data.stockAvant,
+      stockApres: data.stockApres,
+      prixUnitaire: data.prixUnitaire,
+      userId: data.userId,
+      userNom: data.userNom,
+      venteId: data.venteId,
+      reference: data.reference,
+      note: data.note,
+      organizationId: data.organizationId,
+      date: new Date(),
+      valeurTotal: data.prixUnitaire ? data.quantite * data.prixUnitaire : undefined,
+    });
+    return await queryRunner.manager.save(mouvement);
   }
 
   /**
