@@ -6,23 +6,24 @@ import {
   JoinColumn,
   CreateDateColumn,
 } from 'typeorm';
-import { Commande } from './commande.entity';
+import { RetourFournisseur } from './retour-fournisseur.entity';
 import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
+import { RaisonRetour } from '../enums/raison-retour.enum';
 import { ModeVente } from '../../stock/entities/mode-vente.entity';
 
-@Entity('ligne_commande')
-export class LigneCommande extends BaseTenantEntity {
+@Entity('ligne_retour_fournisseur')
+export class LigneRetourFournisseur extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
-  commandeId: string;
+  retourFournisseurId: string;
 
-  @ManyToOne(() => Commande, (commande) => commande.lignes, {
+  @ManyToOne(() => RetourFournisseur, (retour) => retour.lignes, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'commandeId' })
-  commande: Commande;
+  @JoinColumn({ name: 'retourFournisseurId' })
+  retourFournisseur: RetourFournisseur;
 
   @Column()
   articleId: string;
@@ -33,11 +34,11 @@ export class LigneCommande extends BaseTenantEntity {
   @Column({ type: 'int' })
   quantite: number;
 
-  // Quantité en unités de base (pour le stock) - si mode vente utilisé
+  // Quantité en unités de base (pour le stock)
   @Column({ type: 'int', nullable: true })
   quantiteBase: number;
 
-  // Mode de vente utilisé (gros/détail)
+  // Mode de vente utilisé lors de l'approvisionnement original
   @Column({ nullable: true })
   modeVenteId: string;
 
@@ -48,11 +49,18 @@ export class LigneCommande extends BaseTenantEntity {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   prixUnitaire: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-  prixAchat: number; // Prix d'achat par unité de base (pour calcul bénéfice)
-
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   sousTotal: number;
+
+  @Column({
+    type: 'enum',
+    enum: RaisonRetour,
+    nullable: true,
+  })
+  raison: RaisonRetour;
+
+  @Column({ type: 'text', nullable: true })
+  noteArticle: string;
 
   @CreateDateColumn()
   createdAt: Date;

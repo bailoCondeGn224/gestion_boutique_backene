@@ -1,0 +1,552 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T"
+    - generic [ref=f3e518]:
+      - complementary [ref=f3e519]:
+        - generic [ref=f3e520]:
+          - generic [ref=f3e525]:
+            - heading "Babani" [level=1] [ref=f3e526]
+            - paragraph [ref=f3e527]: Mode fashion
+          - navigation [ref=f3e528]:
+            - link "Dashboard Admin" [ref=f3e529] [cursor=pointer]:
+              - /url: /admin/dashboard
+            - link "Analytics" [ref=f3e536] [cursor=pointer]:
+              - /url: /analytics
+            - link "Fournisseurs" [ref=f3e540] [cursor=pointer]:
+              - /url: /fournisseurs
+            - link "Clients" [ref=f3e547] [cursor=pointer]:
+              - /url: /clients
+            - link "Stock" [ref=f3e553] [cursor=pointer]:
+              - /url: /stock
+            - link "Catégories" [ref=f3e559] [cursor=pointer]:
+              - /url: /categories
+            - link "Zones" [ref=f3e566] [cursor=pointer]:
+              - /url: /zones
+            - link "Approvisionnements" [ref=f3e571] [cursor=pointer]:
+              - /url: /approvisionnements
+            - link "Ventes" [ref=f3e578] [cursor=pointer]:
+              - /url: /ventes
+            - link "Commandes" [ref=f3e584] [cursor=pointer]:
+              - /url: /commandes
+            - link "Versements" [ref=f3e589] [cursor=pointer]:
+              - /url: /versements
+            - link "Paiements Clients" [ref=f3e594] [cursor=pointer]:
+              - /url: /versements-client
+            - link "Retours Clients" [ref=f3e599] [cursor=pointer]:
+              - /url: /retours-clients
+            - link "Retours Fournisseurs" [ref=f3e604] [cursor=pointer]:
+              - /url: /retours-fournisseurs
+            - link "Historique Mouvements" [ref=f3e611] [cursor=pointer]:
+              - /url: /mouvements-stock
+            - link "Inventaires" [ref=f3e617] [cursor=pointer]:
+              - /url: /inventaires
+            - link "Dépenses" [ref=f3e623] [cursor=pointer]:
+              - /url: /depenses
+            - link "Zakat" [ref=f3e628] [cursor=pointer]:
+              - /url: /zakat
+            - link "Utilisateurs" [ref=f3e632] [cursor=pointer]:
+              - /url: /utilisateurs
+            - link "Rôles & Permissions" [ref=f3e646] [cursor=pointer]:
+              - /url: /roles
+          - generic [ref=f3e650]:
+            - generic [ref=f3e651]:
+              - paragraph [ref=f3e652]: bailo condé
+              - paragraph [ref=f3e653]: babaniservice@dubi.com
+            - button "Déconnexion" [ref=f3e654] [cursor=pointer]
+          - button [ref=f3e659] [cursor=pointer]
+      - main [ref=f3e662]:
+        - generic [ref=f3e663]:
+          - generic [ref=f3e664]:
+            - generic [ref=f3e667]:
+              - heading "Gestion du Stock" [level=1] [ref=f3e668]
+              - paragraph [ref=f3e669]: Gestion des articles en stock
+            - generic [ref=f3e670]:
+              - button "Import" [ref=f3e671] [cursor=pointer]
+              - button "Ajouter" [ref=f3e672] [cursor=pointer]
+          - button "Analyse de Rotation 5 5" [ref=f3e674] [cursor=pointer]:
+            - generic [ref=f3e675]: Analyse de Rotation
+            - generic [ref=f3e676]:
+              - generic [ref=f3e677]: "5"
+              - generic [ref=f3e678]: "5"
+          - generic [ref=f3e679]:
+            - generic [ref=f3e687]:
+              - paragraph [ref=f3e688]: Articles Total
+              - paragraph [ref=f3e689]: "20"
+            - generic [ref=f3e697]:
+              - paragraph [ref=f3e698]: Valeur du Stock
+              - paragraph [ref=f3e699]: 762 150 118 FG
+            - generic [ref=f3e706]:
+              - paragraph [ref=f3e707]: Stock Faible
+              - paragraph [ref=f3e708]: "0"
+            - generic [ref=f3e714]:
+              - paragraph [ref=f3e715]: Rupture/Critique
+              - paragraph [ref=f3e716]: "0"
+          - generic [ref=f3e717]:
+            - generic [ref=f3e718]:
+              - paragraph [ref=f3e719]: Zone
+              - paragraph [ref=f3e720]: A — Zonne Abaye
+            - generic [ref=f3e721]:
+              - paragraph [ref=f3e722]: Zone
+              - paragraph [ref=f3e723]: B — Zonne B
+            - generic [ref=f3e724]:
+              - paragraph [ref=f3e725]: Zone
+              - paragraph [ref=f3e726]: C — Zone C
+            - generic [ref=f3e727]:
+              - paragraph [ref=f3e728]: Zone
+              - paragraph [ref=f3e729]: D — Zone D
+            - generic [ref=f3e730]:
+              - paragraph [ref=f3e731]: Zone
+              - paragraph [ref=f3e732]: E — Zone E
+          - generic [ref=f3e733]:
+            - textbox "Rechercher un article..." [ref=f3e738]
+            - combobox [ref=f3e740] [cursor=pointer]:
+              - option "Toutes les catégories" [selected]
+              - option "Abaya Dubai"
+              - option "Abaya Egypte"
+              - option "Antibiotiques"
+              - option "Compléments"
+              - option "Consommables"
+              - option "Désinfectants"
+              - option "Foulard"
+              - option "Médicaments"
+              - option "Pagne"
+              - option "Pédiatrie"
+          - generic [ref=f3e742]:
+            - generic [ref=f3e743]:
+              - img "Abaya" [ref=f3e745] [cursor=pointer]
+              - generic [ref=f3e746]:
+                - heading "Abaya" [level=3] [ref=f3e747]
+                - generic [ref=f3e748]:
+                  - generic [ref=f3e749]:
+                    - generic [ref=f3e750]: 280 000 FG
+                    - paragraph [ref=f3e751]: "Achat: 200 000 FG"
+                  - generic [ref=f3e753]:
+                    - generic [ref=f3e754]: "149"
+                    - generic [ref=f3e755]: U.
+                - generic [ref=f3e756]:
+                  - generic [ref=f3e757]: 📍 B
+                  - generic [ref=f3e758]: •
+                  - generic [ref=f3e759]: Abaya Dubai
+                - generic [ref=f3e760]:
+                  - button "Vendre" [ref=f3e761] [cursor=pointer]
+                  - button "Modifier" [ref=f3e767] [cursor=pointer]
+                  - button "Historique" [ref=f3e772] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e778] [cursor=pointer]
+            - generic [ref=f3e783]:
+              - img "Abaya gris" [ref=f3e785] [cursor=pointer]
+              - generic [ref=f3e786]:
+                - heading "Abaya gris" [level=3] [ref=f3e787]
+                - generic [ref=f3e788]:
+                  - generic [ref=f3e789]:
+                    - generic [ref=f3e790]: 300 000 FG
+                    - paragraph [ref=f3e791]: "Achat: 200 000 FG"
+                  - generic [ref=f3e793]:
+                    - generic [ref=f3e794]: "181"
+                    - generic [ref=f3e795]: U.
+                - generic [ref=f3e796]:
+                  - generic [ref=f3e797]: 📍 B
+                  - generic [ref=f3e798]: •
+                  - generic [ref=f3e799]: Abaya Egypte
+                - generic [ref=f3e800]:
+                  - button "Vendre" [ref=f3e801] [cursor=pointer]
+                  - button "Modifier" [ref=f3e807] [cursor=pointer]
+                  - button "Historique" [ref=f3e812] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e818] [cursor=pointer]
+            - generic [ref=f3e823]:
+              - img "Abaya Blanc" [ref=f3e825] [cursor=pointer]
+              - generic [ref=f3e826]:
+                - heading "Abaya Blanc" [level=3] [ref=f3e827]
+                - generic [ref=f3e828]:
+                  - generic [ref=f3e829]:
+                    - generic [ref=f3e830]: 300 000 FG
+                    - paragraph [ref=f3e831]: "Achat: 200 000 FG"
+                  - generic [ref=f3e833]:
+                    - generic [ref=f3e834]: "61"
+                    - generic [ref=f3e835]: U.
+                - generic [ref=f3e836]:
+                  - generic [ref=f3e837]: 📍 B
+                  - generic [ref=f3e838]: •
+                  - generic [ref=f3e839]: Abaya Dubai
+                - generic [ref=f3e840]: Expire dans 16j
+                - generic [ref=f3e843]:
+                  - button "Vendre" [ref=f3e844] [cursor=pointer]
+                  - button "Modifier" [ref=f3e850] [cursor=pointer]
+                  - button "Historique" [ref=f3e855] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e861] [cursor=pointer]
+            - generic [ref=f3e866]:
+              - img "Abaya chicc" [ref=f3e868] [cursor=pointer]
+              - generic [ref=f3e869]:
+                - heading "Abaya chicc" [level=3] [ref=f3e870]
+                - generic [ref=f3e871]:
+                  - generic [ref=f3e872]:
+                    - generic [ref=f3e873]: 380 000 FG
+                    - paragraph [ref=f3e874]: "Achat: 300 000 FG"
+                  - generic [ref=f3e876]:
+                    - generic [ref=f3e877]: "976"
+                    - generic [ref=f3e878]: U.
+                - generic [ref=f3e879]:
+                  - generic [ref=f3e880]: 📍 C
+                  - generic [ref=f3e881]: •
+                  - generic [ref=f3e882]: Abaya Dubai
+                - generic [ref=f3e883]: Expire dans 16j
+                - generic [ref=f3e886]:
+                  - button "Vendre" [ref=f3e887] [cursor=pointer]
+                  - button "Modifier" [ref=f3e893] [cursor=pointer]
+                  - button "Historique" [ref=f3e898] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e904] [cursor=pointer]
+            - generic [ref=f3e909]:
+              - img "Abaya jaune" [ref=f3e911] [cursor=pointer]
+              - generic [ref=f3e912]:
+                - heading "Abaya jaune" [level=3] [ref=f3e913]
+                - generic [ref=f3e914]:
+                  - generic [ref=f3e915]:
+                    - generic [ref=f3e916]: 200 000 FG
+                    - paragraph [ref=f3e917]: "Achat: 100 000 FG"
+                  - generic [ref=f3e919]:
+                    - generic [ref=f3e920]: "123"
+                    - generic [ref=f3e921]: U.
+                - generic [ref=f3e922]:
+                  - generic [ref=f3e923]: 📍 C
+                  - generic [ref=f3e924]: •
+                  - generic [ref=f3e925]: Abaya Dubai
+                - generic [ref=f3e926]:
+                  - button "Vendre" [ref=f3e927] [cursor=pointer]
+                  - button "Modifier" [ref=f3e933] [cursor=pointer]
+                  - button "Historique" [ref=f3e938] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e944] [cursor=pointer]
+            - generic [ref=f3e949]:
+              - img "Abaya Noir" [ref=f3e951] [cursor=pointer]
+              - generic [ref=f3e952]:
+                - heading "Abaya Noir" [level=3] [ref=f3e953]
+                - generic [ref=f3e954]:
+                  - generic [ref=f3e955]:
+                    - generic [ref=f3e956]: 250 000 FG
+                    - paragraph [ref=f3e957]: "Achat: 200 000 FG"
+                  - generic [ref=f3e959]:
+                    - generic [ref=f3e960]: "105"
+                    - generic [ref=f3e961]: U.
+                - generic [ref=f3e962]:
+                  - generic [ref=f3e963]: 📍 B
+                  - generic [ref=f3e964]: •
+                  - generic [ref=f3e965]: Abaya Dubai
+                - generic [ref=f3e966]:
+                  - button "Vendre" [ref=f3e967] [cursor=pointer]
+                  - button "Modifier" [ref=f3e973] [cursor=pointer]
+                  - button "Historique" [ref=f3e978] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e984] [cursor=pointer]
+            - generic [ref=f3e989]:
+              - img "Alcool 70° - Flacon 500ml" [ref=f3e991] [cursor=pointer]
+              - generic [ref=f3e992]:
+                - heading "Alcool 70° - Flacon 500ml" [level=3] [ref=f3e993]
+                - generic [ref=f3e994]:
+                  - generic [ref=f3e995]:
+                    - generic [ref=f3e996]: 8 000 FG
+                    - paragraph [ref=f3e997]: "Achat: 5 500 FG"
+                  - generic [ref=f3e999]:
+                    - generic [ref=f3e1000]: "149"
+                    - generic [ref=f3e1001]: U.
+                - generic [ref=f3e1002]:
+                  - generic [ref=f3e1003]: 📍 E
+                  - generic [ref=f3e1004]: •
+                  - generic [ref=f3e1005]: Désinfectants
+                - generic [ref=f3e1006]: Expire dans 16j
+                - generic [ref=f3e1009]:
+                  - button "Vendre" [ref=f3e1010] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1016] [cursor=pointer]
+                  - button "Historique" [ref=f3e1021] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1027] [cursor=pointer]
+            - generic [ref=f3e1032]:
+              - img "Amoxicilline 500mg - Boîte de 12" [ref=f3e1034] [cursor=pointer]
+              - generic [ref=f3e1035]:
+                - heading "Amoxicilline 500mg - Boîte de 12" [level=3] [ref=f3e1036]
+                - generic [ref=f3e1037]:
+                  - generic [ref=f3e1038]:
+                    - generic [ref=f3e1039]: 25 000 FG
+                    - paragraph [ref=f3e1040]: "Achat: 18 000 FG"
+                  - generic [ref=f3e1042]:
+                    - generic [ref=f3e1043]: "150"
+                    - generic [ref=f3e1044]: U.
+                - generic [ref=f3e1045]:
+                  - generic [ref=f3e1046]: 📍 B
+                  - generic [ref=f3e1047]: •
+                  - generic [ref=f3e1048]: Antibiotiques
+                - generic [ref=f3e1049]: Expire dans 14j
+                - generic [ref=f3e1052]:
+                  - button "Vendre" [ref=f3e1053] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1059] [cursor=pointer]
+                  - button "Historique" [ref=f3e1064] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1070] [cursor=pointer]
+            - generic [ref=f3e1075]:
+              - img "Amoxicilline Sirop 250mg/5ml" [ref=f3e1077] [cursor=pointer]
+              - generic [ref=f3e1078]:
+                - heading "Amoxicilline Sirop 250mg/5ml" [level=3] [ref=f3e1079]
+                - generic [ref=f3e1080]:
+                  - generic [ref=f3e1081]:
+                    - generic [ref=f3e1082]: 18 000 FG
+                    - paragraph [ref=f3e1083]: "Achat: 13 000 FG"
+                  - generic [ref=f3e1085]:
+                    - generic [ref=f3e1086]: "60"
+                    - generic [ref=f3e1087]: U.
+                - generic [ref=f3e1088]:
+                  - generic [ref=f3e1089]: 📍 D
+                  - generic [ref=f3e1090]: •
+                  - generic [ref=f3e1091]: Pédiatrie
+                - generic [ref=f3e1092]: Expire dans 10j
+                - generic [ref=f3e1095]:
+                  - button "Vendre" [ref=f3e1096] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1102] [cursor=pointer]
+                  - button "Historique" [ref=f3e1107] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1113] [cursor=pointer]
+            - generic [ref=f3e1118]:
+              - img "Aspirine 100mg - Boîte de 30" [ref=f3e1120] [cursor=pointer]
+              - generic [ref=f3e1121]:
+                - heading "Aspirine 100mg - Boîte de 30" [level=3] [ref=f3e1122]
+                - generic [ref=f3e1123]:
+                  - generic [ref=f3e1124]:
+                    - generic [ref=f3e1125]: 8 000 FG
+                    - paragraph [ref=f3e1126]: "Achat: 5 500 FG"
+                  - generic [ref=f3e1128]:
+                    - generic [ref=f3e1129]: "200"
+                    - generic [ref=f3e1130]: U.
+                - generic [ref=f3e1131]:
+                  - generic [ref=f3e1132]: 📍 A
+                  - generic [ref=f3e1133]: •
+                  - generic [ref=f3e1134]: Médicaments
+                - generic [ref=f3e1135]:
+                  - button "Vendre" [ref=f3e1136] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1142] [cursor=pointer]
+                  - button "Historique" [ref=f3e1147] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1153] [cursor=pointer]
+            - generic [ref=f3e1158]:
+              - img "Azithromycine 250mg - Boîte de 6" [ref=f3e1160] [cursor=pointer]
+              - generic [ref=f3e1161]:
+                - heading "Azithromycine 250mg - Boîte de 6" [level=3] [ref=f3e1162]
+                - generic [ref=f3e1163]:
+                  - generic [ref=f3e1164]:
+                    - generic [ref=f3e1165]: 35 000 FG
+                    - paragraph [ref=f3e1166]: "Achat: 25 000 FG"
+                  - generic [ref=f3e1168]:
+                    - generic [ref=f3e1169]: "100"
+                    - generic [ref=f3e1170]: U.
+                - generic [ref=f3e1171]:
+                  - generic [ref=f3e1172]: 📍 B
+                  - generic [ref=f3e1173]: •
+                  - generic [ref=f3e1174]: Antibiotiques
+                - generic [ref=f3e1175]:
+                  - button "Vendre" [ref=f3e1176] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1182] [cursor=pointer]
+                  - button "Historique" [ref=f3e1187] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1193] [cursor=pointer]
+            - generic [ref=f3e1198]:
+              - img "Bétadine Solution - Flacon 125ml" [ref=f3e1200] [cursor=pointer]
+              - generic [ref=f3e1201]:
+                - heading "Bétadine Solution - Flacon 125ml" [level=3] [ref=f3e1202]
+                - generic [ref=f3e1203]:
+                  - generic [ref=f3e1204]:
+                    - generic [ref=f3e1205]: 12 000 FG
+                    - paragraph [ref=f3e1206]: "Achat: 8 500 FG"
+                  - generic [ref=f3e1208]:
+                    - generic [ref=f3e1209]: "100"
+                    - generic [ref=f3e1210]: U.
+                - generic [ref=f3e1211]:
+                  - generic [ref=f3e1212]: 📍 E
+                  - generic [ref=f3e1213]: •
+                  - generic [ref=f3e1214]: Désinfectants
+                - generic [ref=f3e1215]: Expire dans 15j
+                - generic [ref=f3e1218]:
+                  - button "Vendre" [ref=f3e1219] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1225] [cursor=pointer]
+                  - button "Historique" [ref=f3e1230] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1236] [cursor=pointer]
+            - generic [ref=f3e1241]:
+              - img "dfddd" [ref=f3e1243] [cursor=pointer]
+              - generic [ref=f3e1244]:
+                - heading "dfddd" [level=3] [ref=f3e1245]
+                - generic [ref=f3e1246]:
+                  - generic [ref=f3e1247]:
+                    - generic [ref=f3e1248]: 222 222 FG
+                    - paragraph [ref=f3e1249]: "Achat: 200 000 FG"
+                  - generic [ref=f3e1251]:
+                    - generic [ref=f3e1252]: "200"
+                    - generic [ref=f3e1253]: U.
+                - generic [ref=f3e1254]:
+                  - generic [ref=f3e1255]: 📍 A
+                  - generic [ref=f3e1256]: •
+                  - generic [ref=f3e1257]: Abaya Dubai
+                - generic [ref=f3e1258]:
+                  - button "Vendre" [ref=f3e1259] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1265] [cursor=pointer]
+                  - button "Historique" [ref=f3e1270] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1276] [cursor=pointer]
+            - generic [ref=f3e1281]:
+              - img "dfskd" [ref=f3e1283] [cursor=pointer]
+              - generic [ref=f3e1284]:
+                - heading "dfskd" [level=3] [ref=f3e1285]
+                - generic [ref=f3e1286]:
+                  - generic [ref=f3e1287]:
+                    - generic [ref=f3e1288]: 50 000 FG
+                    - paragraph [ref=f3e1289]: "Achat: 34 000 FG"
+                  - generic [ref=f3e1291]:
+                    - generic [ref=f3e1292]: "19"
+                    - generic [ref=f3e1293]: U.
+                - generic [ref=f3e1294]:
+                  - generic [ref=f3e1295]: 📍 C
+                  - generic [ref=f3e1296]: •
+                  - generic [ref=f3e1297]: Abaya Egypte
+                - generic [ref=f3e1298]: Expire dans 455j
+                - generic [ref=f3e1301]:
+                  - button "Vendre" [ref=f3e1302] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1308] [cursor=pointer]
+                  - button "Historique" [ref=f3e1313] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1319] [cursor=pointer]
+            - generic [ref=f3e1324]:
+              - img "DHHFH" [ref=f3e1326] [cursor=pointer]
+              - generic [ref=f3e1327]:
+                - heading "DHHFH" [level=3] [ref=f3e1328]
+                - generic [ref=f3e1329]:
+                  - generic [ref=f3e1330]:
+                    - generic [ref=f3e1331]: 20 000 FG
+                    - paragraph [ref=f3e1332]: "Achat: 10 000 FG"
+                  - generic [ref=f3e1334]:
+                    - generic [ref=f3e1335]: "206"
+                    - generic [ref=f3e1336]: U.
+                - generic [ref=f3e1337]:
+                  - generic [ref=f3e1338]: 📍 A
+                  - generic [ref=f3e1339]: •
+                  - generic [ref=f3e1340]: Abaya Egypte
+                - generic [ref=f3e1341]: Expire dans 15j
+                - generic [ref=f3e1344]:
+                  - button "Vendre" [ref=f3e1345] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1351] [cursor=pointer]
+                  - button "Historique" [ref=f3e1356] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1362] [cursor=pointer]
+            - generic [ref=f3e1367]:
+              - img "Doliprane 1000mg - Boîte de 8" [ref=f3e1369] [cursor=pointer]
+              - generic [ref=f3e1370]:
+                - heading "Doliprane 1000mg - Boîte de 8" [level=3] [ref=f3e1371]
+                - generic [ref=f3e1372]:
+                  - generic [ref=f3e1373]:
+                    - generic [ref=f3e1374]: 7 500 FG
+                    - paragraph [ref=f3e1375]: "Achat: 5 000 FG"
+                  - generic [ref=f3e1377]:
+                    - generic [ref=f3e1378]: "400"
+                    - generic [ref=f3e1379]: U.
+                - generic [ref=f3e1380]:
+                  - generic [ref=f3e1381]: 📍 A
+                  - generic [ref=f3e1382]: •
+                  - generic [ref=f3e1383]: Médicaments
+                - generic [ref=f3e1384]: Expire dans 13j
+                - generic [ref=f3e1387]:
+                  - button "Vendre" [ref=f3e1388] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1394] [cursor=pointer]
+                  - button "Historique" [ref=f3e1399] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1405] [cursor=pointer]
+            - generic [ref=f3e1410]:
+              - generic [ref=f3e1411] [cursor=pointer]:
+                - img "Doliprane Sirop 100ml" [ref=f3e1412]
+                - generic [ref=f3e1413]: Expire dans 4j
+              - generic [ref=f3e1417]:
+                - heading "Doliprane Sirop 100ml" [level=3] [ref=f3e1418]
+                - generic [ref=f3e1419]:
+                  - generic [ref=f3e1420]:
+                    - generic [ref=f3e1421]: 12 000 FG
+                    - paragraph [ref=f3e1422]: "Achat: 8 500 FG"
+                  - generic [ref=f3e1424]:
+                    - generic [ref=f3e1425]: "80"
+                    - generic [ref=f3e1426]: U.
+                - generic [ref=f3e1427]:
+                  - generic [ref=f3e1428]: 📍 D
+                  - generic [ref=f3e1429]: •
+                  - generic [ref=f3e1430]: Pédiatrie
+                - generic [ref=f3e1431]: Expire dans 4j
+                - generic [ref=f3e1434]:
+                  - button "Vendre" [ref=f3e1435] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1441] [cursor=pointer]
+                  - button "Historique" [ref=f3e1446] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1452] [cursor=pointer]
+            - generic [ref=f3e1457]:
+              - img "EEZ" [ref=f3e1459] [cursor=pointer]
+              - generic [ref=f3e1460]:
+                - heading "EEZ" [level=3] [ref=f3e1461]
+                - generic [ref=f3e1462]:
+                  - generic [ref=f3e1463]:
+                    - generic [ref=f3e1464]: 2 000 FG
+                    - paragraph [ref=f3e1465]: "Achat: 1 222 FG"
+                  - generic [ref=f3e1467]:
+                    - generic [ref=f3e1468]: "200"
+                    - generic [ref=f3e1469]: U.
+                - generic [ref=f3e1470]:
+                  - generic [ref=f3e1471]: 📍 A
+                  - generic [ref=f3e1472]: •
+                  - generic [ref=f3e1473]: Abaya Egypte
+                - generic [ref=f3e1474]: Expire dans 15j
+                - generic [ref=f3e1477]:
+                  - button "Vendre" [ref=f3e1478] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1484] [cursor=pointer]
+                  - button "Historique" [ref=f3e1489] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1495] [cursor=pointer]
+            - generic [ref=f3e1500]:
+              - img "Efferalgan 500mg - Boîte de 16" [ref=f3e1502] [cursor=pointer]
+              - generic [ref=f3e1503]:
+                - heading "Efferalgan 500mg - Boîte de 16" [level=3] [ref=f3e1504]
+                - generic [ref=f3e1505]:
+                  - generic [ref=f3e1506]:
+                    - generic [ref=f3e1507]: 10 000 FG
+                    - paragraph [ref=f3e1508]: "Achat: 7 000 FG"
+                  - generic [ref=f3e1510]:
+                    - generic [ref=f3e1511]: "350"
+                    - generic [ref=f3e1512]: U.
+                - generic [ref=f3e1513]:
+                  - generic [ref=f3e1514]: 📍 A
+                  - generic [ref=f3e1515]: •
+                  - generic [ref=f3e1516]: Médicaments
+                - generic [ref=f3e1517]: Expire dans 16j
+                - generic [ref=f3e1520]:
+                  - button "Vendre" [ref=f3e1521] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1527] [cursor=pointer]
+                  - button "Historique" [ref=f3e1532] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1538] [cursor=pointer]
+            - generic [ref=f3e1543]:
+              - generic [ref=f3e1544] [cursor=pointer]:
+                - img "ERER" [ref=f3e1545]
+                - generic [ref=f3e1546]: Expire dans 7j
+              - generic [ref=f3e1550]:
+                - heading "ERER" [level=3] [ref=f3e1551]
+                - generic [ref=f3e1552]:
+                  - generic [ref=f3e1553]:
+                    - generic [ref=f3e1554]: 3 000 000 FG
+                    - paragraph [ref=f3e1555]: "Achat: 120 000 FG"
+                  - generic [ref=f3e1557]:
+                    - generic [ref=f3e1558]: 1 998
+                    - generic [ref=f3e1559]: U.
+                - generic [ref=f3e1560]:
+                  - generic [ref=f3e1561]: 📍 A
+                  - generic [ref=f3e1562]: •
+                  - generic [ref=f3e1563]: Abaya Egypte
+                - generic [ref=f3e1564]: Expire dans 7j
+                - generic [ref=f3e1567]:
+                  - button "Vendre" [ref=f3e1568] [cursor=pointer]
+                  - button "Modifier" [ref=f3e1574] [cursor=pointer]
+                  - button "Historique" [ref=f3e1579] [cursor=pointer]
+                  - button "Supprimer" [ref=f3e1585] [cursor=pointer]
+          - generic [ref=f3e1592]:
+            - generic [ref=f3e1593]:
+              - generic [ref=f3e1594]: 1 - 20 sur 38
+              - generic [ref=f3e1595]:
+                - generic [ref=f3e1596]: Afficher
+                - combobox [ref=f3e1597]:
+                  - option "10"
+                  - option "20" [selected]
+                  - option "50"
+                  - option "100"
+            - generic [ref=f3e1598]:
+              - button "Première page" [disabled] [ref=f3e1599]
+              - button "Précédent" [disabled] [ref=f3e1603]
+              - generic [ref=f3e1607]:
+                - button "1" [ref=f3e1608] [cursor=pointer]
+                - button "2" [ref=f3e1609] [cursor=pointer]
+              - button "Suivant" [ref=f3e1610] [cursor=pointer]
+              - button "Dernière page" [ref=f3e1614] [cursor=pointer]
+  - generic [ref=f3e500]: "200000"

@@ -80,10 +80,15 @@ export class ApprovisionnementService {
 
       // Créer manuellement les lignes avec organizationId
       for (const ligne of lignes) {
+        // Calculer la quantité en unités
+        const modeQuantiteStock = ligne.modeQuantiteStock || 1;
+        const quantiteUnites = ligne.quantiteUnites || (ligne.quantite * modeQuantiteStock);
+
         await queryRunner.manager.query(
           `INSERT INTO ligne_approvisionnement
-           ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId", "createdAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+           ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId", "createdAt",
+            "modeVenteId", "modeQuantiteStock", "quantiteUnites")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10)`,
           [
             savedApprovisionnement.id,
             ligne.articleId,
@@ -92,6 +97,9 @@ export class ApprovisionnementService {
             ligne.prixUnitaire,
             ligne.sousTotal,
             organizationId,
+            ligne.modeVenteId || null,
+            modeQuantiteStock,
+            quantiteUnites,
           ],
         );
       }
@@ -100,24 +108,37 @@ export class ApprovisionnementService {
       for (const ligne of lignes) {
         // Fix Issue #10: Verrouiller l'article avec SELECT FOR UPDATE
         const stockResult = await queryRunner.manager.query(
-          `SELECT stock FROM article WHERE id = $1 AND "organizationId" = $2 FOR UPDATE`,
+          `SELECT stock, "prixAchat" FROM article WHERE id = $1 AND "organizationId" = $2 FOR UPDATE`,
           [ligne.articleId, organizationId],
         );
 
         const stockAvant = stockResult[0]?.stock || 0;
+        const ancienPrixAchat = stockResult[0]?.prixAchat || 0;
 
-        // Incrémenter le stock (même si stock = 0, on peut réapprovisionner)
+        // Calculer la quantité en unités (pour mode gros/détail)
+        // quantiteUnites = quantite × modeQuantiteStock (envoyé par le frontend)
+        const modeQuantiteStock = ligne.modeQuantiteStock || 1;
+        const quantiteUnites = ligne.quantiteUnites || (ligne.quantite * modeQuantiteStock);
+
+        // Incrémenter le stock avec la quantité en unités
         await queryRunner.manager.query(
           `UPDATE article SET stock = stock + $1 WHERE id = $2 AND "organizationId" = $3`,
-          [ligne.quantite, ligne.articleId, organizationId],
+          [quantiteUnites, ligne.articleId, organizationId],
         );
 
-        const stockApres = stockAvant + ligne.quantite;
+        const stockApres = stockAvant + quantiteUnites;
 
-        // Mettre à jour le prix d'achat moyen (optionnel)
+        // Calculer le nouveau PMP (Prix Moyen Pondéré)
+        // Formule: (ancienStock × ancienPMP + nouvelleValeur) / nouveauStock
+        // nouvelleValeur = sousTotal (quantite × prixUnitaire du lot/unité)
+        const nouveauPMP = stockApres > 0
+          ? (stockAvant * ancienPrixAchat + Number(ligne.sousTotal)) / stockApres
+          : ligne.prixUnitaire / modeQuantiteStock; // Si stock vide, prix unitaire par unité
+
+        // Mettre à jour le prix d'achat moyen (PMP)
         await queryRunner.manager.query(
           `UPDATE article SET "prixAchat" = $1 WHERE id = $2 AND "organizationId" = $3`,
-          [ligne.prixUnitaire, ligne.articleId, organizationId],
+          [nouveauPMP, ligne.articleId, organizationId],
         );
 
         // Mettre à jour la date d'expiration si fournie dans la ligne
@@ -159,10 +180,10 @@ export class ApprovisionnementService {
               ligne.nom,
               TypeMouvement.ENTREE,
               MotifMouvement.APPROVISIONNEMENT,
-              ligne.quantite,
+              quantiteUnites, // Quantité en unités (pas en lots)
               stockAvant,
               stockApres,
-              ligne.prixUnitaire,
+              nouveauPMP, // PMP par unité (pas prix du lot)
               ligne.sousTotal,
               createDto.userId,
               createDto.userNom,
@@ -415,11 +436,12 @@ export class ApprovisionnementService {
         // Sauvegarder les anciennes lignes pour ajuster le stock
         const oldLignes = [...approvisionnement.lignes];
 
-        // Rétablir le stock des anciennes lignes
+        // Rétablir le stock des anciennes lignes (utiliser quantiteUnites si disponible)
         for (const ligne of oldLignes) {
+          const oldQuantiteUnites = (ligne as any).quantiteUnites || ligne.quantite;
           await queryRunner.manager.query(
             `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
-            [ligne.quantite, ligne.articleId, organizationId],
+            [oldQuantiteUnites, ligne.articleId, organizationId],
           );
         }
 
@@ -431,10 +453,15 @@ export class ApprovisionnementService {
 
         // Créer les nouvelles lignes et ajuster le stock
         for (const ligneDto of updateDto.lignes) {
+          // Calculer la quantité en unités
+          const modeQuantiteStock = ligneDto.modeQuantiteStock || 1;
+          const quantiteUnites = ligneDto.quantiteUnites || (ligneDto.quantite * modeQuantiteStock);
+
           await queryRunner.manager.query(
             `INSERT INTO ligne_approvisionnement
-             ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId")
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+             ("approvisionnementId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId",
+              "modeVenteId", "modeQuantiteStock", "quantiteUnites")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
               id,
               ligneDto.articleId,
@@ -443,13 +470,28 @@ export class ApprovisionnementService {
               ligneDto.prixUnitaire,
               ligneDto.sousTotal,
               organizationId,
+              ligneDto.modeVenteId || null,
+              modeQuantiteStock,
+              quantiteUnites,
             ],
           );
 
-          // Ajouter au stock et mettre à jour le prix d'achat
+          // Récupérer l'ancien stock et PMP pour calculer le nouveau PMP
+          const articleResult = await queryRunner.manager.query(
+            `SELECT stock, "prixAchat" FROM article WHERE id = $1 AND "organizationId" = $2`,
+            [ligneDto.articleId, organizationId],
+          );
+          const stockActuel = articleResult[0]?.stock || 0;
+          const ancienPMP = articleResult[0]?.prixAchat || 0;
+          const nouveauStock = stockActuel + quantiteUnites;
+          const nouveauPMP = nouveauStock > 0
+            ? (stockActuel * ancienPMP + Number(ligneDto.sousTotal)) / nouveauStock
+            : ligneDto.prixUnitaire / modeQuantiteStock;
+
+          // Ajouter au stock et mettre à jour le PMP
           await queryRunner.manager.query(
             `UPDATE article SET stock = stock + $1, "prixAchat" = $2 WHERE id = $3 AND "organizationId" = $4`,
-            [ligneDto.quantite, ligneDto.prixUnitaire, ligneDto.articleId, organizationId],
+            [quantiteUnites, nouveauPMP, ligneDto.articleId, organizationId],
           );
         }
       }
@@ -573,7 +615,8 @@ export class ApprovisionnementService {
         }
 
         const stockActuel = parseInt(article[0].stock);
-        const quantiteARetirer = ligne.quantite;
+        // Utiliser quantiteUnites si disponible, sinon quantite
+        const quantiteARetirer = (ligne as any).quantiteUnites || ligne.quantite;
 
         if (stockActuel < quantiteARetirer) {
           const quantiteVendue = quantiteARetirer - stockActuel;
@@ -600,9 +643,11 @@ export class ApprovisionnementService {
 
       // ========== RESTAURATION DU STOCK ==========
       for (const ligne of approvisionnement.lignes) {
+        // Utiliser quantiteUnites si disponible, sinon quantite
+        const quantiteARetirer = (ligne as any).quantiteUnites || ligne.quantite;
         await queryRunner.manager.query(
           `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
-          [ligne.quantite, ligne.articleId, organizationId],
+          [quantiteARetirer, ligne.articleId, organizationId],
         );
       }
 
@@ -680,7 +725,8 @@ export class ApprovisionnementService {
         }
 
         const stockActuel = parseInt(article[0].stock);
-        const quantiteARetirer = ligne.quantite;
+        // Utiliser quantiteUnites si disponible, sinon quantite
+        const quantiteARetirer = (ligne as any).quantiteUnites || ligne.quantite;
 
         // Si le stock actuel est inférieur à la quantité approvisionnée,
         // cela signifie que des articles ont été vendus
@@ -711,9 +757,11 @@ export class ApprovisionnementService {
       // ========== RESTAURATION DU STOCK ==========
       // Maintenant on peut retirer le stock en toute sécurité
       for (const ligne of approvisionnement.lignes) {
+        // Utiliser quantiteUnites si disponible, sinon quantite
+        const quantiteARetirer = (ligne as any).quantiteUnites || ligne.quantite;
         await queryRunner.manager.query(
           `UPDATE article SET stock = stock - $1 WHERE id = $2 AND "organizationId" = $3`,
-          [ligne.quantite, ligne.articleId, organizationId],
+          [quantiteARetirer, ligne.articleId, organizationId],
         );
       }
 

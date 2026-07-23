@@ -6,15 +6,22 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { CreateRetourClientDto } from './dto/create-retour-client.dto';
+import { CreateRetourFournisseurDto } from './dto/create-retour-fournisseur.dto';
 import { Vente, StatutVente } from '../ventes/entities/vente.entity';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Article } from '../stock/entities/article.entity';
 import { RetourClient } from './entities/retour-client.entity';
 import { LigneRetourClient } from './entities/ligne-retour-client.entity';
+import { RetourFournisseur } from './entities/retour-fournisseur.entity';
+import { LigneRetourFournisseur } from './entities/ligne-retour-fournisseur.entity';
+import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
+import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
+import { Fournisseur } from '../fournisseurs/entities/fournisseur.entity';
 import { ModeRemboursement } from './enums/mode-remboursement.enum';
 import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
 import { RetoursValidator } from '../validation/retours.validator';
+import { createPaginatedResponse } from '../common/utils/pagination.util';
 
 // Imports des nouveaux repositories
 import { ArticleRepository } from '../stock/repositories/article.repository';
@@ -74,6 +81,16 @@ export class RetoursService {
     private retourClientRepo: Repository<RetourClient>,
     @InjectRepository(LigneRetourClient)
     private ligneRetourClientRepo: Repository<LigneRetourClient>,
+    @InjectRepository(RetourFournisseur)
+    private retourFournisseurRepo: Repository<RetourFournisseur>,
+    @InjectRepository(LigneRetourFournisseur)
+    private ligneRetourFournisseurRepo: Repository<LigneRetourFournisseur>,
+    @InjectRepository(Approvisionnement)
+    private approvisionnementRepo: Repository<Approvisionnement>,
+    @InjectRepository(LigneApprovisionnement)
+    private ligneApprovisionnementRepo: Repository<LigneApprovisionnement>,
+    @InjectRepository(Fournisseur)
+    private fournisseurRepo: Repository<Fournisseur>,
     @InjectRepository(Client)
     private clientRepo: Repository<Client>,
     @InjectRepository(Article)
@@ -143,7 +160,26 @@ export class RetoursService {
       // ========================================================================
       // ÉTAPE 3: CALCULER LES NOUVEAUX MONTANTS (LOGIQUE Q2: Option C)
       // ========================================================================
-      const estRetourTotal = vente.lignes.length === dto.lignes.length;
+      // Vérifier si c'est un retour TOTAL (toutes les quantités de tous les articles)
+      // Un retour est total seulement si:
+      // 1. Tous les articles de la vente sont retournés
+      // 2. ET chaque article est retourné en totalité (quantite retournée >= quantite vendue)
+      const estRetourTotal = vente.lignes.length === dto.lignes.length &&
+        dto.lignes.every(ligneRetour => {
+          const ligneVente = vente.lignes.find(lv => lv.articleId === ligneRetour.articleId);
+          return ligneVente && ligneRetour.quantite >= ligneVente.quantite;
+        });
+
+      console.log(`\n📊 Type de retour: ${estRetourTotal ? 'TOTAL' : 'PARTIEL'}`);
+      if (!estRetourTotal) {
+        dto.lignes.forEach(ligneRetour => {
+          const ligneVente = vente.lignes.find(lv => lv.articleId === ligneRetour.articleId);
+          if (ligneVente) {
+            console.log(`   - ${ligneRetour.nom}: retour ${ligneRetour.quantite}/${ligneVente.quantite}`);
+          }
+        });
+      }
+
       const calcul = this.calculerMontantsRetour(
         Number(vente.total),
         Number(vente.montantPaye),
@@ -160,6 +196,16 @@ export class RetoursService {
       console.log('\n📦 Mise à jour du stock:');
 
       for (const ligne of dto.lignes) {
+        // Trouver la ligne de vente originale pour obtenir quantiteBase
+        const ligneVente = vente.lignes.find(lv => lv.articleId === ligne.articleId);
+
+        // Utiliser quantiteBase si disponible, sinon quantite
+        // quantiteBase = quantité réelle en unités de stock (ex: 30 bouteilles)
+        // quantite = nombre de modes vendus (ex: 3 casiers)
+        const quantiteStock = ligneVente?.quantiteBase
+          ? Math.round((ligne.quantite / ligneVente.quantite) * ligneVente.quantiteBase)
+          : ligne.quantite;
+
         const stockAvant = await this.articleRepository.getStockActuel(
           ligne.articleId,
           organizationId,
@@ -168,12 +214,12 @@ export class RetoursService {
 
         await this.articleRepository.augmenterStock(
           ligne.articleId,
-          ligne.quantite,
+          quantiteStock,
           organizationId,
           queryRunner,
         );
 
-        const stockApres = stockAvant + ligne.quantite;
+        const stockApres = stockAvant + quantiteStock;
 
         await this.mouvementStockRepository.creerMouvementRetourClient(
           {
@@ -181,7 +227,7 @@ export class RetoursService {
             articleNom: ligne.nom,
             type: TypeMouvement.ENTREE,
             motif: MotifMouvement.RETOUR_CLIENT,
-            quantite: ligne.quantite,
+            quantite: quantiteStock,
             stockAvant,
             stockApres,
             prixUnitaire: ligne.prixUnitaire,
@@ -196,7 +242,7 @@ export class RetoursService {
           queryRunner,
         );
 
-        console.log(`   ✓ ${ligne.nom}: ${stockAvant} → ${stockApres} (+${ligne.quantite})`);
+        console.log(`   ✓ ${ligne.nom}: ${stockAvant} → ${stockApres} (+${quantiteStock} unités)`);
       }
 
       // ========================================================================
@@ -224,11 +270,21 @@ export class RetoursService {
 
             if (nouvelleQte <= 0) {
               await queryRunner.manager.delete(LigneVente, ligneVente.id);
+              console.log(`   ✓ Ligne supprimée: ${ligne.nom}`);
             } else {
+              // Calculer la nouvelle quantiteBase proportionnellement
+              let nouvelleQteBase = nouvelleQte;
+              if (ligneVente.quantiteBase && ligneVente.quantite > 0) {
+                const ratio = ligneVente.quantiteBase / ligneVente.quantite;
+                nouvelleQteBase = Math.round(nouvelleQte * ratio);
+              }
+
               await queryRunner.manager.update(LigneVente, ligneVente.id, {
                 quantite: nouvelleQte,
+                quantiteBase: nouvelleQteBase,
                 sousTotal: nouvelleQte * Number(ligneVente.prixUnitaire),
               });
+              console.log(`   ✓ Ligne mise à jour: ${ligne.nom} → ${nouvelleQte} (${nouvelleQteBase} unités)`);
             }
           }
         }
@@ -268,13 +324,23 @@ export class RetoursService {
 
       const savedRetour = await queryRunner.manager.save(RetourClient, retourClient);
 
-      // Créer les lignes
+      // Créer les lignes avec les infos du mode de vente original
       for (const ligneData of dto.lignes) {
+        // Trouver la ligne de vente originale pour obtenir modeVenteId et quantiteBase
+        const ligneVente = vente.lignes.find(lv => lv.articleId === ligneData.articleId);
+
+        // Calculer quantiteBase pour cette ligne de retour
+        const quantiteBase = ligneVente?.quantiteBase
+          ? Math.round((ligneData.quantite / ligneVente.quantite) * ligneVente.quantiteBase)
+          : ligneData.quantite;
+
         const ligne = queryRunner.manager.create(LigneRetourClient, {
           retourClientId: savedRetour.id,
           articleId: ligneData.articleId,
           nom: ligneData.nom,
           quantite: ligneData.quantite,
+          quantiteBase: quantiteBase,
+          modeVenteId: ligneVente?.modeVenteId || null,
           prixUnitaire: ligneData.prixUnitaire,
           sousTotal: ligneData.sousTotal,
           raison: ligneData.raison,
@@ -496,7 +562,7 @@ export class RetoursService {
 
     const [data, total] = await this.retourClientRepo.findAndCount({
       where: { organizationId },
-      relations: ['lignes'],
+      relations: ['lignes', 'lignes.modeVente'],
       order: { date: 'DESC', createdAt: 'DESC' },
       skip,
       take: limit,
@@ -521,7 +587,7 @@ export class RetoursService {
   async getRetourClient(id: string, organizationId: string) {
     const retour = await this.retourClientRepo.findOne({
       where: { id, organizationId },
-      relations: ['lignes'],
+      relations: ['lignes', 'lignes.modeVente'],
     });
 
     if (!retour) {
@@ -529,7 +595,20 @@ export class RetoursService {
     }
 
     return retour;
-}
+  }
+
+  /**
+   * Récupérer les retours d'une vente spécifique
+   */
+  async getRetoursByVente(venteId: string, organizationId: string) {
+    const retours = await this.retourClientRepo.find({
+      where: { venteId, organizationId },
+      relations: ['lignes', 'lignes.modeVente'],
+      order: { date: 'DESC', createdAt: 'DESC' },
+    });
+
+    return retours;
+  }
 
   /**
    * Statistiques des retours clients
@@ -562,14 +641,301 @@ export class RetoursService {
   }
 
   async getRetoursFournisseurs(organizationId: string, page: number = 1, limit: number = 50) {
-    return { data: [], total: 0, page, limit, totalPages: 0 };
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.retourFournisseurRepo.findAndCount({
+      where: { organizationId },
+      order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    return createPaginatedResponse(data, total, page, limit);
   }
 
   async getStatsRetoursFournisseurs(organizationId: string) {
-    return { totalRetours: 0, montantTotal: 0, retoursCeMois: 0, montantRembourse: 0 };
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(*)', 'totalRetours')
+      .addSelect('SUM(rf.total)', 'montantTotal')
+      .addSelect('SUM(rf."montantRembourse")', 'montantRembourse')
+      .from('retour_fournisseur', 'rf')
+      .where('rf."organizationId" = :organizationId', { organizationId })
+      .getRawOne();
+
+    const currentMonth = await this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(*)', 'count')
+      .from('retour_fournisseur', 'rf')
+      .where('rf."organizationId" = :organizationId', { organizationId })
+      .andWhere('EXTRACT(MONTH FROM rf.date) = EXTRACT(MONTH FROM CURRENT_DATE)')
+      .andWhere('EXTRACT(YEAR FROM rf.date) = EXTRACT(YEAR FROM CURRENT_DATE)')
+      .getRawOne();
+
+    return {
+      totalRetours: parseInt(result.totalRetours) || 0,
+      montantTotal: parseFloat(result.montantTotal) || 0,
+      retoursCeMois: parseInt(currentMonth.count) || 0,
+      montantRembourse: parseFloat(result.montantRembourse) || 0,
+    };
   }
 
-  async createRetourFournisseur(dto: any, organizationId: string) {
-    throw new BadRequestException('Retours fournisseurs pas encore implémentés');
+  /**
+   * ============================================================================
+   * CRÉER UN RETOUR FOURNISSEUR
+   * ============================================================================
+   *
+   * Logique:
+   * 1. Valider que l'approvisionnement existe
+   * 2. Valider les quantités retournées (≤ quantités approvisionnées)
+   * 3. Diminuer le stock des articles retournés
+   * 4. Créer le retour fournisseur avec ses lignes
+   * 5. Enregistrer les mouvements de stock (sortie)
+   */
+  async createRetourFournisseur(
+    dto: CreateRetourFournisseurDto,
+    organizationId: string,
+  ): Promise<RetourFournisseur> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // ÉTAPE 1: RÉCUPÉRER ET VALIDER L'APPROVISIONNEMENT
+      const approvisionnement = await this.approvisionnementRepo.findOne({
+        where: { id: dto.approvisionnementId, organizationId },
+        relations: ['lignes'],
+      });
+
+      if (!approvisionnement) {
+        throw new NotFoundException('Approvisionnement introuvable');
+      }
+
+      // ÉTAPE 2: VALIDER LES LIGNES DU RETOUR
+
+      for (const ligneRetour of dto.lignes) {
+        const ligneAppro = approvisionnement.lignes.find(
+          l => l.articleId === ligneRetour.articleId
+        );
+
+        if (!ligneAppro) {
+          throw new BadRequestException(
+            `L'article ${ligneRetour.nom} n'existe pas dans cet approvisionnement`
+          );
+        }
+
+        // Calculer la quantité disponible pour retour (total - déjà retourné)
+        const quantiteAppro = ligneAppro.quantiteUnites || ligneAppro.quantite;
+        const quantiteDejaRetournee = ligneAppro.quantiteRetournee || 0;
+        const quantiteDisponible = quantiteAppro - quantiteDejaRetournee;
+
+        if (ligneRetour.quantite > quantiteDisponible) {
+          throw new BadRequestException(
+            `La quantité retournée (${ligneRetour.quantite}) pour ${ligneRetour.nom} ` +
+            `dépasse la quantité disponible (${quantiteDisponible}). ` +
+            `Déjà retourné: ${quantiteDejaRetournee}/${quantiteAppro}`
+          );
+        }
+
+        // Vérifier le stock disponible
+        const article = await this.articleRepo.findOne({
+          where: { id: ligneRetour.articleId, organizationId },
+        });
+
+        if (!article || article.stock < ligneRetour.quantite) {
+          throw new BadRequestException(
+            `Stock insuffisant pour ${ligneRetour.nom}. ` +
+            `Stock actuel: ${article?.stock || 0}, Retour demandé: ${ligneRetour.quantite}`
+          );
+        }
+
+      }
+
+      // ÉTAPE 3: GÉNÉRER LE NUMÉRO DE RETOUR
+      const lastRetour = await this.retourFournisseurRepo
+        .createQueryBuilder('rf')
+        .where('rf.organizationId = :organizationId', { organizationId })
+        .orderBy('rf.createdAt', 'DESC')
+        .getOne();
+
+      let nextNumber = 1;
+      if (lastRetour?.numero) {
+        const match = lastRetour.numero.match(/RF-(\d+)/);
+        if (match) {
+          nextNumber = parseInt(match[1], 10) + 1;
+        }
+      }
+      const numero = `RF-${String(nextNumber).padStart(3, '0')}`;
+
+      // ÉTAPE 4: DIMINUER LE STOCK ET CRÉER LES MOUVEMENTS
+
+      for (const ligne of dto.lignes) {
+        const stockAvant = await this.articleRepository.getStockActuel(
+          ligne.articleId,
+          organizationId,
+          queryRunner,
+        );
+
+        // Diminuer le stock
+        await this.articleRepository.diminuerStock(
+          ligne.articleId,
+          ligne.quantite,
+          organizationId,
+          queryRunner,
+        );
+
+        const stockApres = stockAvant - ligne.quantite;
+
+        // Créer le mouvement de stock (sortie) via le repository
+        await this.mouvementStockRepository.creerMouvementRetourFournisseur(
+          {
+            articleId: ligne.articleId,
+            articleNom: ligne.nom,
+            type: TypeMouvement.SORTIE,
+            motif: MotifMouvement.RETOUR_FOURNISSEUR,
+            quantite: ligne.quantite,
+            stockAvant,
+            stockApres,
+            prixUnitaire: ligne.prixUnitaire,
+            valeurTotal: ligne.sousTotal,
+            userId: dto.userId,
+            userNom: dto.userNom,
+            approvisionnementId: dto.approvisionnementId,
+            reference: numero,
+            note: dto.note || `Retour fournisseur - ${ligne.raison || 'Non spécifié'}`,
+          },
+          organizationId,
+          queryRunner,
+        );
+
+      }
+
+      // ÉTAPE 5: CRÉER LE RETOUR FOURNISSEUR
+      const retourFournisseur = this.retourFournisseurRepo.create({
+        numero,
+        approvisionnementId: dto.approvisionnementId,
+        approvisionnementNumero: approvisionnement.numero,
+        fournisseurId: approvisionnement.fournisseurId,
+        fournisseurNom: approvisionnement.fournisseurNom,
+        total: dto.total,
+        remboursementRecu: dto.remboursementRecu || false,
+        montantRembourse: dto.montantRembourse || 0,
+        date: new Date(),
+        note: dto.note,
+        userId: dto.userId,
+        userNom: dto.userNom,
+        organizationId,
+      });
+
+      const savedRetour = await queryRunner.manager.save(retourFournisseur);
+
+      // ÉTAPE 6: CRÉER LES LIGNES DU RETOUR
+      for (const ligne of dto.lignes) {
+        const ligneRetour = this.ligneRetourFournisseurRepo.create({
+          retourFournisseurId: savedRetour.id,
+          articleId: ligne.articleId,
+          nom: ligne.nom,
+          quantite: ligne.quantite,
+          quantiteBase: ligne.quantite, // Pour l'instant, même valeur
+          prixUnitaire: ligne.prixUnitaire,
+          sousTotal: ligne.sousTotal,
+          raison: ligne.raison,
+          noteArticle: ligne.noteArticle,
+          organizationId,
+        });
+
+        await queryRunner.manager.save(ligneRetour);
+
+        // Mettre à jour la ligne d'approvisionnement (comme retour client modifie ligne vente)
+        const ligneAppro = approvisionnement.lignes.find(l => l.articleId === ligne.articleId);
+        if (ligneAppro) {
+          const nouvelleQte = ligneAppro.quantite - ligne.quantite;
+          const nouveauSousTotal = nouvelleQte * Number(ligneAppro.prixUnitaire);
+          const nouvelleQteRetournee = (ligneAppro.quantiteRetournee || 0) + ligne.quantite;
+
+          await queryRunner.manager.query(
+            `UPDATE ligne_approvisionnement
+             SET quantite = $1, "sousTotal" = $2, "quantiteRetournee" = $3
+             WHERE id = $4`,
+            [nouvelleQte, nouveauSousTotal, nouvelleQteRetournee, ligneAppro.id]
+          );
+        }
+      }
+
+      // ÉTAPE 7: METTRE À JOUR L'APPROVISIONNEMENT
+      const ancienMontantRestant = Number(approvisionnement.montantRestant || 0);
+      const nouveauMontantRestant = Math.max(0, ancienMontantRestant - dto.total);
+
+      await queryRunner.manager.query(
+        `UPDATE approvisionnement SET "montantRestant" = $1, total = total - $2 WHERE id = $3`,
+        [nouveauMontantRestant, dto.total, dto.approvisionnementId]
+      );
+
+      // ÉTAPE 8: METTRE À JOUR LES FINANCES DU FOURNISSEUR
+      if (approvisionnement.fournisseurId) {
+        const fournisseur = await queryRunner.manager.findOne(Fournisseur, {
+          where: { id: approvisionnement.fournisseurId, organizationId },
+        });
+
+        if (fournisseur) {
+          const ancienTotalAchats = Number(fournisseur.totalAchats || 0);
+          const ancienneDette = Number(fournisseur.dette || 0);
+          const nouveauTotalAchats = Math.max(0, ancienTotalAchats - dto.total);
+          const nouvelleDette = ancienneDette - dto.total;
+
+          await queryRunner.manager.query(
+            `UPDATE fournisseur SET "totalAchats" = $1, dette = $2 WHERE id = $3`,
+            [nouveauTotalAchats, nouvelleDette, fournisseur.id]
+          );
+        }
+      }
+
+      await queryRunner.commitTransaction();
+
+      console.log(`✅ Retour fournisseur ${numero} créé - Montant: ${dto.total.toLocaleString()} FG`);
+
+      // Récupérer le retour complet avec les lignes
+      return this.retourFournisseurRepo.findOne({
+        where: { id: savedRetour.id, organizationId },
+        relations: ['lignes'],
+      });
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error('❌ Erreur lors du retour fournisseur:', error.message);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Récupérer un retour fournisseur par ID
+   */
+  async getRetourFournisseur(id: string, organizationId: string): Promise<RetourFournisseur> {
+    const retour = await this.retourFournisseurRepo.findOne({
+      where: { id, organizationId },
+      relations: ['lignes'],
+    });
+
+    if (!retour) {
+      throw new NotFoundException('Retour fournisseur introuvable');
+    }
+
+    return retour;
+  }
+
+  /**
+   * Récupérer les retours fournisseurs par approvisionnement
+   */
+  async getRetoursByApprovisionnement(
+    approvisionnementId: string,
+    organizationId: string,
+  ): Promise<RetourFournisseur[]> {
+    return this.retourFournisseurRepo.find({
+      where: { approvisionnementId, organizationId },
+      relations: ['lignes'],
+      order: { createdAt: 'DESC' },
+    });
   }
 }

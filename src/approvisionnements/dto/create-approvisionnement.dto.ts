@@ -63,6 +63,47 @@ export class LigneApprovisionnementDto {
   @IsNumber()
   @Min(1)
   delaiAlerteExpiration?: number;
+
+  // Champs pour mode gros/détail
+  @ApiProperty({
+    example: 'uuid-mode-vente',
+    description: 'ID du mode de vente (gros/détail)',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  modeVenteId?: string;
+
+  @ApiProperty({
+    example: 'Gros',
+    description: 'Nom du mode de vente',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  modeVenteNom?: string;
+
+  @ApiProperty({
+    example: 12,
+    minimum: 1,
+    description: 'Multiplicateur de stock par mode (ex: 12 unités par lot)',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  modeQuantiteStock?: number;
+
+  @ApiProperty({
+    example: 60,
+    minimum: 1,
+    description: 'Quantité totale en unités (quantite × modeQuantiteStock)',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  quantiteUnites?: number;
 }
 
 export class CreateApprovisionnementDto {

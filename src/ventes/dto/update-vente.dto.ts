@@ -26,6 +26,16 @@ export class UpdateLigneVenteDto {
   @Min(1, { message: 'La quantité doit être au moins 1' })
   quantite: number;
 
+  @ApiProperty({
+    example: 'uuid-mode-vente',
+    description: 'ID du mode de vente utilisé',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  modeVenteId?:
+    string;
+
   @ApiProperty({ example: 85000, minimum: 0 })
   @IsNumber()
   @Min(0, { message: 'Le prix unitaire ne peut pas être négatif' })

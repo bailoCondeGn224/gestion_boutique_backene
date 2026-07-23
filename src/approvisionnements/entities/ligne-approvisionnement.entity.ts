@@ -43,6 +43,20 @@ export class LigneApprovisionnement extends BaseTenantEntity {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   sousTotal: number;
 
+  // Champs pour mode gros/détail
+  @Column({ nullable: true })
+  modeVenteId: string;
+
+  @Column({ type: 'int', default: 1 })
+  modeQuantiteStock: number;
+
+  @Column({ type: 'int', nullable: true })
+  quantiteUnites: number;
+
+  // Quantité déjà retournée au fournisseur
+  @Column({ type: 'int', default: 0 })
+  quantiteRetournee: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }

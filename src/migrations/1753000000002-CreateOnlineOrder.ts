@@ -1,248 +1,114 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateOnlineOrder1753000000002 implements MigrationInterface {
   name = 'CreateOnlineOrder1753000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Créer les enums
+    // Create enums if they don't exist
     await queryRunner.query(`
-      CREATE TYPE "online_order_statut_enum" AS ENUM ('EN_ATTENTE', 'CONFIRMEE', 'PRETE', 'LIVREE', 'ANNULEE')
+      DO $$ BEGIN
+        CREATE TYPE "online_order_statut_enum" AS ENUM ('EN_ATTENTE', 'CONFIRMEE', 'PRETE', 'LIVREE', 'ANNULEE');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
     await queryRunner.query(`
-      CREATE TYPE "online_order_mode_livraison_enum" AS ENUM ('LIVRAISON', 'RETRAIT_BOUTIQUE')
+      DO $$ BEGIN
+        CREATE TYPE "online_order_mode_livraison_enum" AS ENUM ('LIVRAISON', 'RETRAIT_BOUTIQUE');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
-    // Table online_order
-    await queryRunner.createTable(
-      new Table({
-        name: 'online_order',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'numero',
-            type: 'varchar',
-            length: '50',
-            isUnique: true,
-          },
-          {
-            name: 'organizationId',
-            type: 'uuid',
-          },
-          {
-            name: 'customerAccountId',
-            type: 'uuid',
-          },
-          {
-            name: 'clientId',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'statut',
-            type: 'online_order_statut_enum',
-            default: "'EN_ATTENTE'",
-          },
-          {
-            name: 'modeLivraison',
-            type: 'online_order_mode_livraison_enum',
-          },
-          {
-            name: 'adresseLivraison',
-            type: 'varchar',
-            length: '500',
-            isNullable: true,
-          },
-          {
-            name: 'telephoneLivraison',
-            type: 'varchar',
-            length: '20',
-            isNullable: true,
-          },
-          {
-            name: 'fraisLivraison',
-            type: 'decimal',
-            precision: 15,
-            scale: 2,
-            default: 0,
-          },
-          {
-            name: 'sousTotal',
-            type: 'decimal',
-            precision: 15,
-            scale: 2,
-          },
-          {
-            name: 'total',
-            type: 'decimal',
-            precision: 15,
-            scale: 2,
-          },
-          {
-            name: 'motifAnnulation',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'confirmeePar',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'confirmeeLe',
-            type: 'timestamp',
-            isNullable: true,
-          },
-          {
-            name: 'preteLe',
-            type: 'timestamp',
-            isNullable: true,
-          },
-          {
-            name: 'livreeLe',
-            type: 'timestamp',
-            isNullable: true,
-          },
-          {
-            name: 'annuleeLe',
-            type: 'timestamp',
-            isNullable: true,
-          },
-          {
-            name: 'venteId',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-      true,
-    );
+    // Create online_order table if not exists
+    const orderTableExists = await queryRunner.hasTable('online_order');
+    if (!orderTableExists) {
+      await queryRunner.query(`
+        CREATE TABLE "online_order" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "numero" varchar(50) NOT NULL UNIQUE,
+          "organizationId" uuid NOT NULL,
+          "customerAccountId" uuid NOT NULL,
+          "clientId" uuid,
+          "statut" "online_order_statut_enum" NOT NULL DEFAULT 'EN_ATTENTE',
+          "modeLivraison" "online_order_mode_livraison_enum" NOT NULL,
+          "adresseLivraison" varchar(500),
+          "telephoneLivraison" varchar(20),
+          "fraisLivraison" decimal(15,2) NOT NULL DEFAULT 0,
+          "sousTotal" decimal(15,2) NOT NULL,
+          "total" decimal(15,2) NOT NULL,
+          "motifAnnulation" text,
+          "confirmeePar" uuid,
+          "confirmeeLe" timestamp,
+          "preteLe" timestamp,
+          "livreeLe" timestamp,
+          "annuleeLe" timestamp,
+          "venteId" uuid,
+          "createdAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "PK_online_order" PRIMARY KEY ("id")
+        )
+      `);
+    }
 
-    await queryRunner.createIndex(
-      'online_order',
-      new TableIndex({
-        name: 'IDX_online_order_organizationId',
-        columnNames: ['organizationId'],
-      }),
-    );
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_online_order_organizationId" ON "online_order" ("organizationId")
+    `);
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_online_order_statut" ON "online_order" ("statut")
+    `);
 
-    await queryRunner.createIndex(
-      'online_order',
-      new TableIndex({
-        name: 'IDX_online_order_statut',
-        columnNames: ['statut'],
-      }),
-    );
+    // Create online_order_item table if not exists
+    const itemTableExists = await queryRunner.hasTable('online_order_item');
+    if (!itemTableExists) {
+      await queryRunner.query(`
+        CREATE TABLE "online_order_item" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "onlineOrderId" uuid NOT NULL,
+          "articleId" uuid NOT NULL,
+          "articleNom" varchar(255) NOT NULL,
+          "modeVenteId" uuid,
+          "modeVenteNom" varchar(100),
+          "quantite" int NOT NULL,
+          "prixUnitaire" decimal(15,2) NOT NULL,
+          "sousTotal" decimal(15,2) NOT NULL,
+          "organizationId" uuid NOT NULL,
+          CONSTRAINT "PK_online_order_item" PRIMARY KEY ("id")
+        )
+      `);
+    }
 
-    // Table online_order_item
-    await queryRunner.createTable(
-      new Table({
-        name: 'online_order_item',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'onlineOrderId',
-            type: 'uuid',
-          },
-          {
-            name: 'articleId',
-            type: 'uuid',
-          },
-          {
-            name: 'articleNom',
-            type: 'varchar',
-            length: '255',
-          },
-          {
-            name: 'modeVenteId',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'modeVenteNom',
-            type: 'varchar',
-            length: '100',
-            isNullable: true,
-          },
-          {
-            name: 'quantite',
-            type: 'int',
-          },
-          {
-            name: 'prixUnitaire',
-            type: 'decimal',
-            precision: 15,
-            scale: 2,
-          },
-          {
-            name: 'sousTotal',
-            type: 'decimal',
-            precision: 15,
-            scale: 2,
-          },
-          {
-            name: 'organizationId',
-            type: 'uuid',
-          },
-        ],
-      }),
-      true,
-    );
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_online_order_item_organizationId" ON "online_order_item" ("organizationId")
+    `);
 
-    await queryRunner.createIndex(
-      'online_order_item',
-      new TableIndex({
-        name: 'IDX_online_order_item_organizationId',
-        columnNames: ['organizationId'],
-      }),
-    );
+    // Create FK if not exists
+    const fkExists = await queryRunner.query(`
+      SELECT 1 FROM information_schema.table_constraints
+      WHERE constraint_type = 'FOREIGN KEY'
+      AND table_name = 'online_order_item'
+      AND constraint_name LIKE '%onlineOrderId%'
+    `);
 
-    await queryRunner.createForeignKey(
-      'online_order_item',
-      new TableForeignKey({
-        columnNames: ['onlineOrderId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'online_order',
-        onDelete: 'CASCADE',
-      }),
-    );
+    if (fkExists.length === 0) {
+      await queryRunner.query(`
+        ALTER TABLE "online_order_item"
+        ADD CONSTRAINT "FK_online_order_item_onlineOrderId"
+        FOREIGN KEY ("onlineOrderId") REFERENCES "online_order"("id") ON DELETE CASCADE
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const itemTable = await queryRunner.getTable('online_order_item');
-    const foreignKey = itemTable?.foreignKeys.find(fk => fk.columnNames.indexOf('onlineOrderId') !== -1);
-    if (foreignKey) {
-      await queryRunner.dropForeignKey('online_order_item', foreignKey);
-    }
-    await queryRunner.dropIndex('online_order_item', 'IDX_online_order_item_organizationId');
-    await queryRunner.dropTable('online_order_item');
+    await queryRunner.query(`ALTER TABLE "online_order_item" DROP CONSTRAINT IF EXISTS "FK_online_order_item_onlineOrderId"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_online_order_item_organizationId"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "online_order_item"`);
 
-    await queryRunner.dropIndex('online_order', 'IDX_online_order_statut');
-    await queryRunner.dropIndex('online_order', 'IDX_online_order_organizationId');
-    await queryRunner.dropTable('online_order');
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_online_order_statut"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_online_order_organizationId"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "online_order"`);
 
-    await queryRunner.query(`DROP TYPE "online_order_mode_livraison_enum"`);
-    await queryRunner.query(`DROP TYPE "online_order_statut_enum"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "online_order_mode_livraison_enum"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "online_order_statut_enum"`);
   }
 }

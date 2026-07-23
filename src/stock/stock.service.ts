@@ -420,91 +420,108 @@ export class StockService {
     const dateDebut = new Date();
     dateDebut.setDate(dateDebut.getDate() - periode);
 
-    // Récupérer tous les articles avec leurs ventes
-    const articlesAvecVentes = await this.ligneVenteRepository
+    // Récupérer TOUS les articles de l'organisation
+    const tousLesArticles = await this.articlesRepository.find({
+      where: { organizationId },
+      relations: ['categorie'],
+    });
+
+    // Récupérer les ventes par article dans la période
+    const ventesParArticle = await this.ligneVenteRepository
       .createQueryBuilder('ligne')
       .leftJoin('ligne.vente', 'vente')
       .select('ligne.articleId', 'articleId')
-      .addSelect('ligne.nom', 'nom')
-      .addSelect('SUM(ligne.quantite)', 'totalVendu')
+      .addSelect('SUM(ligne.quantiteBase)', 'totalVendu')
       .addSelect('COUNT(DISTINCT vente.id)', 'nombreVentes')
+      .addSelect('MAX(vente.date)', 'derniereVente')
       .where('ligne.organizationId = :organizationId', { organizationId })
       .andWhere('vente.date >= :dateDebut', { dateDebut })
       .groupBy('ligne.articleId')
-      .addGroupBy('ligne.nom')
-      .orderBy('SUM(ligne.quantite)', 'DESC')
       .getRawMany();
 
-    // Récupérer le stock actuel pour chaque article vendu
-    const statsAvecStock = await Promise.all(
-      articlesAvecVentes.map(async (item) => {
-        const article = await this.articlesRepository.findOne({
-          where: { id: item.articleId, organizationId },
-          relations: ['categorie'],
-        });
+    // Créer un map des ventes par articleId
+    const ventesMap = new Map();
+    ventesParArticle.forEach(v => {
+      ventesMap.set(v.articleId, {
+        totalVendu: parseInt(v.totalVendu, 10) || 0,
+        nombreVentes: parseInt(v.nombreVentes, 10) || 0,
+        derniereVente: v.derniereVente,
+      });
+    });
 
-        if (!article) return null;
+    // Calculer les stats pour chaque article
+    const statsArticles = tousLesArticles.map(article => {
+      const ventes = ventesMap.get(article.id) || { totalVendu: 0, nombreVentes: 0, derniereVente: null };
+      const totalVendu = ventes.totalVendu;
+      const stockActuel = article.stock;
 
-        const totalVendu = parseInt(item.totalVendu, 10);
-        const stockActuel = article.stock;
-        const nombreVentes = parseInt(item.nombreVentes, 10);
+      // Taux de rotation sur la période = Vendus / Stock moyen
+      // Plus simple et réaliste: combien de fois le stock a tourné sur la période
+      const tauxRotationPeriode = stockActuel > 0
+        ? (totalVendu / stockActuel).toFixed(2)
+        : '0';
 
-        // Taux de rotation = (Quantité vendue / Stock moyen) sur la période
-        // Stock moyen ≈ stock actuel (simplifié)
-        const tauxRotation = stockActuel > 0
-          ? ((totalVendu / (stockActuel + totalVendu)) * (365 / periode)).toFixed(2)
-          : 'N/A';
+      // Pourcentage du stock vendu sur la période
+      const pourcentageVendu = stockActuel > 0
+        ? Math.round((totalVendu / (stockActuel + totalVendu)) * 100)
+        : 0;
 
-        // Jours de couverture = combien de jours le stock actuel peut tenir
-        const venteMoyenneParJour = totalVendu / periode;
-        const joursCouverture = venteMoyenneParJour > 0
-          ? Math.round(stockActuel / venteMoyenneParJour)
-          : 999;
+      // Classification basée sur le pourcentage vendu sur la période
+      // - Rapide: > 50% du stock vendu (forte demande)
+      // - Moyenne: 10-50% du stock vendu
+      // - Lente: < 10% du stock vendu (stock qui ne bouge pas)
+      let statut = 'rotation_lente';
+      if (pourcentageVendu >= 50) {
+        statut = 'rotation_rapide';
+      } else if (pourcentageVendu >= 10) {
+        statut = 'rotation_moyenne';
+      }
 
-        return {
-          articleId: item.articleId,
-          nom: item.nom,
-          categorie: article.categorie?.nom || 'N/A',
-          totalVendu,
-          nombreVentes,
-          stockActuel,
-          tauxRotation,
-          joursCouverture,
-          valeurStock: Number(article.prixAchat) * stockActuel,
-          statut: joursCouverture > 60 ? 'rotation_lente' :
-                  joursCouverture > 30 ? 'rotation_moyenne' : 'rotation_rapide',
-        };
-      })
-    );
-
-    const statsFiltered = statsAvecStock.filter(s => s !== null);
+      return {
+        articleId: article.id,
+        nom: article.nom,
+        categorie: article.categorie?.nom || 'N/A',
+        totalVendu,
+        nombreVentes: ventes.nombreVentes,
+        stockActuel,
+        tauxRotationPeriode, // Rotation sur la période (pas annualisée)
+        pourcentageVendu,
+        derniereVente: ventes.derniereVente,
+        valeurStock: Number(article.prixAchat) * stockActuel,
+        statut,
+      };
+    });
 
     // Séparer par catégorie de rotation
-    const rotationRapide = statsFiltered.filter(s => s.statut === 'rotation_rapide');
-    const rotationMoyenne = statsFiltered.filter(s => s.statut === 'rotation_moyenne');
-    const rotationLente = statsFiltered.filter(s => s.statut === 'rotation_lente');
+    const rotationRapide = statsArticles.filter(s => s.statut === 'rotation_rapide');
+    const rotationMoyenne = statsArticles.filter(s => s.statut === 'rotation_moyenne');
+    const rotationLente = statsArticles.filter(s => s.statut === 'rotation_lente' && s.stockActuel > 0);
 
-    // Calculer la valeur du stock immobilisé (rotation lente)
+    // Calculer la valeur du stock immobilisé (rotation lente avec stock > 0)
     const valeurStockImmobilise = rotationLente.reduce((sum, item) => sum + item.valeurStock, 0);
 
-    // Top 10 bestsellers
-    const topVentes = statsFiltered.slice(0, 10);
+    // FORTE ROTATION = Articles qui se vendent bien (triés par pourcentage vendu)
+    const articlesForteRotation = [...rotationRapide, ...rotationMoyenne]
+      .sort((a, b) => b.pourcentageVendu - a.pourcentageVendu)
+      .slice(0, 10);
 
-    // Articles à rotation lente (stock mort potentiel)
-    const stockMort = rotationLente.slice(0, 10);
+    // ROTATION LENTE = Articles avec peu/pas de ventes mais du stock (triés par valeur immobilisée)
+    const stockMort = rotationLente
+      .sort((a, b) => b.valeurStock - a.valeurStock)
+      .slice(0, 10);
 
     return {
       periode: `${periode} jours`,
       dateDebut,
       dateFin: new Date(),
       resume: {
-        articlesAnalyses: statsFiltered.length,
+        articlesAnalyses: statsArticles.length,
         rotationRapide: rotationRapide.length,
         rotationMoyenne: rotationMoyenne.length,
         rotationLente: rotationLente.length,
         valeurStockImmobilise: Math.round(valeurStockImmobilise),
       },
-      topVentes,
+      topVentes: articlesForteRotation,
       stockMort,
       detailParStatut: {
         rapide: rotationRapide.length,

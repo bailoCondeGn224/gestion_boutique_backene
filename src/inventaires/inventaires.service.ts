@@ -220,6 +220,29 @@ export class InventairesService {
       throw new NotFoundException('Inventaire non trouvé');
     }
 
+    // Recalculer les stats à la volée pour garantir la cohérence
+    const totalArticles = await this.articleRepository.count({
+      where: { organizationId },
+    });
+    const articlesComptes = inventaire.comptages?.length || 0;
+    const articlesAvecEcarts = inventaire.comptages?.filter((c) => c.ecart !== 0).length || 0;
+
+    // Mettre à jour en base si différent
+    if (
+      inventaire.totalArticles !== totalArticles ||
+      inventaire.articlesComptes !== articlesComptes ||
+      inventaire.articlesAvecEcarts !== articlesAvecEcarts
+    ) {
+      await this.inventaireRepository.update(id, {
+        totalArticles,
+        articlesComptes,
+        articlesAvecEcarts,
+      });
+      inventaire.totalArticles = totalArticles;
+      inventaire.articlesComptes = articlesComptes;
+      inventaire.articlesAvecEcarts = articlesAvecEcarts;
+    }
+
     // Calculer les statistiques des écarts
     let articlesManquants = 0;
     let articlesSurplus = 0;
@@ -320,6 +343,12 @@ export class InventairesService {
    * Mettre à jour les statistiques d'un inventaire
    */
   private async updateInventaireStats(inventaireId: string): Promise<void> {
+    const inventaire = await this.inventaireRepository.findOne({
+      where: { id: inventaireId },
+    });
+
+    if (!inventaire) return;
+
     const comptages = await this.comptageRepository.find({
       where: { inventaireId },
     });
@@ -327,9 +356,15 @@ export class InventairesService {
     const articlesComptes = comptages.length;
     const articlesAvecEcarts = comptages.filter((c) => c.ecart !== 0).length;
 
+    // Recalculer totalArticles pour refléter le nombre actuel d'articles
+    const totalArticles = await this.articleRepository.count({
+      where: { organizationId: inventaire.organizationId },
+    });
+
     await this.inventaireRepository.update(inventaireId, {
       articlesComptes,
       articlesAvecEcarts,
+      totalArticles,
     });
   }
 

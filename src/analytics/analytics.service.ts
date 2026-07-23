@@ -164,6 +164,79 @@ export class AnalyticsService {
   }
 
   /**
+   * Récupère les ventes par jour pour les 7 derniers jours (graphique)
+   */
+  async getVentesParJourSemaine(organizationId: string) {
+    const jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    const result: { name: string; ventes: number; total: number; date: string }[] = [];
+
+    // Générer les 7 derniers jours
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      // Requête pour ce jour
+      const stats = await this.ventesRepository
+        .createQueryBuilder('vente')
+        .select('COUNT(*)', 'count')
+        .addSelect('COALESCE(SUM(vente.total), 0)', 'total')
+        .where('vente.organizationId = :organizationId', { organizationId })
+        .andWhere('vente.date >= :date', { date })
+        .andWhere('vente.date < :nextDate', { nextDate })
+        .getRawOne();
+
+      result.push({
+        name: jours[date.getDay()],
+        ventes: parseInt(stats?.count || '0', 10),
+        total: parseFloat(stats?.total || '0'),
+        date: date.toISOString().split('T')[0],
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Récupère les revenus par mois pour les 4 derniers mois (graphique)
+   */
+  async getRevenusParMois(organizationId: string) {
+    const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const result: { name: string; montant: number; mois: number; annee: number }[] = [];
+
+    // Générer les 4 derniers mois
+    for (let i = 3; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const moisIndex = date.getMonth();
+      const annee = date.getFullYear();
+
+      const debutMois = new Date(annee, moisIndex, 1);
+      const finMois = new Date(annee, moisIndex + 1, 1);
+
+      const stats = await this.ventesRepository
+        .createQueryBuilder('vente')
+        .select('COALESCE(SUM(vente.total), 0)', 'total')
+        .where('vente.organizationId = :organizationId', { organizationId })
+        .andWhere('vente.date >= :debutMois', { debutMois })
+        .andWhere('vente.date < :finMois', { finMois })
+        .getRawOne();
+
+      result.push({
+        name: mois[moisIndex],
+        montant: Math.round(parseFloat(stats?.total || '0') / 1000), // En milliers
+        mois: moisIndex + 1,
+        annee,
+      });
+    }
+
+    return result;
+  }
+
+  /**
    * Récupère les statistiques sur les produits expirés et expirant bientôt
    */
   async getExpirationStats(organizationId: string) {

@@ -6,6 +6,8 @@ import { Vente } from '../ventes/entities/vente.entity';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 import { RetourClient } from './entities/retour-client.entity';
 import { LigneRetourClient } from './entities/ligne-retour-client.entity';
+import { RetourFournisseur } from './entities/retour-fournisseur.entity';
+import { LigneRetourFournisseur } from './entities/ligne-retour-fournisseur.entity';
 import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
 import { LigneApprovisionnement } from '../approvisionnements/entities/ligne-approvisionnement.entity';
 import { Client } from '../clients/entities/client.entity';
@@ -29,6 +31,8 @@ import { TransactionRepository } from '../finances/repositories/transaction.repo
       LigneVente,
       RetourClient,
       LigneRetourClient,
+      RetourFournisseur,
+      LigneRetourFournisseur,
       Approvisionnement,
       LigneApprovisionnement,
       Client,

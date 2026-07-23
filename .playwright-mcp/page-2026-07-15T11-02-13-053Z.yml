@@ -1,0 +1,737 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=1]: Babani
+              - paragraph: Mode fashion
+          - navigation:
+            - link:
+              - /url: /admin/dashboard
+              - generic: Dashboard Admin
+            - link:
+              - /url: /analytics
+              - generic: Analytics
+            - link:
+              - /url: /fournisseurs
+              - generic: Fournisseurs
+            - link:
+              - /url: /clients
+              - generic: Clients
+            - link:
+              - /url: /stock
+              - generic: Stock
+            - link:
+              - /url: /categories
+              - generic: Catégories
+            - link:
+              - /url: /zones
+              - generic: Zones
+            - link:
+              - /url: /approvisionnements
+              - generic: Approvisionnements
+            - link:
+              - /url: /ventes
+              - generic: Ventes
+            - link:
+              - /url: /commandes
+              - generic: Commandes
+            - link:
+              - /url: /versements
+              - generic: Versements
+            - link:
+              - /url: /versements-client
+              - generic: Paiements Clients
+            - link:
+              - /url: /retours-clients
+              - generic: Retours Clients
+            - link:
+              - /url: /retours-fournisseurs
+              - generic: Retours Fournisseurs
+            - link:
+              - /url: /mouvements-stock
+              - generic: Historique Mouvements
+            - link:
+              - /url: /inventaires
+              - generic: Inventaires
+            - link:
+              - /url: /depenses
+              - generic: Dépenses
+            - link:
+              - /url: /zakat
+              - generic: Zakat
+            - link:
+              - /url: /utilisateurs
+              - generic: Utilisateurs
+            - link:
+              - /url: /roles
+              - generic: Rôles & Permissions
+          - generic:
+            - generic:
+              - paragraph: bailo condé
+              - paragraph: babaniservice@dubi.com
+            - button:
+              - generic: Déconnexion
+          - button
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Gestion du Stock
+                  - paragraph: Gestion des articles en stock
+            - generic:
+              - button: Import
+              - button: Ajouter
+          - generic:
+            - button:
+              - generic: Analyse de Rotation
+              - generic:
+                - generic: "5"
+                - generic: "5"
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Articles Total
+                  - paragraph: "20"
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Valeur du Stock
+                  - paragraph: 762 150 118 FG
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Stock Faible
+                  - paragraph: "0"
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Rupture/Critique
+                  - paragraph: "0"
+          - generic:
+            - generic:
+              - paragraph: Zone
+              - paragraph: A — Zonne Abaye
+            - generic:
+              - paragraph: Zone
+              - paragraph: B — Zonne B
+            - generic:
+              - paragraph: Zone
+              - paragraph: C — Zone C
+            - generic:
+              - paragraph: Zone
+              - paragraph: D — Zone D
+            - generic:
+              - paragraph: Zone
+              - paragraph: E — Zone E
+          - generic:
+            - generic:
+              - textbox:
+                - /placeholder: Rechercher un article...
+            - generic:
+              - combobox
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=3]: Abaya
+                  - generic:
+                    - generic:
+                      - generic: 280 000 FG
+                      - paragraph: "Achat: 200 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "149"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 B
+                    - generic: •
+                    - generic: Abaya Dubai
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button [active]:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Abaya gris
+                  - generic:
+                    - generic:
+                      - generic: 300 000 FG
+                      - paragraph: "Achat: 200 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "181"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 B
+                    - generic: •
+                    - generic: Abaya Egypte
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Abaya Blanc
+                  - generic:
+                    - generic:
+                      - generic: 300 000 FG
+                      - paragraph: "Achat: 200 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "61"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 B
+                    - generic: •
+                    - generic: Abaya Dubai
+                  - generic: Expire dans 16j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Abaya chicc
+                  - generic:
+                    - generic:
+                      - generic: 380 000 FG
+                      - paragraph: "Achat: 300 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "976"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 C
+                    - generic: •
+                    - generic: Abaya Dubai
+                  - generic: Expire dans 16j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Abaya jaune
+                  - generic:
+                    - generic:
+                      - generic: 200 000 FG
+                      - paragraph: "Achat: 100 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "123"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 C
+                    - generic: •
+                    - generic: Abaya Dubai
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Abaya Noir
+                  - generic:
+                    - generic:
+                      - generic: 250 000 FG
+                      - paragraph: "Achat: 200 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "105"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 B
+                    - generic: •
+                    - generic: Abaya Dubai
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Alcool 70° - Flacon 500ml
+                  - generic:
+                    - generic:
+                      - generic: 8 000 FG
+                      - paragraph: "Achat: 5 500 FG"
+                    - generic:
+                      - generic:
+                        - generic: "149"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 E
+                    - generic: •
+                    - generic: Désinfectants
+                  - generic: Expire dans 16j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Amoxicilline 500mg - Boîte de 12
+                  - generic:
+                    - generic:
+                      - generic: 25 000 FG
+                      - paragraph: "Achat: 18 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "150"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 B
+                    - generic: •
+                    - generic: Antibiotiques
+                  - generic: Expire dans 14j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Amoxicilline Sirop 250mg/5ml
+                  - generic:
+                    - generic:
+                      - generic: 18 000 FG
+                      - paragraph: "Achat: 13 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "60"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 D
+                    - generic: •
+                    - generic: Pédiatrie
+                  - generic: Expire dans 10j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Aspirine 100mg - Boîte de 30
+                  - generic:
+                    - generic:
+                      - generic: 8 000 FG
+                      - paragraph: "Achat: 5 500 FG"
+                    - generic:
+                      - generic:
+                        - generic: "200"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Médicaments
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Azithromycine 250mg - Boîte de 6
+                  - generic:
+                    - generic:
+                      - generic: 35 000 FG
+                      - paragraph: "Achat: 25 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "100"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 B
+                    - generic: •
+                    - generic: Antibiotiques
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Bétadine Solution - Flacon 125ml
+                  - generic:
+                    - generic:
+                      - generic: 12 000 FG
+                      - paragraph: "Achat: 8 500 FG"
+                    - generic:
+                      - generic:
+                        - generic: "100"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 E
+                    - generic: •
+                    - generic: Désinfectants
+                  - generic: Expire dans 15j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: dfddd
+                  - generic:
+                    - generic:
+                      - generic: 222 222 FG
+                      - paragraph: "Achat: 200 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "200"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Abaya Dubai
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: dfskd
+                  - generic:
+                    - generic:
+                      - generic: 50 000 FG
+                      - paragraph: "Achat: 34 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "19"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 C
+                    - generic: •
+                    - generic: Abaya Egypte
+                  - generic: Expire dans 455j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: DHHFH
+                  - generic:
+                    - generic:
+                      - generic: 20 000 FG
+                      - paragraph: "Achat: 10 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "206"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Abaya Egypte
+                  - generic: Expire dans 15j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Doliprane 1000mg - Boîte de 8
+                  - generic:
+                    - generic:
+                      - generic: 7 500 FG
+                      - paragraph: "Achat: 5 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "400"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Médicaments
+                  - generic: Expire dans 13j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic: Expire dans 4j
+                - generic:
+                  - heading [level=3]: Doliprane Sirop 100ml
+                  - generic:
+                    - generic:
+                      - generic: 12 000 FG
+                      - paragraph: "Achat: 8 500 FG"
+                    - generic:
+                      - generic:
+                        - generic: "80"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 D
+                    - generic: •
+                    - generic: Pédiatrie
+                  - generic: Expire dans 4j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: EEZ
+                  - generic:
+                    - generic:
+                      - generic: 2 000 FG
+                      - paragraph: "Achat: 1 222 FG"
+                    - generic:
+                      - generic:
+                        - generic: "200"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Abaya Egypte
+                  - generic: Expire dans 15j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic:
+                  - heading [level=3]: Efferalgan 500mg - Boîte de 16
+                  - generic:
+                    - generic:
+                      - generic: 10 000 FG
+                      - paragraph: "Achat: 7 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: "350"
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Médicaments
+                  - generic: Expire dans 16j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+              - generic:
+                - generic: Expire dans 7j
+                - generic:
+                  - heading [level=3]: ERER
+                  - generic:
+                    - generic:
+                      - generic: 3 000 000 FG
+                      - paragraph: "Achat: 120 000 FG"
+                    - generic:
+                      - generic:
+                        - generic: 1 998
+                        - generic: U.
+                  - generic:
+                    - generic: 📍 A
+                    - generic: •
+                    - generic: Abaya Egypte
+                  - generic: Expire dans 7j
+                  - generic:
+                    - button:
+                      - generic: Vendre
+                    - button:
+                      - generic: Modifier
+                    - button:
+                      - generic: Historique
+                    - button:
+                      - generic: Supprimer
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 1 - 20 sur 38
+                  - generic:
+                    - generic: Afficher
+                    - combobox
+                - generic:
+                  - button [disabled]
+                  - button [disabled]:
+                    - generic: Précédent
+                  - generic:
+                    - button: "1"
+                    - button: "2"
+                  - button:
+                    - generic: Suivant
+                  - button
+  - generic: "200000"
+  - dialog [ref=f3e1722]:
+    - generic [ref=f3e1723]:
+      - heading "Modifier l'Article" [level=2] [ref=f3e1724]
+      - paragraph [ref=f3e1725]: Modifiez toutes les informations de l'article
+    - generic [ref=f3e1726]:
+      - generic [ref=f3e1727]:
+        - heading "Modifier l'Article" [level=2] [ref=f3e1728]
+        - paragraph [ref=f3e1729]: Modifiez toutes les informations de l'article
+      - generic [ref=f3e1730]:
+        - generic [ref=f3e1731]:
+          - generic [ref=f3e1732]: Nom de l'article*
+          - 'textbox "Ex: Abaya Noire Premium" [ref=f3e1733]': Abaya
+        - generic [ref=f3e1734]:
+          - text: Référence (SKU)
+          - 'textbox "Ex: ABY-001" [ref=f3e1735]'
+        - generic [ref=f3e1736]:
+          - text: Unité de stock
+          - 'textbox "Ex: Bouteille, Kilo, Pièce" [ref=f3e1737]': Unité
+        - generic [ref=f3e1738]:
+          - generic [ref=f3e1739]: Photo de l'article (optionnel)
+          - generic [ref=f3e1740]:
+            - generic [ref=f3e1741]:
+              - img "Aperçu" [ref=f3e1742]
+              - button [ref=f3e1743] [cursor=pointer]
+            - generic [ref=f3e1747]:
+              - generic [ref=f3e1748] [cursor=pointer]: Changer la photo
+              - paragraph [ref=f3e1752]: JPG, PNG ou WEBP. Max 5MB.
+        - generic [ref=f3e1753]:
+          - generic [ref=f3e1755]:
+            - generic [ref=f3e1756]: Catégorie*
+            - combobox [ref=f3e1757]:
+              - option "Sélectionnez une catégorie"
+              - option "Abaya Dubai" [selected]
+              - option "Abaya Egypte"
+              - option "Antibiotiques"
+              - option "Compléments"
+              - option "Consommables"
+              - option "Désinfectants"
+              - option "Foulard"
+              - option "Médicaments"
+              - option "Pagne"
+              - option "Pédiatrie"
+          - generic [ref=f3e1759]:
+            - generic [ref=f3e1760]: Zone de stockage*
+            - combobox [ref=f3e1761]:
+              - option "Zone A"
+              - option "Zone B" [selected]
+              - option "Zone C"
+              - option "Zone D"
+              - option "Zone E"
+        - generic [ref=f3e1762]:
+          - generic [ref=f3e1763]:
+            - generic [ref=f3e1764]: Stock actuel*
+            - spinbutton "100" [ref=f3e1765]: "149"
+          - generic [ref=f3e1766]:
+            - generic [ref=f3e1767]: Seuil alerte*
+            - spinbutton "10" [ref=f3e1768]
+        - generic [ref=f3e1769]:
+          - generic [ref=f3e1770]:
+            - text: Date d'expiration (optionnel)
+            - textbox [ref=f3e1771]
+          - generic [ref=f3e1772]:
+            - text: Délai d'alerte expiration (jours)
+            - spinbutton "30" [ref=f3e1773]
+        - generic [ref=f3e1774]:
+          - generic [ref=f3e1775]:
+            - generic [ref=f3e1776]: Prix de vente (GNF) *
+            - textbox "85 000" [ref=f3e1777]: 280 000.00
+          - generic [ref=f3e1778]:
+            - generic [ref=f3e1779]: Prix d'achat (GNF)
+            - textbox "50 000" [ref=f3e1780]: 200 000.00
+        - generic [ref=f3e1783]:
+          - generic [ref=f3e1784]:
+            - heading "Modes de Vente" [level=3] [ref=f3e1791]
+            - button "Ajouter" [ref=f3e1792] [cursor=pointer]
+          - generic [ref=f3e1795]:
+            - paragraph [ref=f3e1800]: Aucun mode de vente
+            - paragraph [ref=f3e1801]: L'article sera vendu à l'unité au prix défini
+        - generic [ref=f3e1802]:
+          - button "Annuler" [ref=f3e1803] [cursor=pointer]
+          - button "Enregistrer" [ref=f3e1804] [cursor=pointer]
+    - button "Close" [ref=f3e1805] [cursor=pointer]

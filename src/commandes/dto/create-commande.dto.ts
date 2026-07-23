@@ -25,10 +25,34 @@ export class LigneCommandeDto {
   @Min(1, { message: 'La quantité doit être au moins 1' })
   quantite: number;
 
+  @ApiProperty({
+    example: 24,
+    description: 'Quantité en unités de base (pour le stock)',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  quantiteBase?: number;
+
+  @ApiProperty({
+    example: 'uuid-mode-vente',
+    description: 'ID du mode de vente utilisé',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  modeVenteId?: string;
+
   @ApiProperty({ example: 85000, minimum: 0 })
   @IsNumber()
   @Min(0, { message: 'Le prix unitaire ne peut pas être négatif' })
   prixUnitaire: number;
+
+  @ApiProperty({ example: 60000, minimum: 0, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'Le prix d\'achat ne peut pas être négatif' })
+  prixAchat?: number;
 
   @ApiProperty({ example: 170000, minimum: 0 })
   @IsNumber()

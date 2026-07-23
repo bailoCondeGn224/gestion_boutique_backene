@@ -199,6 +199,19 @@ export class VentesService {
         });
 
         if (client) {
+          // Mettre à jour la vente avec les infos du client si non fournies
+          if (!createVenteDto.nom) {
+            await queryRunner.manager.update(Vente, savedVente.id, {
+              nom: client.nom,
+              prenom: '',
+              tel: client.telephone || '',
+            });
+            // Mettre à jour l'objet local aussi
+            savedVente.nom = client.nom;
+            savedVente.prenom = '';
+            savedVente.tel = client.telephone || '';
+          }
+
           // Augmenter totalAchats avec le total de la vente
           const newTotalAchats = Number(client.totalAchats) + Number(createVenteDto.total);
 
@@ -229,8 +242,9 @@ export class VentesService {
 
     const queryBuilder = this.ventesRepository.createQueryBuilder('vente');
 
-    // Charger les lignes pour afficher les articles
+    // Charger les lignes et le mode de vente pour afficher les articles
     queryBuilder.leftJoinAndSelect('vente.lignes', 'lignes');
+    queryBuilder.leftJoinAndSelect('lignes.modeVente', 'modeVente');
 
     // Filtre par organization (toujours en premier avec .where())
     queryBuilder.where('vente.organizationId = :organizationId', { organizationId });
@@ -274,7 +288,7 @@ export class VentesService {
   async findOne(id: string, organizationId: string): Promise<Vente> {
     const vente = await this.ventesRepository.findOne({
       where: { id, organizationId },
-      relations: ['lignes'],
+      relations: ['lignes', 'lignes.modeVente'],
     });
     if (!vente) {
       throw new NotFoundException(`Vente avec l'ID ${id} introuvable`);
@@ -421,9 +435,10 @@ export class VentesService {
         // Sauvegarder les anciennes lignes pour ajuster le stock
         const oldLignes = [...vente.lignes];
 
-        // Rétablir le stock des anciennes lignes
+        // Rétablir le stock des anciennes lignes (utiliser quantiteBase si disponible)
         for (const ligne of oldLignes) {
-          await this.stockService.incrementStock(ligne.articleId, ligne.quantite, organizationId);
+          const quantiteStock = ligne.quantiteBase || ligne.quantite;
+          await this.stockService.incrementStock(ligne.articleId, quantiteStock, organizationId);
         }
 
         // Supprimer les anciennes lignes
@@ -435,21 +450,27 @@ export class VentesService {
         // Créer les nouvelles lignes et décrémenter le stock
         for (const ligneDto of updateVenteDto.lignes) {
           // Récupérer le prix d'achat si non fourni
-          let prixAchat = ligneDto.prixAchat;
-          if (!prixAchat) {
-            const article = await this.stockService.findOne(ligneDto.articleId, organizationId);
-            prixAchat = Number(article.prixAchat) || 0;
+          const article = await this.stockService.findOne(ligneDto.articleId, organizationId);
+          const prixAchat = ligneDto.prixAchat || Number(article.prixAchat) || 0;
+
+          // Calculer quantiteBase si modeVenteId est fourni
+          let quantiteBase = ligneDto.quantite;
+          if (ligneDto.modeVenteId) {
+            const modeVente = await this.modeVenteService.findOne(ligneDto.modeVenteId, organizationId);
+            quantiteBase = ligneDto.quantite * Number(modeVente.quantiteStock);
           }
 
           await queryRunner.manager.query(
             `INSERT INTO ligne_vente
-             ("venteId", "articleId", nom, quantite, "prixUnitaire", "prixAchat", "sousTotal", "organizationId")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+             ("venteId", "articleId", "modeVenteId", nom, quantite, "quantiteBase", "prixUnitaire", "prixAchat", "sousTotal", "organizationId")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
               id,
               ligneDto.articleId,
+              ligneDto.modeVenteId || null,
               ligneDto.nom,
               ligneDto.quantite,
+              quantiteBase,
               ligneDto.prixUnitaire,
               prixAchat,
               ligneDto.sousTotal,
@@ -457,8 +478,8 @@ export class VentesService {
             ],
           );
 
-          // Décrémenter le stock
-          await this.stockService.decrementStock(ligneDto.articleId, ligneDto.quantite, organizationId);
+          // Décrémenter le stock avec quantiteBase (unités réelles)
+          await this.stockService.decrementStock(ligneDto.articleId, quantiteBase, organizationId);
         }
       }
 
@@ -538,9 +559,10 @@ export class VentesService {
     await queryRunner.startTransaction();
 
     try {
-      // Restaurer le stock
+      // Restaurer le stock (utiliser quantiteBase si disponible)
       for (const item of vente.lignes) {
-        await this.stockService.incrementStock(item.articleId, item.quantite, organizationId);
+        const quantiteStock = item.quantiteBase || item.quantite;
+        await this.stockService.incrementStock(item.articleId, quantiteStock, organizationId);
       }
 
       // Mettre à jour le client si un clientId est fourni

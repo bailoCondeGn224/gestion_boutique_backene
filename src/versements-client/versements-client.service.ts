@@ -65,10 +65,10 @@ export class VersementsClientService {
         );
       }
 
-      // Mettre à jour la vente
+      // Mettre à jour la vente (conversion en Number pour éviter la concaténation de strings)
       await queryRunner.manager.update(Vente, createDto.venteId, {
-        montantPaye: vente.montantPaye + createDto.montant,
-        montantRestant: vente.montantRestant - createDto.montant,
+        montantPaye: Number(vente.montantPaye) + Number(createDto.montant),
+        montantRestant: Number(vente.montantRestant) - Number(createDto.montant),
       });
 
       // Créer le versement avec le numéro de vente et organizationId
@@ -282,7 +282,7 @@ export class VersementsClientService {
 
       if (client) {
         await queryRunner.manager.update(Client, versement.clientId, {
-          totalCredits: client.totalCredits + versement.montant,
+          totalCredits: Number(client.totalCredits) + Number(versement.montant),
         });
       }
 
@@ -294,8 +294,8 @@ export class VersementsClientService {
 
         if (vente) {
           await queryRunner.manager.update(Vente, versement.venteId, {
-            montantPaye: vente.montantPaye - versement.montant,
-            montantRestant: vente.montantRestant + versement.montant,
+            montantPaye: Number(vente.montantPaye) - Number(versement.montant),
+            montantRestant: Number(vente.montantRestant) + Number(versement.montant),
           });
         }
       }

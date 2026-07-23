@@ -1,32 +1,35 @@
-import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddOnlineFieldsToArticle1753000000004 implements MigrationInterface {
   name = 'AddOnlineFieldsToArticle1753000000004';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.addColumn(
-      'article',
-      new TableColumn({
-        name: 'disponibleEnLigne',
-        type: 'boolean',
-        default: false,
-      }),
-    );
+    // Check if column exists before adding
+    const disponibleEnLigneExists = await queryRunner.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'article' AND column_name = 'disponibleEnLigne'
+    `);
 
-    await queryRunner.addColumn(
-      'article',
-      new TableColumn({
-        name: 'prixEnLigne',
-        type: 'decimal',
-        precision: 15,
-        scale: 2,
-        isNullable: true,
-      }),
-    );
+    if (disponibleEnLigneExists.length === 0) {
+      await queryRunner.query(`
+        ALTER TABLE "article" ADD COLUMN "disponibleEnLigne" boolean NOT NULL DEFAULT false
+      `);
+    }
+
+    const prixEnLigneExists = await queryRunner.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'article' AND column_name = 'prixEnLigne'
+    `);
+
+    if (prixEnLigneExists.length === 0) {
+      await queryRunner.query(`
+        ALTER TABLE "article" ADD COLUMN "prixEnLigne" decimal(15,2)
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropColumn('article', 'prixEnLigne');
-    await queryRunner.dropColumn('article', 'disponibleEnLigne');
+    await queryRunner.query(`ALTER TABLE "article" DROP COLUMN IF EXISTS "prixEnLigne"`);
+    await queryRunner.query(`ALTER TABLE "article" DROP COLUMN IF EXISTS "disponibleEnLigne"`);
   }
 }

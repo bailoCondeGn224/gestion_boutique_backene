@@ -14,6 +14,8 @@ import { LivrerCommandeDto } from './dto/livrer-commande.dto';
 import { StatutCommande } from './enums/statut-commande.enum';
 import { VentesService } from '../ventes/ventes.service';
 import { ClientsService } from '../clients/clients.service';
+import { ModeVenteService } from '../stock/mode-vente.service';
+import { Article } from '../stock/entities/article.entity';
 import { PaginatedResponse } from '../common/interfaces/paginated-response.interface';
 import { createPaginatedResponse } from '../common/utils/pagination.util';
 
@@ -26,6 +28,7 @@ export class CommandesService {
     private lignesCommandeRepository: Repository<LigneCommande>,
     private ventesService: VentesService,
     private clientsService: ClientsService,
+    private modeVenteService: ModeVenteService,
     private dataSource: DataSource,
   ) {}
 
@@ -81,18 +84,40 @@ export class CommandesService {
 
       const savedCommande = await queryRunner.manager.save(commande);
 
-      // Créer manuellement les lignes avec organizationId
+      // Créer manuellement les lignes avec organizationId et mode vente
       for (const ligne of lignes) {
+        // Calculer quantiteBase si modeVenteId est fourni
+        let quantiteBase = ligne.quantite;
+        if (ligne.modeVenteId) {
+          const modeVente = await this.modeVenteService.findOne(
+            ligne.modeVenteId,
+            organizationId,
+          );
+          quantiteBase = ligne.quantite * Number(modeVente.quantiteStock);
+        }
+
+        // Récupérer prixAchat depuis l'article si non fourni
+        let prixAchat = ligne.prixAchat || 0;
+        if (!prixAchat) {
+          const article = await queryRunner.manager.findOne(Article, {
+            where: { id: ligne.articleId, organizationId },
+          });
+          prixAchat = article ? Number(article.prixAchat) || 0 : 0;
+        }
+
         await queryRunner.manager.query(
           `INSERT INTO ligne_commande
-           ("commandeId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId", "createdAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+           ("commandeId", "articleId", nom, quantite, "quantiteBase", "modeVenteId", "prixUnitaire", "prixAchat", "sousTotal", "organizationId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
           [
             savedCommande.id,
             ligne.articleId,
             ligne.nom,
             ligne.quantite,
+            quantiteBase,
+            ligne.modeVenteId || null,
             ligne.prixUnitaire,
+            prixAchat,
             ligne.sousTotal,
             organizationId,
           ],
@@ -128,7 +153,8 @@ export class CommandesService {
 
     const queryBuilder = this.commandesRepository
       .createQueryBuilder('commande')
-      .leftJoinAndSelect('commande.lignes', 'lignes');
+      .leftJoinAndSelect('commande.lignes', 'lignes')
+      .leftJoinAndSelect('lignes.modeVente', 'modeVente');
 
     // Filtre par organization
     queryBuilder.where('commande.organizationId = :organizationId', {
@@ -174,6 +200,7 @@ export class CommandesService {
   async findOne(id: string, organizationId: string): Promise<Commande> {
     const commande = await this.commandesRepository.findOne({
       where: { id, organizationId },
+      relations: ['lignes', 'lignes.modeVente'],
     });
 
     if (!commande) {
@@ -249,16 +276,38 @@ export class CommandesService {
         });
 
         for (const ligne of updateCommandeDto.lignes) {
+          // Calculer quantiteBase si modeVenteId est fourni
+          let quantiteBase = ligne.quantite;
+          if (ligne.modeVenteId) {
+            const modeVente = await this.modeVenteService.findOne(
+              ligne.modeVenteId,
+              organizationId,
+            );
+            quantiteBase = ligne.quantite * Number(modeVente.quantiteStock);
+          }
+
+          // Récupérer prixAchat depuis l'article si non fourni
+          let prixAchat = ligne.prixAchat || 0;
+          if (!prixAchat) {
+            const article = await queryRunner.manager.findOne(Article, {
+              where: { id: ligne.articleId, organizationId },
+            });
+            prixAchat = article ? Number(article.prixAchat) || 0 : 0;
+          }
+
           await queryRunner.manager.query(
             `INSERT INTO ligne_commande
-             ("commandeId", "articleId", nom, quantite, "prixUnitaire", "sousTotal", "organizationId", "createdAt")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+             ("commandeId", "articleId", nom, quantite, "quantiteBase", "modeVenteId", "prixUnitaire", "prixAchat", "sousTotal", "organizationId", "createdAt")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
             [
               id,
               ligne.articleId,
               ligne.nom,
               ligne.quantite,
+              quantiteBase,
+              ligne.modeVenteId || null,
               ligne.prixUnitaire,
+              prixAchat,
               ligne.sousTotal,
               organizationId,
             ],
@@ -311,6 +360,8 @@ export class CommandesService {
             articleId: ligne.articleId,
             nom: ligne.nom,
             quantite: ligne.quantite,
+            quantiteBase: ligne.quantiteBase,
+            modeVenteId: ligne.modeVenteId,
             prixUnitaire: Number(ligne.prixUnitaire),
             sousTotal: Number(ligne.sousTotal),
           })),
@@ -327,11 +378,17 @@ export class CommandesService {
         organizationId,
       );
 
-      // Mettre à jour la commande
+      // Calculer le nouveau montant payé et restant
+      const nouveauMontantPaye = Number(commande.acompte) + Number(livrerCommandeDto.montantPaye);
+      const nouveauMontantRestant = Math.max(0, Number(commande.total) - nouveauMontantPaye);
+
+      // Mettre à jour la commande avec les montants corrects
       await queryRunner.manager.update(Commande, id, {
         statut: StatutCommande.LIVREE,
         dateLivree: new Date(),
         venteId: vente.id,
+        acompte: nouveauMontantPaye, // Total payé (acompte initial + paiement à la livraison)
+        montantRestant: nouveauMontantRestant, // Montant restant après livraison
       });
 
       await queryRunner.commitTransaction();

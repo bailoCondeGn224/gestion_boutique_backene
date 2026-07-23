@@ -1,104 +1,54 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateStorefront1753000000001 implements MigrationInterface {
   name = 'CreateStorefront1753000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.createTable(
-      new Table({
-        name: 'storefront',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'organizationId',
-            type: 'uuid',
-            isUnique: true,
-          },
-          {
-            name: 'slug',
-            type: 'varchar',
-            length: '100',
-            isUnique: true,
-          },
-          {
-            name: 'isActive',
-            type: 'boolean',
-            default: false,
-          },
-          {
-            name: 'description',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'logoUrl',
-            type: 'varchar',
-            length: '500',
-            isNullable: true,
-          },
-          {
-            name: 'whatsappNumber',
-            type: 'varchar',
-            length: '20',
-            isNullable: true,
-          },
-          {
-            name: 'horaires',
-            type: 'varchar',
-            length: '255',
-            isNullable: true,
-          },
-          {
-            name: 'fraisLivraison',
-            type: 'decimal',
-            precision: 15,
-            scale: 2,
-            default: 0,
-          },
-          {
-            name: 'adresse',
-            type: 'varchar',
-            length: '500',
-            isNullable: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-      true,
-    );
+    // Check if table exists
+    const tableExists = await queryRunner.hasTable('storefront');
 
-    await queryRunner.createIndex(
-      'storefront',
-      new TableIndex({
-        name: 'IDX_storefront_slug',
-        columnNames: ['slug'],
-      }),
-    );
+    if (!tableExists) {
+      await queryRunner.query(`
+        CREATE TABLE "storefront" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "organizationId" uuid NOT NULL,
+          "slug" varchar(100) NOT NULL,
+          "isActive" boolean NOT NULL DEFAULT false,
+          "description" text,
+          "logoUrl" varchar(500),
+          "whatsappNumber" varchar(20),
+          "horaires" varchar(255),
+          "fraisLivraison" decimal(15,2) NOT NULL DEFAULT 0,
+          "adresse" varchar(500),
+          "createdAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "PK_storefront" PRIMARY KEY ("id"),
+          CONSTRAINT "UQ_storefront_organizationId" UNIQUE ("organizationId"),
+          CONSTRAINT "UQ_storefront_slug" UNIQUE ("slug")
+        )
+      `);
+    }
 
-    await queryRunner.createForeignKey(
-      'storefront',
-      new TableForeignKey({
-        columnNames: ['organizationId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'organization',
-        onDelete: 'CASCADE',
-      }),
-    );
+    // Create index if not exists
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_storefront_slug" ON "storefront" ("slug")
+    `);
+
+    // Create FK if not exists
+    const fkExists = await queryRunner.query(`
+      SELECT 1 FROM information_schema.table_constraints
+      WHERE constraint_type = 'FOREIGN KEY'
+      AND table_name = 'storefront'
+      AND constraint_name LIKE '%organizationId%'
+    `);
+
+    if (fkExists.length === 0) {
+      await queryRunner.query(`
+        ALTER TABLE "storefront"
+        ADD CONSTRAINT "FK_storefront_organizationId"
+        FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

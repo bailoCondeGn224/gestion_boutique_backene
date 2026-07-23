@@ -1,96 +1,58 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateNotification1753000000003 implements MigrationInterface {
   name = 'CreateNotification1753000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Créer les enums
+    // Create enums if they don't exist
     await queryRunner.query(`
-      CREATE TYPE "notification_type_enum" AS ENUM ('NOUVELLE_COMMANDE', 'COMMANDE_CONFIRMEE', 'COMMANDE_PRETE', 'COMMANDE_LIVREE', 'COMMANDE_ANNULEE')
+      DO $$ BEGIN
+        CREATE TYPE "notification_type_enum" AS ENUM ('NOUVELLE_COMMANDE', 'COMMANDE_CONFIRMEE', 'COMMANDE_PRETE', 'COMMANDE_LIVREE', 'COMMANDE_ANNULEE');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
     await queryRunner.query(`
-      CREATE TYPE "notification_recipient_type_enum" AS ENUM ('BOUTIQUE', 'CLIENT')
+      DO $$ BEGIN
+        CREATE TYPE "notification_recipient_type_enum" AS ENUM ('BOUTIQUE', 'CLIENT');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
-    await queryRunner.createTable(
-      new Table({
-        name: 'notification',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'type',
-            type: 'notification_type_enum',
-          },
-          {
-            name: 'recipientType',
-            type: 'notification_recipient_type_enum',
-          },
-          {
-            name: 'recipientId',
-            type: 'uuid',
-          },
-          {
-            name: 'title',
-            type: 'varchar',
-            length: '255',
-          },
-          {
-            name: 'message',
-            type: 'text',
-          },
-          {
-            name: 'data',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'isRead',
-            type: 'boolean',
-            default: false,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'organizationId',
-            type: 'uuid',
-            isNullable: true,
-          },
-        ],
-      }),
-      true,
-    );
+    const tableExists = await queryRunner.hasTable('notification');
 
-    await queryRunner.createIndex(
-      'notification',
-      new TableIndex({
-        name: 'IDX_notification_recipientType_recipientId',
-        columnNames: ['recipientType', 'recipientId'],
-      }),
-    );
+    if (!tableExists) {
+      await queryRunner.query(`
+        CREATE TABLE "notification" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "type" "notification_type_enum" NOT NULL,
+          "recipientType" "notification_recipient_type_enum" NOT NULL,
+          "recipientId" uuid NOT NULL,
+          "title" varchar(255) NOT NULL,
+          "message" text NOT NULL,
+          "data" jsonb,
+          "isRead" boolean NOT NULL DEFAULT false,
+          "createdAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "organizationId" uuid,
+          CONSTRAINT "PK_notification" PRIMARY KEY ("id")
+        )
+      `);
+    }
 
-    await queryRunner.createIndex(
-      'notification',
-      new TableIndex({
-        name: 'IDX_notification_organizationId',
-        columnNames: ['organizationId'],
-      }),
-    );
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_notification_recipientType_recipientId" ON "notification" ("recipientType", "recipientId")
+    `);
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_notification_organizationId" ON "notification" ("organizationId")
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex('notification', 'IDX_notification_organizationId');
-    await queryRunner.dropIndex('notification', 'IDX_notification_recipientType_recipientId');
-    await queryRunner.dropTable('notification');
-    await queryRunner.query(`DROP TYPE "notification_recipient_type_enum"`);
-    await queryRunner.query(`DROP TYPE "notification_type_enum"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_notification_organizationId"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_notification_recipientType_recipientId"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "notification"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "notification_recipient_type_enum"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "notification_type_enum"`);
   }
 }

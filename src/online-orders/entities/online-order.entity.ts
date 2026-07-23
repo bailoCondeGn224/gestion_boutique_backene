@@ -39,10 +39,10 @@ export class OnlineOrder {
   @Index()
   organizationId: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
   customerAccountId: string;
 
-  @ManyToOne(() => CustomerAccount)
+  @ManyToOne(() => CustomerAccount, { nullable: true })
   @JoinColumn({ name: 'customerAccountId' })
   customerAccount: CustomerAccount;
 
@@ -63,6 +63,9 @@ export class OnlineOrder {
 
   @Column({ type: 'enum', enum: ModeLivraison })
   modeLivraison: ModeLivraison;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  clientNom: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   adresseLivraison: string;

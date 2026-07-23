@@ -1,12 +1,17 @@
 // src/storefront/storefront-public.controller.ts
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { StorefrontService } from './storefront.service';
+import { OnlineOrdersService } from '../online-orders/online-orders.service';
+import { CreateOnlineOrderDto } from './dto/create-online-order.dto';
 
 @ApiTags('public/stores')
 @Controller('public/stores')
 export class StorefrontPublicController {
-  constructor(private readonly storefrontService: StorefrontService) {}
+  constructor(
+    private readonly storefrontService: StorefrontService,
+    private readonly onlineOrdersService: OnlineOrdersService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Liste des boutiques actives' })
@@ -51,5 +56,14 @@ export class StorefrontPublicController {
   @ApiOperation({ summary: "Catégories d'une boutique" })
   getCategories(@Param('slug') slug: string) {
     return this.storefrontService.getCategories(slug);
+  }
+
+  @Post(':slug/orders')
+  @ApiOperation({ summary: 'Créer une commande en ligne' })
+  async createOrder(
+    @Param('slug') slug: string,
+    @Body() dto: CreateOnlineOrderDto,
+  ) {
+    return this.onlineOrdersService.createFromStorefront(slug, dto);
   }
 }

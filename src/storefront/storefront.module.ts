@@ -7,10 +7,12 @@ import { Article } from '../stock/entities/article.entity';
 import { StorefrontService } from './storefront.service';
 import { StorefrontController } from './storefront.controller';
 import { StorefrontPublicController } from './storefront-public.controller';
+import { OnlineOrdersModule } from '../online-orders/online-orders.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([StoreFront, Organization, Article]),
+    OnlineOrdersModule,
   ],
   controllers: [StorefrontController, StorefrontPublicController],
   providers: [StorefrontService],

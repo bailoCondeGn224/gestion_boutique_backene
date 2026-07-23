@@ -1,73 +1,34 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateCustomerAccount1753000000000 implements MigrationInterface {
   name = 'CreateCustomerAccount1753000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.createTable(
-      new Table({
-        name: 'customer_account',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'nom',
-            type: 'varchar',
-            length: '255',
-          },
-          {
-            name: 'telephone',
-            type: 'varchar',
-            length: '20',
-            isUnique: true,
-          },
-          {
-            name: 'email',
-            type: 'varchar',
-            length: '255',
-            isNullable: true,
-          },
-          {
-            name: 'passwordHash',
-            type: 'varchar',
-            length: '255',
-          },
-          {
-            name: 'isActive',
-            type: 'boolean',
-            default: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-      true,
-    );
+    const tableExists = await queryRunner.hasTable('customer_account');
 
-    await queryRunner.createIndex(
-      'customer_account',
-      new TableIndex({
-        name: 'IDX_customer_account_telephone',
-        columnNames: ['telephone'],
-      }),
-    );
+    if (!tableExists) {
+      await queryRunner.query(`
+        CREATE TABLE "customer_account" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "nom" varchar(255) NOT NULL,
+          "telephone" varchar(20) NOT NULL UNIQUE,
+          "email" varchar(255),
+          "passwordHash" varchar(255) NOT NULL,
+          "isActive" boolean NOT NULL DEFAULT true,
+          "createdAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "PK_customer_account" PRIMARY KEY ("id")
+        )
+      `);
+    }
+
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_customer_account_telephone" ON "customer_account" ("telephone")
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex('customer_account', 'IDX_customer_account_telephone');
-    await queryRunner.dropTable('customer_account');
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_customer_account_telephone"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "customer_account"`);
   }
 }

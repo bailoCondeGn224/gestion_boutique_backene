@@ -36,4 +36,30 @@ export class AnalyticsController {
   getExpirationStats(@CurrentOrganization() organizationId: string) {
     return this.analyticsService.getExpirationStats(organizationId);
   }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('ventes.read')
+  @Get('ventes-semaine')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les ventes par jour pour les 7 derniers jours' })
+  @ApiResponse({
+    status: 200,
+    description: 'Ventes par jour de la semaine pour le graphique',
+  })
+  getVentesParJourSemaine(@CurrentOrganization() organizationId: string) {
+    return this.analyticsService.getVentesParJourSemaine(organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+  @Permissions('ventes.read')
+  @Get('revenus-mois')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les revenus par mois pour les 4 derniers mois' })
+  @ApiResponse({
+    status: 200,
+    description: 'Revenus par mois pour le graphique',
+  })
+  getRevenusParMois(@CurrentOrganization() organizationId: string) {
+    return this.analyticsService.getRevenusParMois(organizationId);
+  }
 }

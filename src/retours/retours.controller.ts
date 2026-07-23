@@ -51,6 +51,18 @@ export class RetoursController {
   }
 
   @UseGuards(JwtAuthGuard, TenantGuard)
+  @Get('client/by-vente/:venteId')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les retours d\'une vente spécifique' })
+  @ApiResponse({ status: 200, description: 'Liste des retours de la vente' })
+  getRetoursByVente(
+    @Param('venteId') venteId: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.retoursService.getRetoursByVente(venteId, organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard)
   @Get('client/:id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Détails d\'un retour client' })
@@ -138,5 +150,16 @@ export class RetoursController {
     dto.userId = req.user.id;
     dto.userNom = req.user.nom;
     return this.retoursService.createRetourFournisseur(dto, organizationId);
+  }
+
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  @Get('fournisseur/approvisionnement/:approvisionnementId')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Récupérer les retours fournisseurs pour un approvisionnement' })
+  getRetoursByApprovisionnement(
+    @Param('approvisionnementId') approvisionnementId: string,
+    @CurrentOrganization() organizationId: string,
+  ) {
+    return this.retoursService.getRetoursByApprovisionnement(approvisionnementId, organizationId);
   }
 }
