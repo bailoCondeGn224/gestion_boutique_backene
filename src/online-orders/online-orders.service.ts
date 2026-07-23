@@ -306,7 +306,7 @@ export class OnlineOrdersService {
     }
 
     if (order.statut !== OnlineOrderStatut.EN_ATTENTE) {
-      throw new BadRequestException('Cette commande ne peut pas être confirmée');
+      throw new BadRequestException(`Cette commande ne peut pas être confirmée (statut actuel: ${order.statut})`);
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -386,12 +386,12 @@ export class OnlineOrdersService {
         const ligneVente = queryRunner.manager.create(LigneVente, {
           venteId: savedVente.id,
           articleId: item.articleId,
-          articleNom: item.articleNom,
+          nom: item.articleNom,
           modeVenteId: item.modeVenteId,
-          modeVenteNom: item.modeVenteNom,
+          quantiteBase,
           quantite: item.quantite,
-          prixUnitaire: item.prixUnitaire,
-          sousTotal: item.sousTotal,
+          prixUnitaire: Number(item.prixUnitaire),
+          sousTotal: Number(item.sousTotal),
           organizationId,
         });
         await queryRunner.manager.save(ligneVente);
@@ -443,17 +443,26 @@ export class OnlineOrdersService {
 
       await queryRunner.commitTransaction();
 
-      // Notifier le client
-      await this.notificationsService.sendToCustomer(order.customerAccountId, {
-        type: NotificationType.COMMANDE_CONFIRMEE,
-        title: 'Commande confirmée',
-        message: `Votre commande #${order.numero} a été confirmée`,
-        data: { orderId: order.id, numero: order.numero },
-      });
+      // Notifier le client (seulement si compte client authentifié)
+      if (order.customerAccountId) {
+        try {
+          await this.notificationsService.sendToCustomer(order.customerAccountId, {
+            type: NotificationType.COMMANDE_CONFIRMEE,
+            title: 'Commande confirmée',
+            message: `Votre commande #${order.numero} a été confirmée`,
+            data: { orderId: order.id, numero: order.numero },
+          });
+        } catch (notifError) {
+          // Log l'erreur mais ne pas échouer la confirmation
+          console.error('Erreur envoi notification client:', notifError);
+        }
+      }
 
       return this.toResponseDto(order);
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       await queryRunner.release();
@@ -497,12 +506,19 @@ export class OnlineOrdersService {
 
     await this.onlineOrderRepository.save(order);
 
-    await this.notificationsService.sendToCustomer(order.customerAccountId, {
-      type: NotificationType.COMMANDE_PRETE,
-      title: 'Commande prête',
-      message: `Votre commande #${order.numero} est prête`,
-      data: { orderId: order.id, numero: order.numero },
-    });
+    // Notifier le client (seulement si compte client authentifié)
+    if (order.customerAccountId) {
+      try {
+        await this.notificationsService.sendToCustomer(order.customerAccountId, {
+          type: NotificationType.COMMANDE_PRETE,
+          title: 'Commande prête',
+          message: `Votre commande #${order.numero} est prête`,
+          data: { orderId: order.id, numero: order.numero },
+        });
+      } catch (notifError) {
+        console.error('Erreur envoi notification client:', notifError);
+      }
+    }
 
     return this.toResponseDto(order);
   }
@@ -526,12 +542,19 @@ export class OnlineOrdersService {
 
     await this.onlineOrderRepository.save(order);
 
-    await this.notificationsService.sendToCustomer(order.customerAccountId, {
-      type: NotificationType.COMMANDE_LIVREE,
-      title: 'Commande livrée',
-      message: `Votre commande #${order.numero} a été livrée. Merci !`,
-      data: { orderId: order.id, numero: order.numero },
-    });
+    // Notifier le client (seulement si compte client authentifié)
+    if (order.customerAccountId) {
+      try {
+        await this.notificationsService.sendToCustomer(order.customerAccountId, {
+          type: NotificationType.COMMANDE_LIVREE,
+          title: 'Commande livrée',
+          message: `Votre commande #${order.numero} a été livrée. Merci !`,
+          data: { orderId: order.id, numero: order.numero },
+        });
+      } catch (notifError) {
+        console.error('Erreur envoi notification client:', notifError);
+      }
+    }
 
     return this.toResponseDto(order);
   }
@@ -558,12 +581,19 @@ export class OnlineOrdersService {
 
     await this.onlineOrderRepository.save(order);
 
-    await this.notificationsService.sendToCustomer(order.customerAccountId, {
-      type: NotificationType.COMMANDE_ANNULEE,
-      title: 'Commande annulée',
-      message: `Votre commande #${order.numero} a été annulée${dto.motif ? ': ' + dto.motif : ''}`,
-      data: { orderId: order.id, numero: order.numero, motif: dto.motif },
-    });
+    // Notifier le client (seulement si compte client authentifié)
+    if (order.customerAccountId) {
+      try {
+        await this.notificationsService.sendToCustomer(order.customerAccountId, {
+          type: NotificationType.COMMANDE_ANNULEE,
+          title: 'Commande annulée',
+          message: `Votre commande #${order.numero} a été annulée${dto.motif ? ': ' + dto.motif : ''}`,
+          data: { orderId: order.id, numero: order.numero, motif: dto.motif },
+        });
+      } catch (notifError) {
+        console.error('Erreur envoi notification client:', notifError);
+      }
+    }
 
     return this.toResponseDto(order);
   }
@@ -602,8 +632,8 @@ export class OnlineOrdersService {
       fraisLivraison: Number(order.fraisLivraison),
       sousTotal: Number(order.sousTotal),
       total: Number(order.total),
-      customerNom: customerData?.nom || '',
-      customerTelephone: customerData?.telephone || '',
+      customerNom: customerData?.nom || order.clientNom || 'Anonyme',
+      customerTelephone: customerData?.telephone || order.telephoneLivraison || '',
       motifAnnulation: order.motifAnnulation,
       items: order.items?.map(item => ({
         id: item.id,
@@ -621,5 +651,106 @@ export class OnlineOrdersService {
       livreeLe: order.livreeLe,
       annuleeLe: order.annuleeLe,
     };
+  }
+
+  /**
+   * Créer une commande depuis la vitrine publique (sans authentification client)
+   */
+  async createFromStorefront(slug: string, dto: any) {
+    // Récupérer la boutique
+    const storefront = await this.storefrontRepository.findOne({
+      where: { slug, isActive: true },
+      relations: ['organization'],
+    });
+
+    if (!storefront) {
+      throw new NotFoundException('Boutique non trouvée ou inactive');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Générer le numéro de commande
+      const numero = await this.generateNumero(storefront.organizationId);
+
+      // Calculer les totaux et créer les items
+      let sousTotal = 0;
+      const orderItems: Partial<OnlineOrderItem>[] = [];
+
+      for (const itemDto of dto.articles) {
+        const article = await this.articleRepository.findOne({
+          where: { id: itemDto.articleId, organizationId: storefront.organizationId, disponibleEnLigne: true },
+        });
+
+        if (!article) {
+          throw new BadRequestException(`Article ${itemDto.articleId} non trouvé ou non disponible`);
+        }
+
+        const prixUnitaire = Number(itemDto.prixUnitaire);
+        const quantite = Number(itemDto.quantite);
+        const sousItem = prixUnitaire * quantite;
+        sousTotal += sousItem;
+
+        orderItems.push({
+          articleId: article.id,
+          articleNom: article.nom,
+          modeVenteId: itemDto.modeVenteId || null,
+          modeVenteNom: null,
+          quantite,
+          prixUnitaire,
+          sousTotal: sousItem,
+        });
+      }
+
+      const fraisLivraison = Number(storefront.fraisLivraison || 0);
+      const total = sousTotal + fraisLivraison;
+
+      // Créer la commande
+      const order = queryRunner.manager.create(OnlineOrder, {
+        numero,
+        organizationId: storefront.organizationId,
+        customerAccountId: null, // Pas de compte client authentifié pour la vitrine publique
+        clientId: null,
+        clientNom: dto.nomClient || null,
+        statut: OnlineOrderStatut.EN_ATTENTE,
+        modeLivraison: ModeLivraison.RETRAIT_BOUTIQUE,
+        adresseLivraison: dto.adresseLivraison || null,
+        telephoneLivraison: dto.telephone,
+        fraisLivraison,
+        sousTotal,
+        total,
+      });
+
+      const savedOrder = await queryRunner.manager.save(order);
+
+      // Créer les items
+      for (const itemData of orderItems) {
+        const item = queryRunner.manager.create(OnlineOrderItem, {
+          ...itemData,
+          onlineOrderId: order.id,
+          organizationId: storefront.organizationId,
+        });
+        await queryRunner.manager.save(item);
+      }
+
+      await queryRunner.commitTransaction();
+
+      // Envoyer notification au backoffice
+      await this.notificationsService.sendToStore(storefront.organizationId, {
+        type: NotificationType.NOUVELLE_COMMANDE,
+        title: 'Nouvelle commande en ligne',
+        message: `Commande #${numero} de ${dto.nomClient} (${dto.telephone}) - ${total} GNF`,
+        data: { orderId: order.id, numero, total: total.toString() },
+      });
+
+      return { success: true, orderId: order.id, numero };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
