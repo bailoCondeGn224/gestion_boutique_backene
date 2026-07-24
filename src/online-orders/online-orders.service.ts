@@ -92,6 +92,7 @@ export class OnlineOrdersService {
 
         let prixUnitaire = article.prixEnLigne || article.prixVente;
         let modeVenteNom: string | null = null;
+        let quantiteBase = itemDto.quantite;
 
         if (itemDto.modeVenteId) {
           const modeVente = await this.modeVenteRepository.findOne({
@@ -101,6 +102,7 @@ export class OnlineOrdersService {
           if (modeVente) {
             prixUnitaire = modeVente.prixVente;
             modeVenteNom = modeVente.nom;
+            quantiteBase = itemDto.quantite * Number(modeVente.quantiteStock);
           }
         }
 
@@ -113,6 +115,7 @@ export class OnlineOrdersService {
           modeVenteId: itemDto.modeVenteId,
           modeVenteNom,
           quantite: itemDto.quantite,
+          quantiteBase,
           prixUnitaire,
           sousTotal: itemSousTotal,
           organizationId: storefront.organizationId,
@@ -642,6 +645,7 @@ export class OnlineOrdersService {
         modeVenteId: item.modeVenteId,
         modeVenteNom: item.modeVenteNom,
         quantite: item.quantite,
+        quantiteBase: item.quantiteBase,
         prixUnitaire: Number(item.prixUnitaire),
         sousTotal: Number(item.sousTotal),
       })) || [],
@@ -693,12 +697,23 @@ export class OnlineOrdersService {
         const sousItem = prixUnitaire * quantite;
         sousTotal += sousItem;
 
+        let quantiteBase = quantite;
+        if (itemDto.modeVenteId) {
+          const modeVente = await this.modeVenteRepository.findOne({
+            where: { id: itemDto.modeVenteId },
+          });
+          if (modeVente) {
+            quantiteBase = quantite * Number(modeVente.quantiteStock);
+          }
+        }
+
         orderItems.push({
           articleId: article.id,
           articleNom: article.nom,
           modeVenteId: itemDto.modeVenteId || null,
           modeVenteNom: null,
           quantite,
+          quantiteBase,
           prixUnitaire,
           sousTotal: sousItem,
         });

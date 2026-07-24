@@ -45,6 +45,9 @@ export class OnlineOrderItem {
   @Column({ type: 'int' })
   quantite: number;
 
+  @Column({ type: 'int', nullable: true })
+  quantiteBase: number;
+
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   prixUnitaire: number;
 

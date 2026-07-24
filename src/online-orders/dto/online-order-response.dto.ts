@@ -20,6 +20,9 @@ export class OnlineOrderItemResponseDto {
   @ApiProperty()
   quantite: number;
 
+  @ApiPropertyOptional()
+  quantiteBase?: number;
+
   @ApiProperty()
   prixUnitaire: number;
 
