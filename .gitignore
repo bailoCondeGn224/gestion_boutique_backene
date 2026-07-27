@@ -38,3 +38,6 @@ lerna-debug.log*
 # Uploaded files
 /storage
 /uploads
+
+# Playwright MCP snapshots
+.playwright-mcp/
