@@ -209,13 +209,6 @@ export class OnlineOrdersService {
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
 
-    console.log('[GET_BY_CUSTOMER] Recherche commandes pour:', {
-      customerId,
-      page: pageNum,
-      limit: limitNum,
-      skip,
-    });
-
     const [orders, total] = await this.onlineOrderRepository.findAndCount({
       where: { customerAccountId: customerId },
       relations: ['items'],
@@ -224,26 +217,8 @@ export class OnlineOrdersService {
       take: limitNum,
     });
 
-    console.log('[GET_BY_CUSTOMER] Commandes trouvées:', {
-      customerId,
-      total,
-      ordersCount: orders.length,
-      commandes: orders.map(o => ({
-        id: o.id,
-        numero: o.numero,
-        customerAccountId: o.customerAccountId,
-        telephoneLivraison: o.telephoneLivraison,
-      })),
-    });
-
     // Charger les customerAccount séparément pour éviter les problèmes de relation
     const customer = await this.customerAccountRepository.findOne({ where: { id: customerId } });
-
-    console.log('[GET_BY_CUSTOMER] Customer trouvé:', {
-      customerId,
-      customerTelephone: customer?.telephone,
-      customerNom: customer?.nom,
-    });
 
     return {
       data: orders.map(o => this.toResponseDto(o, customer)),
@@ -748,13 +723,6 @@ export class OnlineOrdersService {
 
       const fraisLivraison = Number(storefront.fraisLivraison || 0);
       const total = sousTotal + fraisLivraison;
-
-      console.log('[CREATE_FROM_STOREFRONT] Création commande:', {
-        slug,
-        customerId,
-        telephone: dto.telephone,
-        nomClient: dto.nomClient,
-      });
 
       // Créer la commande
       const order = queryRunner.manager.create(OnlineOrder, {

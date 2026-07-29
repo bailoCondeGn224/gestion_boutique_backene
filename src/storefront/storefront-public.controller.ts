@@ -81,7 +81,6 @@ export class StorefrontPublicController {
         }
       } catch (error) {
         // Token invalide ou expiré - ignorer et continuer comme non-authentifié
-        console.log('[STOREFRONT] Token invalide ou expiré:', error.message);
       }
     }
 
