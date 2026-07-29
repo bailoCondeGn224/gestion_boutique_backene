@@ -1,6 +1,7 @@
 // src/storefront/storefront-public.controller.ts
-import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
 import { StorefrontService } from './storefront.service';
 import { OnlineOrdersService } from '../online-orders/online-orders.service';
 import { CreateOnlineOrderDto } from './dto/create-online-order.dto';
@@ -11,6 +12,7 @@ export class StorefrontPublicController {
   constructor(
     private readonly storefrontService: StorefrontService,
     private readonly onlineOrdersService: OnlineOrdersService,
+    private readonly jwtService: JwtService,
   ) {}
 
   @Get()
@@ -63,7 +65,26 @@ export class StorefrontPublicController {
   async createOrder(
     @Param('slug') slug: string,
     @Body() dto: CreateOnlineOrderDto,
+    @Headers('authorization') authorization?: string,
   ) {
-    return this.onlineOrdersService.createFromStorefront(slug, dto);
+    // Extraire le customerId du JWT token si présent (authentification optionnelle)
+    let customerId: string | null = null;
+
+    if (authorization && authorization.startsWith('Bearer ')) {
+      try {
+        const token = authorization.substring(7);
+        const payload = this.jwtService.verify(token);
+
+        // Vérifier que c'est bien un token customer (pas un token admin)
+        if (payload.type === 'customer' && payload.sub) {
+          customerId = payload.sub;
+        }
+      } catch (error) {
+        // Token invalide ou expiré - ignorer et continuer comme non-authentifié
+        console.log('[STOREFRONT] Token invalide ou expiré:', error.message);
+      }
+    }
+
+    return this.onlineOrdersService.createFromStorefront(slug, dto, customerId);
   }
 }

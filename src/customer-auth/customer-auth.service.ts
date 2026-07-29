@@ -5,10 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { CustomerAccount } from './entities/customer-account.entity';
+import { OnlineOrder } from '../online-orders/entities/online-order.entity';
 import {
   RegisterCustomerDto,
   LoginCustomerDto,
@@ -21,6 +22,8 @@ export class CustomerAuthService {
   constructor(
     @InjectRepository(CustomerAccount)
     private customerAccountRepository: Repository<CustomerAccount>,
+    @InjectRepository(OnlineOrder)
+    private onlineOrderRepository: Repository<OnlineOrder>,
     private jwtService: JwtService,
   ) {}
 
@@ -46,6 +49,46 @@ export class CustomerAuthService {
     });
 
     await this.customerAccountRepository.save(customer);
+    console.log('[REGISTER] Compte client créé:', {
+      customerId: customer.id,
+      telephone: customer.telephone,
+      nom: customer.nom,
+    });
+
+    // Chercher les commandes existantes avant de lier
+    const existingOrders = await this.onlineOrderRepository.find({
+      where: {
+        telephoneLivraison: dto.telephone,
+        customerAccountId: IsNull(),
+      },
+    });
+
+    console.log('[REGISTER] Commandes trouvées à lier:', {
+      telephone: dto.telephone,
+      nombreCommandes: existingOrders.length,
+      commandes: existingOrders.map(o => ({
+        id: o.id,
+        numero: o.numero,
+        telephoneLivraison: o.telephoneLivraison,
+        customerAccountId: o.customerAccountId,
+      })),
+    });
+
+    // Lier les commandes existantes avec ce numéro de téléphone
+    const updateResult = await this.onlineOrderRepository.update(
+      {
+        telephoneLivraison: dto.telephone,
+        customerAccountId: IsNull(), // Uniquement les commandes non liées
+      },
+      {
+        customerAccountId: customer.id,
+      },
+    );
+
+    console.log('[REGISTER] Résultat de la liaison des commandes:', {
+      affected: updateResult.affected,
+      customerId: customer.id,
+    });
 
     // Générer le token
     const token = this.generateToken(customer);

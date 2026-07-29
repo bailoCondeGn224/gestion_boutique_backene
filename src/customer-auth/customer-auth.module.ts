@@ -5,13 +5,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { CustomerAccount } from './entities/customer-account.entity';
+import { OnlineOrder } from '../online-orders/entities/online-order.entity';
 import { CustomerAuthService } from './customer-auth.service';
 import { CustomerAuthController } from './customer-auth.controller';
 import { CustomerJwtStrategy } from './strategies/customer-jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CustomerAccount]),
+    TypeOrmModule.forFeature([CustomerAccount, OnlineOrder]),
     PassportModule.register({ defaultStrategy: 'customer-jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

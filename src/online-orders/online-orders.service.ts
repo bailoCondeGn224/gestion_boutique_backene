@@ -205,26 +205,53 @@ export class OnlineOrdersService {
   }
 
   async getByCustomer(customerId: string, page: number = 1, limit: number = 20): Promise<any> {
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    console.log('[GET_BY_CUSTOMER] Recherche commandes pour:', {
+      customerId,
+      page: pageNum,
+      limit: limitNum,
+      skip,
+    });
 
     const [orders, total] = await this.onlineOrderRepository.findAndCount({
       where: { customerAccountId: customerId },
       relations: ['items'],
       order: { createdAt: 'DESC' },
       skip,
-      take: limit,
+      take: limitNum,
+    });
+
+    console.log('[GET_BY_CUSTOMER] Commandes trouvées:', {
+      customerId,
+      total,
+      ordersCount: orders.length,
+      commandes: orders.map(o => ({
+        id: o.id,
+        numero: o.numero,
+        customerAccountId: o.customerAccountId,
+        telephoneLivraison: o.telephoneLivraison,
+      })),
     });
 
     // Charger les customerAccount séparément pour éviter les problèmes de relation
     const customer = await this.customerAccountRepository.findOne({ where: { id: customerId } });
 
+    console.log('[GET_BY_CUSTOMER] Customer trouvé:', {
+      customerId,
+      customerTelephone: customer?.telephone,
+      customerNom: customer?.nom,
+    });
+
     return {
       data: orders.map(o => this.toResponseDto(o, customer)),
       meta: {
-        page,
-        limit,
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limitNum),
       },
     };
   }
@@ -658,9 +685,9 @@ export class OnlineOrdersService {
   }
 
   /**
-   * Créer une commande depuis la vitrine publique (sans authentification client)
+   * Créer une commande depuis la vitrine publique (avec ou sans authentification client)
    */
-  async createFromStorefront(slug: string, dto: any) {
+  async createFromStorefront(slug: string, dto: any, customerId: string | null = null) {
     // Récupérer la boutique
     const storefront = await this.storefrontRepository.findOne({
       where: { slug, isActive: true },
@@ -722,11 +749,18 @@ export class OnlineOrdersService {
       const fraisLivraison = Number(storefront.fraisLivraison || 0);
       const total = sousTotal + fraisLivraison;
 
+      console.log('[CREATE_FROM_STOREFRONT] Création commande:', {
+        slug,
+        customerId,
+        telephone: dto.telephone,
+        nomClient: dto.nomClient,
+      });
+
       // Créer la commande
       const order = queryRunner.manager.create(OnlineOrder, {
         numero,
         organizationId: storefront.organizationId,
-        customerAccountId: null, // Pas de compte client authentifié pour la vitrine publique
+        customerAccountId: customerId, // Utiliser le customerId si fourni (client authentifié)
         clientId: null,
         clientNom: dto.nomClient || null,
         statut: OnlineOrderStatut.EN_ATTENTE,

@@ -39,10 +39,14 @@ export class OnlineOrdersPublicController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   getMyOrders(
     @CurrentCustomer() customer: CustomerAccount,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
-    return this.onlineOrdersService.getByCustomer(customer.id, Number(page), Number(limit));
+    return this.onlineOrdersService.getByCustomer(
+      customer.id,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+    );
   }
 
   @UseGuards(CustomerJwtAuthGuard)
