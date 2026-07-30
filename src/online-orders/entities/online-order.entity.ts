@@ -12,12 +12,14 @@ import {
 import { CustomerAccount } from '../../customer-auth/entities/customer-account.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { Vente } from '../../ventes/entities/vente.entity';
+import { Livreur } from '../../livreurs/entities/livreur.entity';
 import { OnlineOrderItem } from './online-order-item.entity';
 
 export enum OnlineOrderStatut {
   EN_ATTENTE = 'EN_ATTENTE',
   CONFIRMEE = 'CONFIRMEE',
   PRETE = 'PRETE',
+  EN_LIVRAISON = 'EN_LIVRAISON',
   LIVREE = 'LIVREE',
   ANNULEE = 'ANNULEE',
 }
@@ -99,6 +101,17 @@ export class OnlineOrder {
 
   @Column({ type: 'timestamp', nullable: true })
   annuleeLe: Date;
+
+  // Livreur assigné
+  @Column({ type: 'uuid', nullable: true })
+  livreurId: string;
+
+  @ManyToOne(() => Livreur, { nullable: true })
+  @JoinColumn({ name: 'livreurId' })
+  livreur: Livreur;
+
+  @Column({ type: 'timestamp', nullable: true })
+  expedieeLe: Date;
 
   @Column({ type: 'uuid', nullable: true })
   venteId: string;

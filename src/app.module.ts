@@ -33,6 +33,7 @@ import { CustomerAuthModule } from './customer-auth/customer-auth.module';
 import { StorefrontModule } from './storefront/storefront.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OnlineOrdersModule } from './online-orders/online-orders.module';
+import { LivreursModule } from './livreurs/livreurs.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { OnlineOrdersModule } from './online-orders/online-orders.module';
     StorefrontModule,
     NotificationsModule,
     OnlineOrdersModule,
+    LivreursModule,
   ],
   controllers: [AppController],
   providers: [AppService],

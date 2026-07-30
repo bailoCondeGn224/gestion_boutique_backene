@@ -94,4 +94,20 @@ export class OnlineOrdersController {
   ) {
     return this.onlineOrdersService.cancel(id, organizationId, dto);
   }
+
+  @Patch(':id/dispatch')
+  @ApiOperation({ summary: 'Assigner un livreur et démarrer la livraison' })
+  dispatch(
+    @Param('id') id: string,
+    @CurrentOrganization() organizationId: string,
+    @Body() dto: { livreurId: string },
+  ) {
+    return this.onlineOrdersService.dispatch(id, dto.livreurId, organizationId);
+  }
+
+  @Get(':id/tracking')
+  @ApiOperation({ summary: 'Position du livreur pour une commande' })
+  getTracking(@Param('id') id: string) {
+    return this.onlineOrdersService.getTracking(id);
+  }
 }
