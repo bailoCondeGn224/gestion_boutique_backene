@@ -314,6 +314,127 @@ export class OnlineOrdersService {
       throw new BadRequestException(`Cette commande ne peut pas être confirmée (statut actuel: ${order.statut})`);
     }
 
+    // Vérifier le stock disponible pour tous les articles (sans décrémenter)
+    for (const item of order.items) {
+      const article = await this.articleRepository.findOne({
+        where: { id: item.articleId, organizationId },
+      });
+
+      if (!article) {
+        throw new BadRequestException(`Article ${item.articleNom} non trouvé`);
+      }
+
+      // Calculer la quantité de base
+      let quantiteBase = item.quantite;
+      if (item.modeVenteId) {
+        const modeVente = await this.modeVenteRepository.findOne({
+          where: { id: item.modeVenteId },
+        });
+        if (modeVente) {
+          quantiteBase = item.quantite * Number(modeVente.quantiteStock);
+        }
+      }
+
+      if (article.stock < quantiteBase) {
+        throw new BadRequestException(
+          `Stock insuffisant pour ${item.articleNom}. Disponible: ${article.stock}, Demandé: ${quantiteBase}`
+        );
+      }
+    }
+
+    // Mettre à jour la commande (pas de vente créée, juste confirmation)
+    order.statut = OnlineOrderStatut.CONFIRMEE;
+    order.confirmeePar = userId;
+    order.confirmeeLe = new Date();
+
+    await this.onlineOrderRepository.save(order);
+
+    // Notifier le client (seulement si compte client authentifié)
+    if (order.customerAccountId) {
+      try {
+        await this.notificationsService.sendToCustomer(order.customerAccountId, {
+          type: NotificationType.COMMANDE_CONFIRMEE,
+          title: 'Commande confirmée',
+          message: `Votre commande #${order.numero} a été confirmée`,
+          data: { orderId: order.id, numero: order.numero },
+        });
+      } catch (notifError) {
+        // Log l'erreur mais ne pas échouer la confirmation
+        console.error('Erreur envoi notification client:', notifError);
+      }
+    }
+
+    return this.toResponseDto(order);
+  }
+
+  private async generateVenteNumero(organizationId: string): Promise<string> {
+    const result = await this.venteRepository
+      .createQueryBuilder('vente')
+      .select('MAX(vente.numero)', 'maxNumero')
+      .where('vente.organizationId = :organizationId', { organizationId })
+      .getRawOne();
+
+    let nextNumber = 1;
+    if (result?.maxNumero) {
+      const match = result.maxNumero.match(/V-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `V-${String(nextNumber).padStart(3, '0')}`;
+  }
+
+  async markReady(orderId: string, organizationId: string): Promise<OnlineOrderResponseDto> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, organizationId },
+      relations: ['items', 'customerAccount'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    if (order.statut !== OnlineOrderStatut.CONFIRMEE) {
+      throw new BadRequestException('Cette commande ne peut pas être marquée prête');
+    }
+
+    order.statut = OnlineOrderStatut.PRETE;
+    order.preteLe = new Date();
+
+    await this.onlineOrderRepository.save(order);
+
+    // Notifier le client (seulement si compte client authentifié)
+    if (order.customerAccountId) {
+      try {
+        await this.notificationsService.sendToCustomer(order.customerAccountId, {
+          type: NotificationType.COMMANDE_PRETE,
+          title: 'Commande prête',
+          message: `Votre commande #${order.numero} est prête`,
+          data: { orderId: order.id, numero: order.numero },
+        });
+      } catch (notifError) {
+        console.error('Erreur envoi notification client:', notifError);
+      }
+    }
+
+    return this.toResponseDto(order);
+  }
+
+  async markDelivered(orderId: string, organizationId: string, userId: string): Promise<OnlineOrderResponseDto> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, organizationId },
+      relations: ['items', 'customerAccount'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    if (order.statut !== OnlineOrderStatut.PRETE && order.statut !== OnlineOrderStatut.CONFIRMEE) {
+      throw new BadRequestException('Cette commande ne peut pas être marquée livrée');
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -439,9 +560,8 @@ export class OnlineOrdersService {
       }
 
       // Mettre à jour la commande
-      order.statut = OnlineOrderStatut.CONFIRMEE;
-      order.confirmeePar = userId;
-      order.confirmeeLe = new Date();
+      order.statut = OnlineOrderStatut.LIVREE;
+      order.livreeLe = new Date();
       order.venteId = savedVente.id;
 
       await queryRunner.manager.save(order);
@@ -452,13 +572,12 @@ export class OnlineOrdersService {
       if (order.customerAccountId) {
         try {
           await this.notificationsService.sendToCustomer(order.customerAccountId, {
-            type: NotificationType.COMMANDE_CONFIRMEE,
-            title: 'Commande confirmée',
-            message: `Votre commande #${order.numero} a été confirmée`,
+            type: NotificationType.COMMANDE_LIVREE,
+            title: 'Commande livrée',
+            message: `Votre commande #${order.numero} a été livrée. Merci !`,
             data: { orderId: order.id, numero: order.numero },
           });
         } catch (notifError) {
-          // Log l'erreur mais ne pas échouer la confirmation
           console.error('Erreur envoi notification client:', notifError);
         }
       }
@@ -472,96 +591,6 @@ export class OnlineOrdersService {
     } finally {
       await queryRunner.release();
     }
-  }
-
-  private async generateVenteNumero(organizationId: string): Promise<string> {
-    const result = await this.venteRepository
-      .createQueryBuilder('vente')
-      .select('MAX(vente.numero)', 'maxNumero')
-      .where('vente.organizationId = :organizationId', { organizationId })
-      .getRawOne();
-
-    let nextNumber = 1;
-    if (result?.maxNumero) {
-      const match = result.maxNumero.match(/V-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-
-    return `V-${String(nextNumber).padStart(3, '0')}`;
-  }
-
-  async markReady(orderId: string, organizationId: string): Promise<OnlineOrderResponseDto> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Commande non trouvée');
-    }
-
-    if (order.statut !== OnlineOrderStatut.CONFIRMEE) {
-      throw new BadRequestException('Cette commande ne peut pas être marquée prête');
-    }
-
-    order.statut = OnlineOrderStatut.PRETE;
-    order.preteLe = new Date();
-
-    await this.onlineOrderRepository.save(order);
-
-    // Notifier le client (seulement si compte client authentifié)
-    if (order.customerAccountId) {
-      try {
-        await this.notificationsService.sendToCustomer(order.customerAccountId, {
-          type: NotificationType.COMMANDE_PRETE,
-          title: 'Commande prête',
-          message: `Votre commande #${order.numero} est prête`,
-          data: { orderId: order.id, numero: order.numero },
-        });
-      } catch (notifError) {
-        console.error('Erreur envoi notification client:', notifError);
-      }
-    }
-
-    return this.toResponseDto(order);
-  }
-
-  async markDelivered(orderId: string, organizationId: string): Promise<OnlineOrderResponseDto> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Commande non trouvée');
-    }
-
-    if (order.statut !== OnlineOrderStatut.PRETE && order.statut !== OnlineOrderStatut.CONFIRMEE) {
-      throw new BadRequestException('Cette commande ne peut pas être marquée livrée');
-    }
-
-    order.statut = OnlineOrderStatut.LIVREE;
-    order.livreeLe = new Date();
-
-    await this.onlineOrderRepository.save(order);
-
-    // Notifier le client (seulement si compte client authentifié)
-    if (order.customerAccountId) {
-      try {
-        await this.notificationsService.sendToCustomer(order.customerAccountId, {
-          type: NotificationType.COMMANDE_LIVREE,
-          title: 'Commande livrée',
-          message: `Votre commande #${order.numero} a été livrée. Merci !`,
-          data: { orderId: order.id, numero: order.numero },
-        });
-      } catch (notifError) {
-        console.error('Erreur envoi notification client:', notifError);
-      }
-    }
-
-    return this.toResponseDto(order);
   }
 
   async cancel(orderId: string, organizationId: string, dto: CancelOrderDto): Promise<OnlineOrderResponseDto> {

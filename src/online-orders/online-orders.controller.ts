@@ -76,12 +76,13 @@ export class OnlineOrdersController {
   }
 
   @Patch(':id/deliver')
-  @ApiOperation({ summary: 'Marquer une commande comme livrée' })
+  @ApiOperation({ summary: 'Marquer une commande comme livrée (déclenche la vente)' })
   markDelivered(
     @Param('id') id: string,
     @CurrentOrganization() organizationId: string,
+    @Request() req,
   ) {
-    return this.onlineOrdersService.markDelivered(id, organizationId);
+    return this.onlineOrdersService.markDelivered(id, organizationId, req.user.id);
   }
 
   @Patch(':id/cancel')
