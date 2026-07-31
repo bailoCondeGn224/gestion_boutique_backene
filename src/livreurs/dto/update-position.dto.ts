@@ -1,15 +1,17 @@
 // src/livreurs/dto/update-position.dto.ts
-import { IsNumber, IsNotEmpty } from 'class-validator';
+import { IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdatePositionDto {
-  @ApiProperty({ description: 'Latitude GPS' })
+  @ApiProperty({ description: 'Latitude GPS', example: 9.5370 })
   @IsNumber()
-  @IsNotEmpty()
+  @Min(-90)
+  @Max(90)
   latitude: number;
 
-  @ApiProperty({ description: 'Longitude GPS' })
+  @ApiProperty({ description: 'Longitude GPS', example: -13.6785 })
   @IsNumber()
-  @IsNotEmpty()
+  @Min(-180)
+  @Max(180)
   longitude: number;
 }

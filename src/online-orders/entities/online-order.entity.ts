@@ -12,8 +12,8 @@ import {
 import { CustomerAccount } from '../../customer-auth/entities/customer-account.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { Vente } from '../../ventes/entities/vente.entity';
-import { Livreur } from '../../livreurs/entities/livreur.entity';
 import { OnlineOrderItem } from './online-order-item.entity';
+import { Livreur } from '../../livreurs/entities/livreur.entity';
 
 export enum OnlineOrderStatut {
   EN_ATTENTE = 'EN_ATTENTE',
@@ -102,6 +102,9 @@ export class OnlineOrder {
   @Column({ type: 'timestamp', nullable: true })
   annuleeLe: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  expedieeLe: Date;
+
   // Livreur assigné
   @Column({ type: 'uuid', nullable: true })
   livreurId: string;
@@ -110,10 +113,7 @@ export class OnlineOrder {
   @JoinColumn({ name: 'livreurId' })
   livreur: Livreur;
 
-  @Column({ type: 'timestamp', nullable: true })
-  expedieeLe: Date;
-
-  // Position GPS du client (partagée en temps réel)
+  // Position GPS du client (pour le livreur)
   @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
   customerLatitude: number;
 

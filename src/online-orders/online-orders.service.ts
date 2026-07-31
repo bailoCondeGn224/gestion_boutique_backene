@@ -436,8 +436,19 @@ export class OnlineOrdersService {
       throw new NotFoundException('Commande non trouvée');
     }
 
-    if (order.statut !== OnlineOrderStatut.PRETE && order.statut !== OnlineOrderStatut.CONFIRMEE) {
+    // Vérifier que la commande est dans un état permettant la livraison
+    const validStatuts = [
+      OnlineOrderStatut.CONFIRMEE,
+      OnlineOrderStatut.PRETE,
+      OnlineOrderStatut.EN_LIVRAISON,
+    ];
+    if (!validStatuts.includes(order.statut)) {
       throw new BadRequestException('Cette commande ne peut pas être marquée livrée');
+    }
+
+    // Idempotence: si déjà livrée avec une vente, retourner sans rien faire
+    if (order.statut === OnlineOrderStatut.LIVREE || order.venteId) {
+      return this.toResponseDto(order);
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -612,7 +623,8 @@ export class OnlineOrdersService {
       throw new BadRequestException('Cette commande ne peut pas être annulée');
     }
 
-    // TODO: Si confirmée, remettre le stock
+    // Note: Le stock n'est décrémenté qu'à la livraison (markDelivered),
+    // donc pas besoin de le remettre lors de l'annulation
 
     order.statut = OnlineOrderStatut.ANNULEE;
     order.motifAnnulation = dto.motif;
@@ -897,6 +909,38 @@ export class OnlineOrdersService {
       },
       position,
       customerPosition,
+    };
+  }
+
+  /**
+   * Récupérer la position du livreur pour une commande (avec validation propriétaire)
+   */
+  async getTrackingForCustomer(orderId: string, customerId: string): Promise<{
+    livreur: { id: string; nom: string; telephone: string };
+    position: { latitude: number; longitude: number; lastPositionAt: Date } | null;
+  } | null> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, customerAccountId: customerId },
+      relations: ['livreur'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    if (!order.livreurId || order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
+      return null;
+    }
+
+    const position = await this.livreursService.getPosition(order.livreurId);
+
+    return {
+      livreur: {
+        id: order.livreur.id,
+        nom: order.livreur.nom,
+        telephone: order.livreur.telephone,
+      },
+      position,
     };
   }
 

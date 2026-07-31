@@ -59,6 +59,17 @@ export class OnlineOrdersPublicController {
   }
 
   @UseGuards(CustomerJwtAuthGuard)
+  @Get(':id/tracking')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Position du livreur pour une commande' })
+  getTracking(
+    @Param('id') id: string,
+    @CurrentCustomer() customer: CustomerAccount,
+  ) {
+    return this.onlineOrdersService.getTrackingForCustomer(id, customer.id);
+  }
+
+  @UseGuards(CustomerJwtAuthGuard)
   @Put(':id/customer-position')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour la position GPS du client' })
