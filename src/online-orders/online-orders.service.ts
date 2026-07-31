@@ -867,6 +867,7 @@ export class OnlineOrdersService {
   async getTracking(orderId: string): Promise<{
     livreur: { id: string; nom: string; telephone: string };
     position: { latitude: number; longitude: number; lastPositionAt: Date } | null;
+    customerPosition: { latitude: number; longitude: number; lastPositionAt: Date } | null;
   } | null> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId },
@@ -879,6 +880,15 @@ export class OnlineOrdersService {
 
     const position = await this.livreursService.getPosition(order.livreurId);
 
+    // Position du client
+    const customerPosition = order.customerLatitude && order.customerLongitude
+      ? {
+          latitude: Number(order.customerLatitude),
+          longitude: Number(order.customerLongitude),
+          lastPositionAt: order.customerLastPositionAt,
+        }
+      : null;
+
     return {
       livreur: {
         id: order.livreur.id,
@@ -886,7 +896,36 @@ export class OnlineOrdersService {
         telephone: order.livreur.telephone,
       },
       position,
+      customerPosition,
     };
+  }
+
+  /**
+   * Mettre à jour la position GPS du client
+   */
+  async updateCustomerPosition(
+    orderId: string,
+    customerId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<void> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, customerAccountId: customerId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    if (order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
+      throw new BadRequestException('La commande n\'est pas en cours de livraison');
+    }
+
+    await this.onlineOrderRepository.update(orderId, {
+      customerLatitude: latitude,
+      customerLongitude: longitude,
+      customerLastPositionAt: new Date(),
+    });
   }
 
   /**

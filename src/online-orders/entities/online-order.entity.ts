@@ -113,6 +113,16 @@ export class OnlineOrder {
   @Column({ type: 'timestamp', nullable: true })
   expedieeLe: Date;
 
+  // Position GPS du client (partagée en temps réel)
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  customerLatitude: number;
+
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  customerLongitude: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  customerLastPositionAt: Date;
+
   @Column({ type: 'uuid', nullable: true })
   venteId: string;
 

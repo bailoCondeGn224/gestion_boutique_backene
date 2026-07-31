@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Param,
   Query,
   Body,
@@ -13,7 +14,7 @@ import { CustomerJwtAuthGuard } from '../customer-auth/guards/customer-jwt-auth.
 import { CurrentCustomer } from '../customer-auth/decorators/current-customer.decorator';
 import { CustomerAccount } from '../customer-auth/entities/customer-account.entity';
 import { OnlineOrdersService } from './online-orders.service';
-import { CreateOnlineOrderDto } from './dto';
+import { CreateOnlineOrderDto, UpdateCustomerPositionDto } from './dto';
 
 @ApiTags('public/orders')
 @Controller('public/orders')
@@ -55,5 +56,22 @@ export class OnlineOrdersPublicController {
   @ApiOperation({ summary: 'Détail d\'une commande' })
   getOrder(@Param('id') id: string) {
     return this.onlineOrdersService.getById(id);
+  }
+
+  @UseGuards(CustomerJwtAuthGuard)
+  @Put(':id/customer-position')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mettre à jour la position GPS du client' })
+  updateCustomerPosition(
+    @Param('id') id: string,
+    @CurrentCustomer() customer: CustomerAccount,
+    @Body() dto: UpdateCustomerPositionDto,
+  ) {
+    return this.onlineOrdersService.updateCustomerPosition(
+      id,
+      customer.id,
+      dto.latitude,
+      dto.longitude,
+    );
   }
 }
