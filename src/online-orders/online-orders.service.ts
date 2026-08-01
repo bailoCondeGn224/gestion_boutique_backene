@@ -742,6 +742,9 @@ export class OnlineOrdersService {
     longitude: number;
     livreurNom: string;
     livreurTelephone: string;
+    destinationLatitude?: number;
+    destinationLongitude?: number;
+    destinationAdresse?: string;
   } | null> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, statut: OnlineOrderStatut.EN_LIVRAISON },
@@ -757,6 +760,10 @@ export class OnlineOrdersService {
       longitude: Number(order.livreur.longitude),
       livreurNom: order.livreur.nom,
       livreurTelephone: order.livreur.telephone,
+      // Include destination coordinates if available
+      destinationLatitude: order.latitudeLivraison ? Number(order.latitudeLivraison) : undefined,
+      destinationLongitude: order.longitudeLivraison ? Number(order.longitudeLivraison) : undefined,
+      destinationAdresse: order.adresseLivraison || undefined,
     };
   }
 
@@ -874,6 +881,8 @@ export class OnlineOrdersService {
         statut: OnlineOrderStatut.EN_ATTENTE,
         modeLivraison: dto.modeLivraison || ModeLivraison.RETRAIT_BOUTIQUE,
         adresseLivraison: dto.adresseLivraison || null,
+        latitudeLivraison: dto.latitudeLivraison || null,
+        longitudeLivraison: dto.longitudeLivraison || null,
         telephoneLivraison: dto.telephone,
         fraisLivraison,
         sousTotal,

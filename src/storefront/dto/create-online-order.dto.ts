@@ -1,7 +1,8 @@
 // src/storefront/dto/create-online-order.dto.ts
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsNumber, Min, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, ValidateNested, IsNumber, Min, IsOptional, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ModeLivraison } from '../../online-orders/entities/online-order.entity';
 
 export class OrderArticleDto {
   @ApiProperty()
@@ -36,10 +37,25 @@ export class CreateOnlineOrderDto {
   @IsNotEmpty()
   telephone: string;
 
+  @ApiPropertyOptional({ enum: ModeLivraison, default: ModeLivraison.RETRAIT_BOUTIQUE })
+  @IsOptional()
+  @IsEnum(ModeLivraison)
+  modeLivraison?: ModeLivraison;
+
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
   adresseLivraison?: string;
+
+  @ApiPropertyOptional({ description: 'Latitude du lieu de livraison' })
+  @IsOptional()
+  @IsNumber()
+  latitudeLivraison?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude du lieu de livraison' })
+  @IsOptional()
+  @IsNumber()
+  longitudeLivraison?: number;
 
   @ApiProperty({ required: false })
   @IsString()

@@ -72,6 +72,12 @@ export class OnlineOrder {
   @Column({ type: 'varchar', length: 500, nullable: true })
   adresseLivraison: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitudeLivraison: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitudeLivraison: number;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   telephoneLivraison: string;
 

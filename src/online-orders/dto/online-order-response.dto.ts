@@ -87,16 +87,4 @@ export class OnlineOrderResponseDto {
 
   @ApiPropertyOptional()
   expedieeLe?: Date;
-
-  @ApiPropertyOptional()
-  livreurId?: string;
-
-  @ApiPropertyOptional()
-  livreurNom?: string;
-
-  @ApiPropertyOptional()
-  livreurTelephone?: string;
-
-  @ApiPropertyOptional()
-  whatsappLink?: string;
 }
