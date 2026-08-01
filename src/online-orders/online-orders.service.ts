@@ -858,7 +858,10 @@ export class OnlineOrdersService {
         });
       }
 
-      const fraisLivraison = Number(storefront.fraisLivraison || 0);
+      // Frais de livraison seulement si mode LIVRAISON
+      const fraisLivraison = dto.modeLivraison === ModeLivraison.LIVRAISON
+        ? Number(storefront.fraisLivraison || 0)
+        : 0;
       const total = sousTotal + fraisLivraison;
 
       // Créer la commande
@@ -869,7 +872,7 @@ export class OnlineOrdersService {
         clientId: null,
         clientNom: dto.nomClient || null,
         statut: OnlineOrderStatut.EN_ATTENTE,
-        modeLivraison: ModeLivraison.RETRAIT_BOUTIQUE,
+        modeLivraison: dto.modeLivraison || ModeLivraison.RETRAIT_BOUTIQUE,
         adresseLivraison: dto.adresseLivraison || null,
         telephoneLivraison: dto.telephone,
         fraisLivraison,
