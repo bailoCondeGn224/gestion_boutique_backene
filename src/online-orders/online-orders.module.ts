@@ -14,11 +14,9 @@ import { Livreur } from '../livreurs/entities/livreur.entity';
 import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 import { OnlineOrdersPublicController } from './online-orders-public.controller';
-import { LivreurOrdersController } from './livreur-orders.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StockModule } from '../stock/stock.module';
 import { MouvementsStockModule } from '../mouvements-stock/mouvements-stock.module';
-import { LivreursModule } from '../livreurs/livreurs.module';
 
 @Module({
   imports: [
@@ -37,9 +35,8 @@ import { LivreursModule } from '../livreurs/livreurs.module';
     NotificationsModule,
     StockModule,
     MouvementsStockModule,
-    LivreursModule,
   ],
-  controllers: [OnlineOrdersController, OnlineOrdersPublicController, LivreurOrdersController],
+  controllers: [OnlineOrdersController, OnlineOrdersPublicController],
   providers: [OnlineOrdersService],
   exports: [OnlineOrdersService],
 })

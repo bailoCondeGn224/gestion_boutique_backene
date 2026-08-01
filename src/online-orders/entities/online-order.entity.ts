@@ -12,8 +12,8 @@ import {
 import { CustomerAccount } from '../../customer-auth/entities/customer-account.entity';
 import { Client } from '../../clients/entities/client.entity';
 import { Vente } from '../../ventes/entities/vente.entity';
-import { OnlineOrderItem } from './online-order-item.entity';
 import { Livreur } from '../../livreurs/entities/livreur.entity';
+import { OnlineOrderItem } from './online-order-item.entity';
 
 export enum OnlineOrderStatut {
   EN_ATTENTE = 'EN_ATTENTE',
@@ -105,30 +105,19 @@ export class OnlineOrder {
   @Column({ type: 'timestamp', nullable: true })
   expedieeLe: Date;
 
-  // Livreur assigné
-  @Column({ type: 'uuid', nullable: true })
-  livreurId: string;
-
-  @ManyToOne(() => Livreur, { nullable: true })
-  @JoinColumn({ name: 'livreurId' })
-  livreur: Livreur;
-
-  // Position GPS du client (pour le livreur)
-  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
-  customerLatitude: number;
-
-  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
-  customerLongitude: number;
-
-  @Column({ type: 'timestamp', nullable: true })
-  customerLastPositionAt: Date;
-
   @Column({ type: 'uuid', nullable: true })
   venteId: string;
 
   @ManyToOne(() => Vente, { nullable: true })
   @JoinColumn({ name: 'venteId' })
   vente: Vente;
+
+  @Column({ type: 'uuid', nullable: true })
+  livreurId: string;
+
+  @ManyToOne(() => Livreur, { nullable: true })
+  @JoinColumn({ name: 'livreurId' })
+  livreur: Livreur;
 
   @OneToMany(() => OnlineOrderItem, item => item.onlineOrder, { cascade: true })
   items: OnlineOrderItem[];

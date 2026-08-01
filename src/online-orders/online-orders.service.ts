@@ -13,13 +13,12 @@ import { Article } from '../stock/entities/article.entity';
 import { ModeVente } from '../stock/entities/mode-vente.entity';
 import { Client } from '../clients/entities/client.entity';
 import { CustomerAccount } from '../customer-auth/entities/customer-account.entity';
+import { Livreur } from '../livreurs/entities/livreur.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { CreateOnlineOrderDto, OnlineOrderResponseDto, CancelOrderDto } from './dto';
 import { StockService } from '../stock/stock.service';
 import { MouvementsStockService } from '../mouvements-stock/mouvements-stock.service';
-import { Livreur } from '../livreurs/entities/livreur.entity';
-import { LivreursService } from '../livreurs/livreurs.service';
 import { TypeMouvement, MotifMouvement } from '../mouvements-stock/entities/mouvement-stock.entity';
 import { Vente, ModePaiement, StatutVente } from '../ventes/entities/vente.entity';
 import { LigneVente } from '../ventes/entities/ligne-vente.entity';
@@ -51,7 +50,6 @@ export class OnlineOrdersService {
     private notificationsService: NotificationsService,
     private stockService: StockService,
     private mouvementsStockService: MouvementsStockService,
-    private livreursService: LivreursService,
   ) {}
 
   async create(dto: CreateOnlineOrderDto, customerId: string): Promise<OnlineOrderResponseDto> {
@@ -199,7 +197,7 @@ export class OnlineOrdersService {
   async getById(id: string): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id },
-      relations: ['items', 'customerAccount', 'livreur'],
+      relations: ['items', 'customerAccount'],
     });
 
     if (!order) {
@@ -246,7 +244,7 @@ export class OnlineOrdersService {
 
     const [orders, total] = await this.onlineOrderRepository.findAndCount({
       where,
-      relations: ['items', 'customerAccount', 'livreur'],
+      relations: ['items', 'customerAccount'],
       order: { createdAt: 'DESC' },
       skip,
       take: limit,
@@ -308,7 +306,7 @@ export class OnlineOrdersService {
   async confirm(orderId: string, organizationId: string, userId: string): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount', 'livreur'],
+      relations: ['items', 'customerAccount'],
     });
 
     if (!order) {
@@ -393,7 +391,7 @@ export class OnlineOrdersService {
   async markReady(orderId: string, organizationId: string): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount', 'livreur'],
+      relations: ['items', 'customerAccount'],
     });
 
     if (!order) {
@@ -429,7 +427,7 @@ export class OnlineOrdersService {
   async markDelivered(orderId: string, organizationId: string, userId: string): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount', 'livreur'],
+      relations: ['items', 'customerAccount'],
     });
 
     if (!order) {
@@ -612,7 +610,7 @@ export class OnlineOrdersService {
   async cancel(orderId: string, organizationId: string, dto: CancelOrderDto): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount', 'livreur'],
+      relations: ['items', 'customerAccount'],
     });
 
     if (!order) {
@@ -670,6 +668,98 @@ export class OnlineOrdersService {
     return `CMD-${year}${month}-${String(sequence).padStart(5, '0')}`;
   }
 
+  async dispatch(
+    organizationId: string,
+    orderId: string,
+    livreurId: string,
+  ): Promise<OnlineOrder> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, organizationId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    if (order.statut !== OnlineOrderStatut.PRETE) {
+      throw new BadRequestException(
+        'La commande doit être prête pour être dispatchée',
+      );
+    }
+
+    if (order.modeLivraison !== ModeLivraison.LIVRAISON) {
+      throw new BadRequestException(
+        'Seules les commandes en livraison peuvent être dispatchées',
+      );
+    }
+
+    order.livreurId = livreurId;
+    order.statut = OnlineOrderStatut.EN_LIVRAISON;
+    order.expedieeLe = new Date();
+
+    return this.onlineOrderRepository.save(order);
+  }
+
+  async getByLivreur(livreurId: string): Promise<OnlineOrder[]> {
+    return this.onlineOrderRepository.find({
+      where: {
+        livreurId,
+        statut: OnlineOrderStatut.EN_LIVRAISON,
+      },
+      relations: ['items'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async markDeliveredByLivreur(
+    livreurId: string,
+    orderId: string,
+  ): Promise<OnlineOrder> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, livreurId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(
+        'Commande non trouvée ou non assignée à ce livreur',
+      );
+    }
+
+    if (order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
+      throw new BadRequestException('La commande doit être en livraison');
+    }
+
+    order.statut = OnlineOrderStatut.LIVREE;
+    order.livreeLe = new Date();
+
+    return this.onlineOrderRepository.save(order);
+  }
+
+  async getTrackingInfo(
+    orderId: string,
+  ): Promise<{
+    latitude: number;
+    longitude: number;
+    livreurNom: string;
+    livreurTelephone: string;
+  } | null> {
+    const order = await this.onlineOrderRepository.findOne({
+      where: { id: orderId, statut: OnlineOrderStatut.EN_LIVRAISON },
+      relations: ['livreur'],
+    });
+
+    if (!order || !order.livreur || !order.livreur.latitude) {
+      return null;
+    }
+
+    return {
+      latitude: Number(order.livreur.latitude),
+      longitude: Number(order.livreur.longitude),
+      livreurNom: order.livreur.nom,
+      livreurTelephone: order.livreur.telephone,
+    };
+  }
+
   private toResponseDto(order: OnlineOrder, customer?: CustomerAccount): OnlineOrderResponseDto {
     const customerData = order.customerAccount || customer;
 
@@ -703,9 +793,6 @@ export class OnlineOrdersService {
       livreeLe: order.livreeLe,
       annuleeLe: order.annuleeLe,
       expedieeLe: order.expedieeLe,
-      livreurId: order.livreurId,
-      livreurNom: order.livreur?.nom,
-      livreurTelephone: order.livreur?.telephone,
     };
   }
 
@@ -819,196 +906,5 @@ export class OnlineOrdersService {
     } finally {
       await queryRunner.release();
     }
-  }
-
-  // ========== Dispatch & Tracking ==========
-
-  /**
-   * Assigner un livreur à une commande et passer en "EN_LIVRAISON"
-   */
-  async dispatch(orderId: string, livreurId: string, organizationId: string): Promise<OnlineOrderResponseDto> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, organizationId },
-      relations: ['items', 'customerAccount', 'livreur'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Commande non trouvée');
-    }
-
-    if (order.statut !== OnlineOrderStatut.PRETE && order.statut !== OnlineOrderStatut.CONFIRMEE) {
-      throw new BadRequestException('Cette commande ne peut pas être dispatchée');
-    }
-
-    // Vérifier que le livreur existe et appartient à l'organisation
-    const livreur = await this.livreurRepository.findOne({
-      where: { id: livreurId, organizationId, isActive: true },
-    });
-
-    if (!livreur) {
-      throw new NotFoundException('Livreur non trouvé ou inactif');
-    }
-
-    // Mettre à jour la commande
-    order.livreurId = livreurId;
-    order.statut = OnlineOrderStatut.EN_LIVRAISON;
-    order.expedieeLe = new Date();
-
-    await this.onlineOrderRepository.save(order);
-
-    // Notifier le client
-    if (order.customerAccountId) {
-      try {
-        await this.notificationsService.sendToCustomer(order.customerAccountId, {
-          type: NotificationType.COMMANDE_PRETE,
-          title: 'Commande en livraison',
-          message: `Votre commande #${order.numero} est en cours de livraison par ${livreur.nom}`,
-          data: { orderId: order.id, numero: order.numero, livreurNom: livreur.nom },
-        });
-      } catch (notifError) {
-        console.error('Erreur envoi notification client:', notifError);
-      }
-    }
-
-    return this.toResponseDto(order);
-  }
-
-  /**
-   * Récupérer la position du livreur pour une commande
-   */
-  async getTracking(orderId: string): Promise<{
-    livreur: { id: string; nom: string; telephone: string };
-    position: { latitude: number; longitude: number; lastPositionAt: Date } | null;
-    customerPosition: { latitude: number; longitude: number; lastPositionAt: Date } | null;
-  } | null> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId },
-      relations: ['livreur'],
-    });
-
-    if (!order || !order.livreurId || order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
-      return null;
-    }
-
-    const position = await this.livreursService.getPosition(order.livreurId);
-
-    // Position du client
-    const customerPosition = order.customerLatitude && order.customerLongitude
-      ? {
-          latitude: Number(order.customerLatitude),
-          longitude: Number(order.customerLongitude),
-          lastPositionAt: order.customerLastPositionAt,
-        }
-      : null;
-
-    return {
-      livreur: {
-        id: order.livreur.id,
-        nom: order.livreur.nom,
-        telephone: order.livreur.telephone,
-      },
-      position,
-      customerPosition,
-    };
-  }
-
-  /**
-   * Récupérer la position du livreur pour une commande (avec validation propriétaire)
-   */
-  async getTrackingForCustomer(orderId: string, customerId: string): Promise<{
-    livreur: { id: string; nom: string; telephone: string };
-    position: { latitude: number; longitude: number; lastPositionAt: Date } | null;
-  } | null> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, customerAccountId: customerId },
-      relations: ['livreur'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Commande non trouvée');
-    }
-
-    if (!order.livreurId || order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
-      return null;
-    }
-
-    const position = await this.livreursService.getPosition(order.livreurId);
-
-    return {
-      livreur: {
-        id: order.livreur.id,
-        nom: order.livreur.nom,
-        telephone: order.livreur.telephone,
-      },
-      position,
-    };
-  }
-
-  /**
-   * Mettre à jour la position GPS du client
-   */
-  async updateCustomerPosition(
-    orderId: string,
-    customerId: string,
-    latitude: number,
-    longitude: number,
-  ): Promise<void> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, customerAccountId: customerId },
-    });
-
-    if (!order) {
-      throw new NotFoundException('Commande non trouvée');
-    }
-
-    if (order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
-      throw new BadRequestException('La commande n\'est pas en cours de livraison');
-    }
-
-    await this.onlineOrderRepository.update(orderId, {
-      customerLatitude: latitude,
-      customerLongitude: longitude,
-      customerLastPositionAt: new Date(),
-    });
-  }
-
-  /**
-   * Récupérer les commandes assignées à un livreur
-   */
-  async getOrdersForLivreur(livreurId: string): Promise<OnlineOrderResponseDto[]> {
-    const orders = await this.onlineOrderRepository.find({
-      where: { livreurId, statut: OnlineOrderStatut.EN_LIVRAISON },
-      relations: ['items', 'customerAccount', 'livreur'],
-      order: { expedieeLe: 'DESC' },
-    });
-
-    return orders.map(o => this.toResponseDto(o));
-  }
-
-  /**
-   * Livreur marque la commande comme livrée
-   */
-  async markDeliveredByLivreur(orderId: string, livreurId: string): Promise<OnlineOrderResponseDto> {
-    const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, livreurId },
-      relations: ['items', 'customerAccount', 'livreur'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Commande non trouvée ou non assignée à ce livreur');
-    }
-
-    if (order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
-      throw new BadRequestException('Cette commande n\'est pas en livraison');
-    }
-
-    // Utiliser la méthode existante markDelivered pour créer la vente
-    // On doit d'abord récupérer un userId - on va utiliser confirmeePar
-    const userId = order.confirmeePar;
-    if (!userId) {
-      throw new BadRequestException('Commande sans confirmateur, impossible de créer la vente');
-    }
-
-    return this.markDelivered(orderId, order.organizationId, userId);
   }
 }
