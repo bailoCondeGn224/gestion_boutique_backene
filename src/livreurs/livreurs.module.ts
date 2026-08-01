@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -8,6 +8,7 @@ import { LivreursService } from './livreurs.service';
 import { LivreursController } from './livreurs.controller';
 import { LivreursPublicController } from './livreurs-public.controller';
 import { LivreurJwtStrategy } from './strategies/livreur-jwt.strategy';
+import { OnlineOrdersModule } from '../online-orders/online-orders.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { LivreurJwtStrategy } from './strategies/livreur-jwt.strategy';
       }),
       inject: [ConfigService],
     }),
+    forwardRef(() => OnlineOrdersModule),
   ],
   controllers: [LivreursController, LivreursPublicController],
   providers: [LivreursService, LivreurJwtStrategy],

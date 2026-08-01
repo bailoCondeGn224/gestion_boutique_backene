@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Body,
+  Param,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -13,11 +14,15 @@ import { UpdatePositionDto } from './dto/update-position.dto';
 import { LivreurJwtAuthGuard } from './guards/livreur-jwt-auth.guard';
 import { CurrentLivreur } from './decorators/current-livreur.decorator';
 import { Livreur } from './entities/livreur.entity';
+import { OnlineOrdersService } from '../online-orders/online-orders.service';
 
 @ApiTags('public/livreur')
 @Controller('public/livreur')
 export class LivreursPublicController {
-  constructor(private readonly livreursService: LivreursService) {}
+  constructor(
+    private readonly livreursService: LivreursService,
+    private readonly onlineOrdersService: OnlineOrdersService,
+  ) {}
 
   @Post('login')
   @ApiOperation({ summary: 'Connexion livreur' })
@@ -47,5 +52,24 @@ export class LivreursPublicController {
     @Body() dto: UpdatePositionDto,
   ) {
     return this.livreursService.updatePosition(livreur.id, dto);
+  }
+
+  @UseGuards(LivreurJwtAuthGuard)
+  @Get('orders')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Commandes assignées au livreur' })
+  getMyOrders(@CurrentLivreur() livreur: Livreur) {
+    return this.onlineOrdersService.getByLivreur(livreur.id);
+  }
+
+  @UseGuards(LivreurJwtAuthGuard)
+  @Put('orders/:id/deliver')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Marquer une commande comme livrée' })
+  markDelivered(
+    @CurrentLivreur() livreur: Livreur,
+    @Param('id') orderId: string,
+  ) {
+    return this.onlineOrdersService.markDeliveredByLivreur(livreur.id, orderId);
   }
 }

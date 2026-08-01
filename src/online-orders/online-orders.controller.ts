@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Patch,
+  Put,
   Param,
   Query,
   Body,
@@ -13,6 +14,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CurrentOrganization } from '../common/decorators/current-organization.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { OnlineOrdersService } from './online-orders.service';
 import { CancelOrderDto } from './dto';
 import { OnlineOrderStatut } from './entities/online-order.entity';
@@ -95,19 +97,13 @@ export class OnlineOrdersController {
     return this.onlineOrdersService.cancel(id, organizationId, dto);
   }
 
-  @Patch(':id/dispatch')
-  @ApiOperation({ summary: 'Assigner un livreur et démarrer la livraison' })
+  @Put(':id/dispatch/:livreurId')
+  @ApiOperation({ summary: 'Assigner un livreur à une commande' })
   dispatch(
+    @CurrentUser() user: any,
     @Param('id') id: string,
-    @CurrentOrganization() organizationId: string,
-    @Body() dto: { livreurId: string },
+    @Param('livreurId') livreurId: string,
   ) {
-    return this.onlineOrdersService.dispatch(id, dto.livreurId, organizationId);
-  }
-
-  @Get(':id/tracking')
-  @ApiOperation({ summary: 'Position du livreur pour une commande' })
-  getTracking(@Param('id') id: string) {
-    return this.onlineOrdersService.getTracking(id);
+    return this.onlineOrdersService.dispatch(user.organizationId, id, livreurId);
   }
 }
