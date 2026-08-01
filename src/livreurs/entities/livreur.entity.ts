@@ -1,61 +1,41 @@
-// src/livreurs/entities/livreur.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
   Index,
 } from 'typeorm';
-import { Organization } from '../../organizations/entities/organization.entity';
 
-@Entity('livreurs')
-@Index(['telephone', 'organizationId'], { unique: true }) // Unique par organisation
+@Entity('livreur')
 export class Livreur {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  nom: string;
-
-  @Column()
-  telephone: string;
-
-  @Column({ nullable: true })
-  email: string;
-
-  @Column()
-  password: string;
-
-  @Column({ default: true })
-  isActive: boolean;
-
-  @Column({ nullable: true })
-  photo: string;
-
-  // Position actuelle (mise à jour en temps réel)
-  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
-  latitude: number;
-
-  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
-  longitude: number;
-
-  @Column({ nullable: true })
-  lastPositionAt: Date;
-
-  // Est-ce que le livreur est en train de livrer ?
-  @Column({ default: false })
-  isDelivering: boolean;
-
-  // Tenant
-  @Column()
+  @Column({ type: 'uuid' })
+  @Index()
   organizationId: string;
 
-  @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'organizationId' })
-  organization: Organization;
+  @Column({ type: 'varchar', length: 255 })
+  nom: string;
+
+  @Column({ type: 'varchar', length: 20, unique: true })
+  telephone: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  passwordHash: string;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastPositionAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;

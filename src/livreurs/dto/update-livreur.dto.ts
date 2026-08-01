@@ -1,35 +1,24 @@
-// src/livreurs/dto/update-livreur.dto.ts
-import { IsString, IsOptional, IsEmail, MinLength, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, MinLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateLivreurDto {
-  @ApiPropertyOptional({ description: 'Nom du livreur' })
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   nom?: string;
 
-  @ApiPropertyOptional({ description: 'Numéro de téléphone' })
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   telephone?: string;
 
-  @ApiPropertyOptional({ description: 'Email du livreur' })
-  @IsEmail()
-  @IsOptional()
-  email?: string;
-
-  @ApiPropertyOptional({ description: 'Nouveau mot de passe' })
+  @ApiPropertyOptional()
   @IsString()
-  @MinLength(4)
+  @MinLength(6)
   @IsOptional()
   password?: string;
 
-  @ApiPropertyOptional({ description: 'Photo du livreur' })
-  @IsString()
-  @IsOptional()
-  photo?: string;
-
-  @ApiPropertyOptional({ description: 'Livreur actif ?' })
+  @ApiPropertyOptional()
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
