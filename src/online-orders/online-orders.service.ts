@@ -244,7 +244,7 @@ export class OnlineOrdersService {
 
     const [orders, total] = await this.onlineOrderRepository.findAndCount({
       where,
-      relations: ['items', 'customerAccount'],
+      relations: ['items', 'customerAccount', 'livreur'],
       order: { createdAt: 'DESC' },
       skip,
       take: limit,
@@ -434,18 +434,24 @@ export class OnlineOrdersService {
       throw new NotFoundException('Commande non trouvée');
     }
 
-    // Vérifier que la commande est dans un état permettant la livraison
-    const validStatuts = [
-      OnlineOrderStatut.CONFIRMEE,
-      OnlineOrderStatut.PRETE,
-      OnlineOrderStatut.EN_LIVRAISON,
-    ];
-    if (!validStatuts.includes(order.statut)) {
-      throw new BadRequestException('Cette commande ne peut pas être marquée livrée');
+    // Pour mode LIVRAISON: doit passer par dispatch() puis markDeliveredByLivreur()
+    // Pour mode RETRAIT_BOUTIQUE: backoffice peut marquer directement depuis PRETE
+    if (order.modeLivraison === ModeLivraison.LIVRAISON) {
+      // Mode LIVRAISON: seul EN_LIVRAISON peut être marqué livré (par backoffice en cas d'urgence)
+      if (order.statut !== OnlineOrderStatut.EN_LIVRAISON) {
+        throw new BadRequestException(
+          'Pour une livraison à domicile, la commande doit d\'abord être dispatchée à un livreur'
+        );
+      }
+    } else {
+      // Mode RETRAIT_BOUTIQUE: peut être marqué livré depuis PRETE
+      if (order.statut !== OnlineOrderStatut.PRETE && order.statut !== OnlineOrderStatut.CONFIRMEE) {
+        throw new BadRequestException('Cette commande ne peut pas être marquée livrée');
+      }
     }
 
-    // Idempotence: si déjà livrée avec une vente, retourner sans rien faire
-    if (order.statut === OnlineOrderStatut.LIVREE || order.venteId) {
+    // Idempotence: si déjà une vente associée, retourner sans rien faire
+    if (order.venteId) {
       return this.toResponseDto(order);
     }
 
@@ -800,6 +806,12 @@ export class OnlineOrdersService {
       livreeLe: order.livreeLe,
       annuleeLe: order.annuleeLe,
       expedieeLe: order.expedieeLe,
+      livreurId: order.livreurId || undefined,
+      livreur: order.livreur ? {
+        id: order.livreur.id,
+        nom: order.livreur.nom,
+        telephone: order.livreur.telephone,
+      } : undefined,
     };
   }
 

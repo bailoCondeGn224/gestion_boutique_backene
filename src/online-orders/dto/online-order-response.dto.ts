@@ -87,4 +87,14 @@ export class OnlineOrderResponseDto {
 
   @ApiPropertyOptional()
   expedieeLe?: Date;
+
+  @ApiPropertyOptional()
+  livreurId?: string;
+
+  @ApiPropertyOptional()
+  livreur?: {
+    id: string;
+    nom: string;
+    telephone: string;
+  };
 }
