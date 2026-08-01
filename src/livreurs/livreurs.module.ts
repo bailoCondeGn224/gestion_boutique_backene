@@ -1,31 +1,29 @@
-// src/livreurs/livreurs.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 import { Livreur } from './entities/livreur.entity';
-import { StoreFront } from '../storefront/entities/storefront.entity';
 import { LivreursService } from './livreurs.service';
-import {
-  LivreursController,
-  LivreursPublicController,
-  LivreurAuthController,
-} from './livreurs.controller';
+import { LivreursController } from './livreurs.controller';
+import { LivreursPublicController } from './livreurs-public.controller';
+import { LivreurJwtStrategy } from './strategies/livreur-jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Livreur, StoreFront]),
+    TypeOrmModule.forFeature([Livreur]),
+    PassportModule.register({ defaultStrategy: 'livreur-jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '7d' },
+        signOptions: { expiresIn: '30d' },
       }),
       inject: [ConfigService],
     }),
   ],
-  controllers: [LivreursController, LivreursPublicController, LivreurAuthController],
-  providers: [LivreursService],
-  exports: [LivreursService],
+  controllers: [LivreursController, LivreursPublicController],
+  providers: [LivreursService, LivreurJwtStrategy],
+  exports: [LivreursService, TypeOrmModule],
 })
 export class LivreursModule {}
