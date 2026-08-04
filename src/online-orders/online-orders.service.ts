@@ -78,7 +78,7 @@ export class OnlineOrdersService {
 
     try {
       // Générer le numéro de commande
-      const numero = await this.generateNumero(storefront.organizationId);
+      const numero = this.generateNumero(storefront.organizationId);
 
       // Calculer les totaux et créer les items
       let sousTotal = 0;
@@ -653,25 +653,21 @@ export class OnlineOrdersService {
     return this.toResponseDto(order);
   }
 
-  private async generateNumero(organizationId: string): Promise<string> {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
+  private generateNumero(organizationId: string): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
 
-    const lastOrder = await this.onlineOrderRepository
-      .createQueryBuilder('o')
-      .where('o.organizationId = :organizationId', { organizationId })
-      .andWhere('o.numero LIKE :pattern', { pattern: `CMD-${year}${month}-%` })
-      .orderBy('o.numero', 'DESC')
-      .getOne();
+    // 3 derniers caractères de l'organizationId (pour unicité multi-tenant)
+    const orgSuffix = organizationId.slice(-3).toUpperCase();
 
-    let sequence = 1;
-    if (lastOrder) {
-      const lastSequence = parseInt(lastOrder.numero.split('-')[2], 10);
-      sequence = lastSequence + 1;
-    }
-
-    return `CMD-${year}${month}-${String(sequence).padStart(5, '0')}`;
+    // Format: CMD-YYYYMMDDHHMMSSMMM-XXX
+    return `CMD-${year}${month}${day}${hours}${minutes}${seconds}${ms}-${orgSuffix}`;
   }
 
   async dispatch(
@@ -835,7 +831,7 @@ export class OnlineOrdersService {
 
     try {
       // Générer le numéro de commande
-      const numero = await this.generateNumero(storefront.organizationId);
+      const numero = this.generateNumero(storefront.organizationId);
 
       // Calculer les totaux et créer les items
       let sousTotal = 0;
