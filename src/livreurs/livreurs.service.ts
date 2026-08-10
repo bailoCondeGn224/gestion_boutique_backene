@@ -37,7 +37,11 @@ export class LivreursService {
       organizationId,
       passwordHash,
     });
-    return this.livreurRepository.save(livreur);
+    const saved = await this.livreurRepository.save(livreur);
+
+    // Relecture: l'entité renvoyée par save() porte encore le hash qu'on vient
+    // de lui affecter en mémoire.
+    return this.findOne(organizationId, saved.id);
   }
 
   async findAll(organizationId: string): Promise<Livreur[]> {
@@ -64,14 +68,22 @@ export class LivreursService {
   ): Promise<Livreur> {
     const livreur = await this.findOne(organizationId, id);
 
-    if (dto.password) {
-      livreur.passwordHash = await bcrypt.hash(dto.password, 10);
-    }
     if (dto.nom !== undefined) livreur.nom = dto.nom;
     if (dto.telephone !== undefined) livreur.telephone = dto.telephone;
     if (dto.isActive !== undefined) livreur.isActive = dto.isActive;
 
-    return this.livreurRepository.save(livreur);
+    await this.livreurRepository.save(livreur);
+
+    // Mot de passe écrit à part: l'entité chargée ne contient plus passwordHash
+    // (select: false), on ne veut pas dépendre du calcul de diff de save().
+    if (dto.password) {
+      await this.livreurRepository.update(
+        { id, organizationId },
+        { passwordHash: await bcrypt.hash(dto.password, 10) },
+      );
+    }
+
+    return this.findOne(organizationId, id);
   }
 
   async remove(organizationId: string, id: string): Promise<void> {
@@ -82,9 +94,13 @@ export class LivreursService {
   async login(
     dto: LoginLivreurDto,
   ): Promise<{ access_token: string; livreur: Partial<Livreur> }> {
-    const livreur = await this.livreurRepository.findOne({
-      where: { telephone: dto.telephone, isActive: true },
-    });
+    // passwordHash est en select: false, il faut le demander explicitement
+    const livreur = await this.livreurRepository
+      .createQueryBuilder('livreur')
+      .addSelect('livreur.passwordHash')
+      .where('livreur.telephone = :telephone', { telephone: dto.telephone })
+      .andWhere('livreur.isActive = true')
+      .getOne();
 
     if (!livreur) {
       throw new UnauthorizedException('Identifiants invalides');

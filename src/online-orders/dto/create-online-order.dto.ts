@@ -39,6 +39,26 @@ export class CreateOnlineOrderDto {
   @IsString()
   telephoneLivraison?: string;
 
+  // Sans ces trois champs, le ValidationPipe (whitelist: true) supprimait
+  // silencieusement les coordonnées envoyées par le client.
+  @ApiPropertyOptional({ description: 'Latitude du lieu de livraison' })
+  @IsOptional()
+  @IsNumber()
+  latitudeLivraison?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude du lieu de livraison' })
+  @IsOptional()
+  @IsNumber()
+  longitudeLivraison?: number;
+
+  @ApiPropertyOptional({
+    description: "Rayon d'incertitude en mètres du point de livraison",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precisionLivraison?: number;
+
   @ApiProperty({ type: [CreateOnlineOrderItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

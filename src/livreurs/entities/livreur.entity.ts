@@ -22,7 +22,10 @@ export class Livreur {
   @Column({ type: 'varchar', length: 20, unique: true })
   telephone: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  // select: false — sans ça, GET /livreurs renvoie le hash bcrypt au navigateur.
+  // Les rares endroits qui en ont besoin doivent l'ajouter explicitement
+  // (voir LivreursService.login).
+  @Column({ type: 'varchar', length: 255, select: false })
   passwordHash: string;
 
   @Column({ type: 'boolean', default: true })

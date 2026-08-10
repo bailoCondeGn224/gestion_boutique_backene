@@ -59,7 +59,10 @@ export class LivreursPublicController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Commandes assignées au livreur' })
   getMyOrders(@CurrentLivreur() livreur: Livreur) {
-    return this.onlineOrdersService.getByLivreur(livreur.id);
+    return this.onlineOrdersService.getByLivreur(
+      livreur.id,
+      livreur.organizationId,
+    );
   }
 
   @UseGuards(LivreurJwtAuthGuard)
@@ -70,6 +73,10 @@ export class LivreursPublicController {
     @CurrentLivreur() livreur: Livreur,
     @Param('id') orderId: string,
   ) {
-    return this.onlineOrdersService.markDeliveredByLivreur(livreur.id, orderId);
+    return this.onlineOrdersService.markDeliveredByLivreur(
+      livreur.id,
+      orderId,
+      livreur.organizationId,
+    );
   }
 }

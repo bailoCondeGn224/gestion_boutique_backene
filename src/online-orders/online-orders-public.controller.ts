@@ -53,15 +53,23 @@ export class OnlineOrdersPublicController {
   @Get(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Détail d\'une commande' })
-  getOrder(@Param('id') id: string) {
-    return this.onlineOrdersService.getById(id);
+  getOrder(
+    @CurrentCustomer() customer: CustomerAccount,
+    @Param('id') id: string,
+  ) {
+    return this.onlineOrdersService.getById(id, { customerId: customer.id });
   }
 
   @UseGuards(CustomerJwtAuthGuard)
   @Get(':id/tracking')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Position du livreur pour une commande' })
-  getTracking(@Param('id') id: string) {
-    return this.onlineOrdersService.getTrackingInfo(id);
+  getTracking(
+    @CurrentCustomer() customer: CustomerAccount,
+    @Param('id') id: string,
+  ) {
+    return this.onlineOrdersService.getTrackingInfo(id, {
+      customerId: customer.id,
+    });
   }
 }

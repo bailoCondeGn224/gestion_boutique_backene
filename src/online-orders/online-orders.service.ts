@@ -157,6 +157,9 @@ export class OnlineOrdersService {
         statut: OnlineOrderStatut.EN_ATTENTE,
         modeLivraison: dto.modeLivraison,
         adresseLivraison: dto.adresseLivraison,
+        latitudeLivraison: dto.latitudeLivraison ?? null,
+        longitudeLivraison: dto.longitudeLivraison ?? null,
+        precisionLivraison: dto.precisionLivraison ?? null,
         telephoneLivraison: dto.telephoneLivraison || customer.telephone,
         fraisLivraison,
         sousTotal,
@@ -194,12 +197,31 @@ export class OnlineOrdersService {
     }
   }
 
-  async getById(id: string): Promise<OnlineOrderResponseDto> {
+  /**
+   * Portée de lecture d'une commande.
+   *
+   * Toujours fournie par les contrôleurs: sans elle, n'importe quel client
+   * connecté peut lire la commande d'un autre (adresse, téléphone, contenu du
+   * panier), et n'importe quelle boutique celle d'une autre organisation.
+   */
+  private buildOrderScope(scope?: { customerId?: string; organizationId?: string }) {
+    return {
+      ...(scope?.customerId ? { customerAccountId: scope.customerId } : {}),
+      ...(scope?.organizationId ? { organizationId: scope.organizationId } : {}),
+    };
+  }
+
+  async getById(
+    id: string,
+    scope?: { customerId?: string; organizationId?: string },
+  ): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
-      where: { id },
+      where: { id, ...this.buildOrderScope(scope) },
       relations: ['items', 'customerAccount'],
     });
 
+    // 404 et non 403: on ne confirme pas l'existence d'une commande qui ne
+    // regarde pas l'appelant.
     if (!order) {
       throw new NotFoundException('Commande non trouvée');
     }
@@ -695,6 +717,21 @@ export class OnlineOrdersService {
       );
     }
 
+    // Le livreur doit appartenir à la même organisation: sans ce contrôle, une
+    // boutique peut assigner ses commandes au livreur d'une autre boutique, qui
+    // verrait alors l'adresse et le téléphone de ses clients.
+    const livreur = await this.livreurRepository.findOne({
+      where: { id: livreurId, organizationId },
+    });
+
+    if (!livreur) {
+      throw new NotFoundException('Livreur non trouvé');
+    }
+
+    if (!livreur.isActive) {
+      throw new BadRequestException('Ce livreur est désactivé');
+    }
+
     order.livreurId = livreurId;
     order.statut = OnlineOrderStatut.EN_LIVRAISON;
     order.expedieeLe = new Date();
@@ -702,10 +739,16 @@ export class OnlineOrdersService {
     return this.onlineOrderRepository.save(order);
   }
 
-  async getByLivreur(livreurId: string): Promise<OnlineOrder[]> {
+  // organizationId en plus du livreurId: défense en profondeur contre les
+  // commandes dispatchées avant l'ajout du contrôle d'organisation dans dispatch().
+  async getByLivreur(
+    livreurId: string,
+    organizationId: string,
+  ): Promise<OnlineOrder[]> {
     return this.onlineOrderRepository.find({
       where: {
         livreurId,
+        organizationId,
         statut: OnlineOrderStatut.EN_LIVRAISON,
       },
       relations: ['items'],
@@ -716,9 +759,10 @@ export class OnlineOrdersService {
   async markDeliveredByLivreur(
     livreurId: string,
     orderId: string,
+    organizationId: string,
   ): Promise<OnlineOrder> {
     const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, livreurId },
+      where: { id: orderId, livreurId, organizationId },
     });
 
     if (!order) {
@@ -739,32 +783,49 @@ export class OnlineOrdersService {
 
   async getTrackingInfo(
     orderId: string,
+    scope?: { customerId?: string; organizationId?: string },
   ): Promise<{
-    latitude: number;
-    longitude: number;
+    latitude: number | null;
+    longitude: number | null;
+    lastPositionAt: Date | null;
     livreurNom: string;
     livreurTelephone: string;
     destinationLatitude?: number;
     destinationLongitude?: number;
+    destinationPrecision?: number;
     destinationAdresse?: string;
   } | null> {
     const order = await this.onlineOrderRepository.findOne({
-      where: { id: orderId, statut: OnlineOrderStatut.EN_LIVRAISON },
+      where: {
+        id: orderId,
+        statut: OnlineOrderStatut.EN_LIVRAISON,
+        ...this.buildOrderScope(scope),
+      },
       relations: ['livreur'],
     });
 
-    if (!order || !order.livreur || !order.livreur.latitude) {
+    if (!order || !order.livreur) {
       return null;
     }
 
+    // On renvoie le livreur même sans position: le client doit pouvoir l'appeler
+    // quand son GPS est coupé, plutôt que de ne rien voir du tout.
+    const hasPosition =
+      order.livreur.latitude !== null && order.livreur.longitude !== null;
+
     return {
-      latitude: Number(order.livreur.latitude),
-      longitude: Number(order.livreur.longitude),
+      latitude: hasPosition ? Number(order.livreur.latitude) : null,
+      longitude: hasPosition ? Number(order.livreur.longitude) : null,
+      // Permet au client de distinguer une position en direct d'une position figée
+      lastPositionAt: order.livreur.lastPositionAt ?? null,
       livreurNom: order.livreur.nom,
       livreurTelephone: order.livreur.telephone,
       // Include destination coordinates if available
       destinationLatitude: order.latitudeLivraison ? Number(order.latitudeLivraison) : undefined,
       destinationLongitude: order.longitudeLivraison ? Number(order.longitudeLivraison) : undefined,
+      // Rayon d'incertitude: permet d'afficher un cercle plutôt qu'un point net
+      destinationPrecision:
+        order.precisionLivraison != null ? Number(order.precisionLivraison) : undefined,
       destinationAdresse: order.adresseLivraison || undefined,
     };
   }
@@ -891,6 +952,8 @@ export class OnlineOrdersService {
         adresseLivraison: dto.adresseLivraison || null,
         latitudeLivraison: dto.latitudeLivraison || null,
         longitudeLivraison: dto.longitudeLivraison || null,
+        // ?? et non ||: une précision de 0 m est une valeur légitime
+        precisionLivraison: dto.precisionLivraison ?? null,
         telephoneLivraison: dto.telephone,
         fraisLivraison,
         sousTotal,

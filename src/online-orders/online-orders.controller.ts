@@ -54,8 +54,11 @@ export class OnlineOrdersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Détail d\'une commande' })
-  getOrder(@Param('id') id: string) {
-    return this.onlineOrdersService.getById(id);
+  getOrder(
+    @CurrentOrganization() organizationId: string,
+    @Param('id') id: string,
+  ) {
+    return this.onlineOrdersService.getById(id, { organizationId });
   }
 
   @Patch(':id/confirm')

@@ -57,6 +57,14 @@ export class CreateOnlineOrderDto {
   @IsNumber()
   longitudeLivraison?: number;
 
+  @ApiPropertyOptional({
+    description: "Rayon d'incertitude en mètres du point de livraison",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precisionLivraison?: number;
+
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()

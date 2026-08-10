@@ -78,6 +78,10 @@ export class OnlineOrder {
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   longitudeLivraison: number;
 
+  /** Rayon d'incertitude en mètres du point de livraison (coords.accuracy). */
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  precisionLivraison: number;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   telephoneLivraison: string;
 
