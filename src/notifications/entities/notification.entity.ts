@@ -6,6 +6,7 @@ export enum NotificationType {
   COMMANDE_PRETE = 'COMMANDE_PRETE',
   COMMANDE_LIVREE = 'COMMANDE_LIVREE',
   COMMANDE_ANNULEE = 'COMMANDE_ANNULEE',
+  LIVREUR_ARRIVE = 'LIVREUR_ARRIVE',
 }
 
 export enum RecipientType {

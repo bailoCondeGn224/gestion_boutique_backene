@@ -47,11 +47,28 @@ export class LivreursPublicController {
   @Put('position')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mettre à jour la position GPS' })
-  updatePosition(
+  async updatePosition(
     @CurrentLivreur() livreur: Livreur,
     @Body() dto: UpdatePositionDto,
   ) {
-    return this.livreursService.updatePosition(livreur.id, dto);
+    await this.livreursService.updatePosition(livreur.id, dto);
+
+    // Signale au livreur les commandes pour lesquelles il vient d'arriver;
+    // client et boutique sont prévenus au passage, une seule fois chacun.
+    const arrivees = await this.onlineOrdersService.detecterArrivees(
+      livreur.id,
+      dto.latitude,
+      dto.longitude,
+    );
+
+    return {
+      ok: true,
+      arrivees: arrivees.map((o) => ({
+        orderId: o.id,
+        numero: o.numero,
+        adresseLivraison: o.adresseLivraison,
+      })),
+    };
   }
 
   @UseGuards(LivreurJwtAuthGuard)

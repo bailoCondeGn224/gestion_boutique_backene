@@ -88,6 +88,9 @@ export class OnlineOrderResponseDto {
   @ApiPropertyOptional()
   expedieeLe?: Date;
 
+  @ApiPropertyOptional({ description: 'Arrivée du livreur détectée à destination' })
+  arriveeLe?: Date;
+
   @ApiPropertyOptional()
   livreurId?: string;
 

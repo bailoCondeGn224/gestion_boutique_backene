@@ -115,6 +115,13 @@ export class OnlineOrder {
   @Column({ type: 'timestamp', nullable: true })
   expedieeLe: Date;
 
+  /**
+   * Moment où le livreur a été détecté à destination. Sert aussi de garde:
+   * tant qu'il est renseigné, on ne renotifie plus le client ni la boutique.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  arriveeLe: Date;
+
   @Column({ type: 'uuid', nullable: true })
   venteId: string;
 

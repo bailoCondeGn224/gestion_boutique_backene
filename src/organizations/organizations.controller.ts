@@ -16,6 +16,9 @@ import { RejectOrganizationDto } from './dto/reject-organization.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 import { IsSuperAdmin } from '../common/decorators/is-super-admin.decorator';
+import { TenantGuard } from '../common/guards/tenant.guard';
+import { CurrentOrganization } from '../common/decorators/current-organization.decorator';
+import { UpdateOrganizationPositionDto } from './dto/update-organization-position.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Organizations')
@@ -76,6 +79,20 @@ export class OrganizationsController {
   @ApiOperation({ summary: 'Obtenir une organisation par slug (SuperAdmin)' })
   findBySlug(@Param('slug') slug: string) {
     return this.organizationsService.findBySlug(slug);
+  }
+
+  // Déclaré avant @Patch(':id') pour ne pas être capté par le paramètre d'URL
+  @Patch('me/position')
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Modifier la position de ma boutique (admin de la boutique)',
+  })
+  updateMyPosition(
+    @CurrentOrganization() organizationId: string,
+    @Body() dto: UpdateOrganizationPositionDto,
+  ) {
+    return this.organizationsService.updatePosition(organizationId, dto);
   }
 
   @Patch(':id')

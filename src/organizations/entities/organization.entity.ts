@@ -65,6 +65,16 @@ export class Organization {
   @Column({ type: 'text', nullable: true })
   adresse: string;
 
+  /**
+   * Position physique du commerce: point de départ des livraisons.
+   * Saisie à l'inscription, modifiable ensuite par l'admin de la boutique.
+   */
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number;
+
   @Column({ nullable: true })
   siteWeb: string;
 

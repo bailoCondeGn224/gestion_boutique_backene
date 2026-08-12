@@ -1,11 +1,13 @@
 // src/online-orders/online-orders.service.ts
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
+import { distanceEnMetres } from '../common/utils/geo.util';
 import { OnlineOrder, OnlineOrderStatut, ModeLivraison } from './entities/online-order.entity';
 import { OnlineOrderItem } from './entities/online-order-item.entity';
 import { StoreFront } from '../storefront/entities/storefront.entity';
@@ -14,6 +16,7 @@ import { ModeVente } from '../stock/entities/mode-vente.entity';
 import { Client } from '../clients/entities/client.entity';
 import { CustomerAccount } from '../customer-auth/entities/customer-account.entity';
 import { Livreur } from '../livreurs/entities/livreur.entity';
+import { Organization } from '../organizations/entities/organization.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { CreateOnlineOrderDto, OnlineOrderResponseDto, CancelOrderDto } from './dto';
@@ -25,6 +28,8 @@ import { LigneVente } from '../ventes/entities/ligne-vente.entity';
 
 @Injectable()
 export class OnlineOrdersService {
+  private readonly logger = new Logger(OnlineOrdersService.name);
+
   constructor(
     @InjectRepository(OnlineOrder)
     private onlineOrderRepository: Repository<OnlineOrder>,
@@ -741,6 +746,82 @@ export class OnlineOrdersService {
 
   // organizationId en plus du livreurId: défense en profondeur contre les
   // commandes dispatchées avant l'ajout du contrôle d'organisation dans dispatch().
+  /**
+   * Distance en dessous de laquelle on considère le livreur arrivé.
+   *
+   * 120 m: assez large pour absorber l'imprécision d'un relevé GPS urbain,
+   * assez serré pour ne pas se déclencher à la rue d'à côté.
+   */
+  private static readonly ARRIVAL_RADIUS_M = 120;
+
+  /**
+   * Détecte l'arrivée du livreur à destination et prévient client et boutique.
+   *
+   * Appelée à chaque relevé de position. `arriveeLe` sert de garde: sans elle,
+   * chaque relevé pendant que le livreur attend devant la porte renverrait une
+   * notification.
+   */
+  async detecterArrivees(
+    livreurId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<OnlineOrder[]> {
+    const enCours = await this.onlineOrderRepository.find({
+      where: {
+        livreurId,
+        statut: OnlineOrderStatut.EN_LIVRAISON,
+        arriveeLe: IsNull(),
+      },
+    });
+
+    const arrivees: OnlineOrder[] = [];
+
+    for (const order of enCours) {
+      if (order.latitudeLivraison == null || order.longitudeLivraison == null) {
+        continue;
+      }
+
+      const distance = distanceEnMetres(
+        latitude,
+        longitude,
+        Number(order.latitudeLivraison),
+        Number(order.longitudeLivraison),
+      );
+
+      if (distance > OnlineOrdersService.ARRIVAL_RADIUS_M) continue;
+
+      order.arriveeLe = new Date();
+      await this.onlineOrderRepository.save(order);
+      arrivees.push(order);
+
+      // Les notifications ne doivent pas faire échouer la mise à jour de
+      // position: le livreur continue de rouler même si l'envoi casse.
+      try {
+        if (order.customerAccountId) {
+          await this.notificationsService.sendToCustomer(order.customerAccountId, {
+            type: NotificationType.LIVREUR_ARRIVE,
+            title: 'Votre livreur est arrivé',
+            message: `Le livreur est à votre adresse pour la commande ${order.numero}.`,
+            data: { orderId: order.id, numero: order.numero },
+          });
+        }
+
+        await this.notificationsService.sendToStore(order.organizationId, {
+          type: NotificationType.LIVREUR_ARRIVE,
+          title: 'Livreur arrivé chez le client',
+          message: `Le livreur est arrivé à destination pour la commande ${order.numero}.`,
+          data: { orderId: order.id, numero: order.numero },
+        });
+      } catch (error) {
+        this.logger.error(
+          `Notification d'arrivée échouée pour ${order.numero}: ${error.message}`,
+        );
+      }
+    }
+
+    return arrivees;
+  }
+
   async getByLivreur(
     livreurId: string,
     organizationId: string,
@@ -794,6 +875,9 @@ export class OnlineOrdersService {
     destinationLongitude?: number;
     destinationPrecision?: number;
     destinationAdresse?: string;
+    boutiqueLatitude?: number;
+    boutiqueLongitude?: number;
+    arriveeLe: Date | null;
   } | null> {
     const order = await this.onlineOrderRepository.findOne({
       where: {
@@ -807,6 +891,12 @@ export class OnlineOrdersService {
     if (!order || !order.livreur) {
       return null;
     }
+
+    // Point de départ de la course, porté par l'organisation (lieu physique du
+    // commerce) et non par la vitrine en ligne.
+    const organisation = await this.dataSource
+      .getRepository(Organization)
+      .findOne({ where: { id: order.organizationId } });
 
     // On renvoie le livreur même sans position: le client doit pouvoir l'appeler
     // quand son GPS est coupé, plutôt que de ne rien voir du tout.
@@ -827,6 +917,12 @@ export class OnlineOrdersService {
       destinationPrecision:
         order.precisionLivraison != null ? Number(order.precisionLivraison) : undefined,
       destinationAdresse: order.adresseLivraison || undefined,
+      boutiqueLatitude:
+        organisation?.latitude != null ? Number(organisation.latitude) : undefined,
+      boutiqueLongitude:
+        organisation?.longitude != null ? Number(organisation.longitude) : undefined,
+      // Permet d'annoncer « votre livreur est arrivé » côté client
+      arriveeLe: order.arriveeLe ?? null,
     };
   }
 
@@ -861,6 +957,7 @@ export class OnlineOrdersService {
       confirmeeLe: order.confirmeeLe,
       preteLe: order.preteLe,
       livreeLe: order.livreeLe,
+      arriveeLe: order.arriveeLe,
       annuleeLe: order.annuleeLe,
       expedieeLe: order.expedieeLe,
       livreurId: order.livreurId || undefined,

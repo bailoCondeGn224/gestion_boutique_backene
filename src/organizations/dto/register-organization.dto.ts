@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, MinLength, Matches, ValidateNested } from 'class-validator';
+import { IsString, IsEmail, IsOptional, MinLength, Matches, ValidateNested, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // DTO pour les informations du propriétaire (admin)
@@ -55,6 +55,20 @@ export class RegisterOrganizationDto {
   @IsOptional()
   @IsString()
   adresse?: string;
+
+  // Position physique du commerce, saisie dès l'inscription: en Guinée
+  // l'adresse texte guide mal un livreur, et elle ne change quasiment jamais.
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
   @IsOptional()
   @IsString()

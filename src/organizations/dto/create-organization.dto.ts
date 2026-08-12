@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsBoolean, IsUUID, IsDateString } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsBoolean, IsUUID, IsDateString, IsNumber, Min, Max } from 'class-validator';
 
 export class CreateOrganizationDto {
   @IsString()
@@ -42,6 +42,19 @@ export class CreateOrganizationDto {
   @IsOptional()
   @IsString()
   adresse?: string;
+
+  // Position physique du commerce: point de départ des livraisons
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
   @IsOptional()
   @IsString()

@@ -31,6 +31,12 @@ export class StorefrontResponseDto {
   @ApiPropertyOptional()
   adresse?: string;
 
+  @ApiPropertyOptional({ description: 'Latitude de la boutique (portée par l’organisation)' })
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude de la boutique (portée par l’organisation)' })
+  longitude?: number;
+
   @ApiProperty()
   organizationNom: string;
 

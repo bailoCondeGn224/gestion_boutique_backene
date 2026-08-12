@@ -14,6 +14,7 @@ import { SmsService } from '../sms/sms.service';
 import { OrganizationStatus } from './enums/organization-status.enum';
 import { PlanCode } from '../plans/enums/plan-code.enum';
 import { generateRandomPassword } from '../common/utils/password-generator.util';
+import { UpdateOrganizationPositionDto } from './dto/update-organization-position.dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -154,6 +155,25 @@ export class OrganizationsService {
     }
 
     return organization;
+  }
+
+  /**
+   * Met à jour la seule position de la boutique.
+   *
+   * Séparée de update(): celle-ci est réservée au super-admin et touche au plan,
+   * au slug et à l'abonnement. Ici l'admin de la boutique ne modifie que son
+   * point de départ de livraison, sur sa propre organisation.
+   */
+  async updatePosition(
+    organizationId: string,
+    dto: UpdateOrganizationPositionDto,
+  ): Promise<Organization> {
+    const organization = await this.findOne(organizationId);
+
+    organization.latitude = dto.latitude;
+    organization.longitude = dto.longitude;
+
+    return this.organizationsRepository.save(organization);
   }
 
   async update(id: string, updateOrganizationDto: UpdateOrganizationDto): Promise<Organization> {

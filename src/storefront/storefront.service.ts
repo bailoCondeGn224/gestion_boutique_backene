@@ -328,6 +328,16 @@ export class StorefrontService {
       horaires: storefront.horaires,
       fraisLivraison: Number(storefront.fraisLivraison),
       adresse: storefront.adresse,
+      // La position vient de l'organisation: c'est le lieu physique du commerce,
+      // saisi à l'inscription plutôt que dans les réglages de la vitrine.
+      latitude:
+        storefront.organization?.latitude != null
+          ? Number(storefront.organization.latitude)
+          : undefined,
+      longitude:
+        storefront.organization?.longitude != null
+          ? Number(storefront.organization.longitude)
+          : undefined,
       organizationNom: storefront.organization?.nom || '',
       fullUrl: `${baseUrl}/b/${orgSlug}`,
     };
