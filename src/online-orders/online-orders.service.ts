@@ -451,7 +451,7 @@ export class OnlineOrdersService {
     return this.toResponseDto(order);
   }
 
-  async markDelivered(orderId: string, organizationId: string, userId: string): Promise<OnlineOrderResponseDto> {
+  async markDelivered(orderId: string, organizationId: string, userId: string | null): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, organizationId },
       relations: ['items', 'customerAccount'],
@@ -525,6 +525,9 @@ export class OnlineOrdersService {
         date: now,
         heure: now.toTimeString().slice(0, 8),
         clientId: order.clientId,
+        nom: order.customerAccount?.nom || order.clientNom || '',
+        prenom: '',
+        tel: order.customerAccount?.telephone || order.telephoneLivraison || '',
         modePaiement: ModePaiement.ESPECES,
         total: order.total,
         montantPaye: order.total,
@@ -841,7 +844,7 @@ export class OnlineOrdersService {
     livreurId: string,
     orderId: string,
     organizationId: string,
-  ): Promise<OnlineOrder> {
+  ): Promise<OnlineOrderResponseDto> {
     const order = await this.onlineOrderRepository.findOne({
       where: { id: orderId, livreurId, organizationId },
     });
@@ -856,10 +859,26 @@ export class OnlineOrdersService {
       throw new BadRequestException('La commande doit être en livraison');
     }
 
-    order.statut = OnlineOrderStatut.LIVREE;
-    order.livreeLe = new Date();
+    const livree = await this.markDelivered(
+      orderId,
+      organizationId,
+      order.confirmeePar ?? null,
+    );
 
-    return this.onlineOrderRepository.save(order);
+    try {
+      await this.notificationsService.sendToStore(organizationId, {
+        type: NotificationType.COMMANDE_LIVREE,
+        title: 'Commande livrée par le livreur',
+        message: `Le livreur a livré la commande ${order.numero}. La vente a été enregistrée.`,
+        data: { orderId: order.id, numero: order.numero },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Notification de livraison échouée pour ${order.numero}: ${error.message}`,
+      );
+    }
+
+    return livree;
   }
 
   async getTrackingInfo(
