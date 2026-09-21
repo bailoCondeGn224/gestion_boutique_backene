@@ -82,6 +82,9 @@ export class Vente extends BaseTenantEntity {
   })
   statut: StatutVente;
 
+  @Column({ type: 'text', nullable: true })
+  note: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

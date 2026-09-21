@@ -7,6 +7,7 @@ import {
   ValidateNested,
   IsUUID,
   IsOptional,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -136,6 +137,12 @@ export class CreateVenteDto {
   @ApiProperty({ example: 'especes', enum: ModePaiement })
   @IsEnum(ModePaiement, { message: 'Mode de paiement invalide' })
   modePaiement: ModePaiement;
+
+  @ApiProperty({ example: 'Livrer après 17h', required: false, maxLength: 500 })
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  note?: string;
 
   // Champs pour traçabilité (ajoutés automatiquement par le controller)
   @IsUUID()

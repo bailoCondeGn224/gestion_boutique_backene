@@ -303,6 +303,27 @@ export class ApprovisionnementService {
     return approvisionnement;
   }
 
+  /**
+   * Détail pour l'affichage (GET /approvisionnements/:id) : charge aussi le
+   * fournisseur, dont la facture imprime le téléphone. Séparé de findOne, qui
+   * sert avant des save() où une relation chargée pourrait masquer un
+   * changement de fournisseurId.
+   */
+  async findOneAvecFournisseur(id: string, organizationId: string): Promise<Approvisionnement> {
+    const approvisionnement = await this.approvisionnementRepository.findOne({
+      where: { id, organizationId },
+      relations: ['fournisseur'],
+    });
+
+    if (!approvisionnement) {
+      throw new NotFoundException(
+        `Approvisionnement avec l'ID ${id} introuvable`,
+      );
+    }
+
+    return approvisionnement;
+  }
+
   async getApproLignes(
     approvisionnementId: string,
     organizationId: string,

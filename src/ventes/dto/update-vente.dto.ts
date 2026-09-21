@@ -8,6 +8,7 @@ import {
   ValidateNested,
   IsUUID,
   IsOptional,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ModePaiement } from '../entities/vente.entity';
@@ -141,4 +142,10 @@ export class UpdateVenteDto {
   @IsEnum(ModePaiement, { message: 'Mode de paiement invalide' })
   @IsOptional()
   modePaiement?: ModePaiement;
+
+  @ApiProperty({ example: 'Livrer après 17h', required: false, maxLength: 500 })
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  note?: string;
 }

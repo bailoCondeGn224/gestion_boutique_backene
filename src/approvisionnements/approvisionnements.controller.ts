@@ -138,7 +138,7 @@ export class ApprovisionnementController {
     @Param('id') id: string,
     @CurrentOrganization() organizationId: string,
   ) {
-    return this.approvisionnementService.findOne(id, organizationId);
+    return this.approvisionnementService.findOneAvecFournisseur(id, organizationId);
   }
 
   @Patch(':id')
