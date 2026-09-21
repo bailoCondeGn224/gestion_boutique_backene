@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   Res,
+  Headers,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -58,9 +59,10 @@ export class StorefrontController {
   @ApiOperation({ summary: 'Générer le QR code de ma vitrine' })
   async getQrCode(
     @CurrentOrganization() organizationId: string,
+    @Headers('origin') origin: string | undefined,
     @Res() res: Response,
   ) {
-    const qrCodeBuffer = await this.storefrontService.generateQrCode(organizationId);
+    const qrCodeBuffer = await this.storefrontService.generateQrCode(organizationId, origin);
 
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', 'attachment; filename=qrcode-boutique.png');

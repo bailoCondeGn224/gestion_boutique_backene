@@ -103,17 +103,25 @@ export class StorefrontService {
     return this.toResponseDto(storefront);
   }
 
-  async generateQrCode(organizationId: string): Promise<Buffer> {
+  /**
+   * @param requestOrigin origine du backoffice qui demande le QR code (en-tête
+   * Origin). Vitrine et backoffice sont servis par la même app : c'est donc la
+   * bonne adresse, quel que soit le port ou le domaine.
+   */
+  async generateQrCode(organizationId: string, requestOrigin?: string): Promise<Buffer> {
     const storefront = await this.storefrontRepository.findOne({
       where: { organizationId },
+      relations: ['organization'],
     });
 
     if (!storefront) {
       throw new NotFoundException('Vitrine non trouvée');
     }
 
-    const baseUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-    const url = `${baseUrl}/b/${storefront.slug}`;
+    // Même slug que fullUrl et que la route publique (getBySlug cherche
+    // par slug d'organisation)
+    const orgSlug = storefront.organization?.slug || storefront.slug;
+    const url = `${this.resolveFrontendUrl(requestOrigin)}/b/${orgSlug}`;
 
     const qrCodeBuffer = await QRCode.toBuffer(url, {
       type: 'png',
@@ -312,8 +320,15 @@ export class StorefrontService {
       .replace(/^-+|-+$/g, '');
   }
 
+  private resolveFrontendUrl(requestOrigin?: string): string {
+    if (requestOrigin && /^https?:\/\/[^/\s]+$/.test(requestOrigin)) {
+      return requestOrigin;
+    }
+    return this.configService.get<string>('FRONTEND_URL') || 'http://localhost:8080';
+  }
+
   private toResponseDto(storefront: StoreFront): StorefrontResponseDto {
-    const baseUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const baseUrl = this.resolveFrontendUrl();
     // Utiliser le slug de l'organisation pour l'URL
     const orgSlug = storefront.organization?.slug || storefront.slug;
 
