@@ -1,5 +1,5 @@
 import { IsOptional, IsString, IsBoolean } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -28,4 +28,14 @@ export class StockFilterDto extends PaginationDto {
   @Type(() => Boolean)
   @IsBoolean()
   enAlerte?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Par défaut seuls les articles en stock (stock > 0) sont renvoyés. Si true, inclut aussi les articles en rupture.',
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ obj, key }) => obj[key] === true || obj[key] === 'true')
+  @IsBoolean()
+  inclureRuptures?: boolean;
 }

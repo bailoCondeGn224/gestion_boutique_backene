@@ -182,7 +182,7 @@ export class StockService {
   }
 
   async findAll(filterDto: StockFilterDto, organizationId: string): Promise<PaginatedResponse<Article>> {
-    const { page = 1, limit = 10, search, categorieId, enAlerte } = filterDto || {};
+    const { page = 1, limit = 10, search, categorieId, enAlerte, inclureRuptures } = filterDto || {};
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.articlesRepository
@@ -207,6 +207,10 @@ export class StockService {
     // Filtre par alerte (stock <= seuilAlerte)
     if (enAlerte) {
       queryBuilder.andWhere('article.stock <= article.seuilAlerte');
+    }
+
+    if (!inclureRuptures) {
+      queryBuilder.andWhere('article.stock > 0');
     }
 
     const [data, total] = await queryBuilder
@@ -261,38 +265,55 @@ export class StockService {
     organizationId: string,
     file?: Express.Multer.File,
   ): Promise<Article> {
-    const article = await this.findOne(id, organizationId);
+    const { modesVente, ...champs } = updateArticleDto;
+    const nouvellePhoto = file ? `articles/${organizationId}/${file.filename}` : null;
 
-    // Supprimer ancienne photo si nouvelle uploadée
+    let anciennePhoto: string | null = null;
+
+    try {
+      await this.articlesRepository.manager.transaction(async (manager) => {
+        const article = await manager.findOne(Article, {
+          where: { id, organizationId },
+        });
+        if (!article) {
+          throw new NotFoundException(`Article avec l'ID ${id} introuvable`);
+        }
+
+        const valeurs = Object.fromEntries(
+          Object.entries(champs).filter(([, value]) => value !== undefined),
+        );
+        Object.assign(article, valeurs);
+
+        if (nouvellePhoto) {
+          anciennePhoto = article.photo ?? null;
+          article.photo = nouvellePhoto;
+        }
+
+        await manager.save(article);
+
+        if (modesVente !== undefined) {
+          await this.modeVenteService.syncForArticle(
+            id,
+            modesVente,
+            organizationId,
+            manager,
+          );
+        }
+      });
+    } catch (error) {
+      if (nouvellePhoto) await deleteFile(nouvellePhoto);
+      throw error;
+    }
+
     if (file) {
-      if (article.photo) {
-        await deleteFile(article.photo);
-      }
+      if (anciennePhoto) await deleteFile(anciennePhoto);
 
-      // Compresser l'image en arrière-plan
       compressImage(file.path).catch((error) => {
         console.error('Erreur compression image:', error);
       });
-
-      // Mettre à jour avec le nouveau chemin photo
-      Object.assign(article, {
-        ...updateArticleDto,
-        photo: `articles/${organizationId}/${file.filename}`,
-      });
-    } else {
-      // Pas de nouvelle photo, juste mettre à jour les autres champs
-      // Filtrer les champs undefined pour ne pas écraser les valeurs existantes
-      const cleanData = Object.entries(updateArticleDto).reduce((acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as any);
-
-      Object.assign(article, cleanData);
     }
 
-    return this.articlesRepository.save(article);
+    return this.findOne(id, organizationId);
   }
 
   async remove(id: string, organizationId: string): Promise<void> {

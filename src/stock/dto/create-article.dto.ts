@@ -1,6 +1,6 @@
 import { IsString, IsUUID, IsNumber, Min, Max, IsOptional, IsDateString, ValidateNested, IsArray, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import { ModeVenteInlineDto } from './mode-vente-inline.dto';
 
 export class CreateArticleDto {
@@ -100,6 +100,17 @@ export class CreateArticleDto {
       { nom: 'Casier', quantiteStock: 12, prixVente: 60000, parDefaut: true },
       { nom: 'Bouteille', quantiteStock: 1, prixVente: 5500 },
     ],
+  })
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed)
+        ? plainToInstance(ModeVenteInlineDto, parsed)
+        : parsed;
+    } catch {
+      return value;
+    }
   })
   @IsArray()
   @ValidateNested({ each: true })
