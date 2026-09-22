@@ -16,7 +16,8 @@ async function bootstrap() {
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // Servir les fichiers statiques depuis le dossier storage/uploads
-  app.useStaticAssets(join(__dirname, '..', 'storage', 'uploads'), {
+  const dossierStockage = process.env.STORAGE_DIR || join(__dirname, '..', 'storage');
+  app.useStaticAssets(join(dossierStockage, 'uploads'), {
     prefix: '/uploads/',
   });
 
@@ -63,7 +64,11 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
+  if (process.env.HOST) {
+    await app.listen(port, process.env.HOST);
+  } else {
+    await app.listen(port);
+  }
 
   console.log(`\n🚀 Application démarrée sur http://localhost:${port}`);
   console.log(`📚 Documentation Swagger : http://localhost:${port}/api/docs\n`);
