@@ -2,10 +2,6 @@ import { IsString, IsOptional, IsNumber, Min, IsDateString, IsUUID } from 'class
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ImportArticleDto {
-  @ApiProperty({ description: 'Code/référence de l\'article' })
-  @IsString()
-  codeArticle: string;
-
   @ApiProperty({ description: 'Nom de l\'article' })
   @IsString()
   nom: string;
@@ -74,7 +70,6 @@ export class ImportResultDto {
 
 export class ImportErrorDto {
   row: number;
-  codeArticle?: string;
   nom?: string;
   errors: string[];
 }

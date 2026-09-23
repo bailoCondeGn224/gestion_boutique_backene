@@ -6,10 +6,6 @@ export class CreateCategorieDto {
   @IsString()
   nom: string;
 
-  @ApiProperty({ example: 'abayas', description: 'Code unique de la catégorie' })
-  @IsString()
-  code: string;
-
   @ApiProperty({
     example: 'Catégorie pour les abayas',
     description: 'Description de la catégorie',

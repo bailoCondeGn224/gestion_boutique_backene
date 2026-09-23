@@ -12,15 +12,6 @@ export class CreateArticleDto {
   nom: string;
 
   @ApiProperty({
-    example: 'ART-001',
-    description: 'Référence/Code-barres/SKU',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  reference?: string;
-
-  @ApiProperty({
     example: 'uuid-categorie',
     description: 'ID de la catégorie de l\'article',
   })

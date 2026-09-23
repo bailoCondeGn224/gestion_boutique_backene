@@ -15,16 +15,12 @@ import { BaseTenantEntity } from '../../common/entities/base-tenant.entity';
 
 @Entity('categorie')
 @Unique(['nom', 'organizationId'])
-@Unique(['code', 'organizationId'])
 export class Categorie extends BaseTenantEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
   nom: string;
-
-  @Column()
-  code: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;

@@ -20,9 +20,6 @@ export class Article extends BaseTenantEntity {
   @Column()
   nom: string;
 
-  @Column({ nullable: true })
-  reference: string;
-
   @Column()
   categorieId: string;
 

@@ -102,21 +102,6 @@ export class StockService {
       const articleDto = createArticlesBulkDto.articles[i];
 
       try {
-        // Vérifier si un article avec la même référence existe déjà
-        if (articleDto.reference) {
-          const existingArticle = await this.articlesRepository.findOne({
-            where: { reference: articleDto.reference, organizationId },
-          });
-
-          if (existingArticle) {
-            errors.push({
-              article: articleDto,
-              error: `Un article avec la référence '${articleDto.reference}' existe déjà`,
-            });
-            continue;
-          }
-        }
-
         // Gérer la photo si elle existe pour cet article (via le mapping par index)
         let photoPath: string | undefined;
         const file = photoMap?.get(i);
@@ -191,12 +176,9 @@ export class StockService {
       .leftJoinAndSelect('article.modesVente', 'modesVente')
       .where('article.organizationId = :organizationId', { organizationId });
 
-    // Filtre par recherche (nom ou référence)
+    // Filtre par recherche (nom)
     if (search) {
-      queryBuilder.andWhere(
-        '(article.nom ILIKE :search OR article.reference ILIKE :search)',
-        { search: `%${search}%` }
-      );
+      queryBuilder.andWhere('article.nom ILIKE :search', { search: `%${search}%` });
     }
 
     // Filtre par catégorie

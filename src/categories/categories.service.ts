@@ -19,16 +19,6 @@ export class CategoriesService {
   ) {}
 
   async create(createDto: CreateCategorieDto, organizationId: string): Promise<Categorie> {
-    const existingByCode = await this.categorieRepository.findOne({
-      where: { code: createDto.code, organizationId },
-    });
-
-    if (existingByCode) {
-      throw new ConflictException(
-        `Une catégorie avec le code "${createDto.code}" existe déjà`,
-      );
-    }
-
     const existingByNom = await this.categorieRepository.findOne({
       where: { nom: createDto.nom, organizationId },
     });
@@ -80,34 +70,8 @@ export class CategoriesService {
     return categorie;
   }
 
-  async findByCode(code: string, organizationId: string): Promise<Categorie> {
-    const categorie = await this.categorieRepository.findOne({
-      where: { code, organizationId },
-    });
-
-    if (!categorie) {
-      throw new NotFoundException(
-        `Catégorie avec le code "${code}" introuvable`,
-      );
-    }
-
-    return categorie;
-  }
-
   async update(id: string, updateDto: UpdateCategorieDto, organizationId: string): Promise<Categorie> {
     const categorie = await this.findOne(id, organizationId);
-
-    if (updateDto.code && updateDto.code !== categorie.code) {
-      const existingByCode = await this.categorieRepository.findOne({
-        where: { code: updateDto.code, organizationId },
-      });
-
-      if (existingByCode) {
-        throw new ConflictException(
-          `Une autre catégorie avec le code "${updateDto.code}" existe déjà`,
-        );
-      }
-    }
 
     if (updateDto.nom && updateDto.nom !== categorie.nom) {
       const existingByNom = await this.categorieRepository.findOne({

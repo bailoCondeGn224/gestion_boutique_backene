@@ -70,7 +70,6 @@ export class BulkImportController {
 
     // Définir les colonnes
     worksheet.columns = [
-      { header: 'Code Article', key: 'codeArticle', width: 15 },
       { header: 'Nom', key: 'nom', width: 30 },
       { header: 'Catégorie', key: 'categorie', width: 20 },
       { header: 'Zone', key: 'zone', width: 10 },
@@ -95,7 +94,6 @@ export class BulkImportController {
 
     // Ajouter des lignes d'exemple
     worksheet.addRow({
-      codeArticle: 'ART001',
       nom: 'Article Exemple 1',
       categorie: 'Catégorie 1',
       zone: 'A',
@@ -110,7 +108,6 @@ export class BulkImportController {
     });
 
     worksheet.addRow({
-      codeArticle: 'ART002',
       nom: 'Article Exemple 2',
       categorie: 'Catégorie 1',
       zone: 'B',
@@ -133,8 +130,7 @@ export class BulkImportController {
     instructionsSheet.addRow({ instructions: 'INSTRUCTIONS D\'UTILISATION DU TEMPLATE' });
     instructionsSheet.addRow({ instructions: '' });
     instructionsSheet.addRow({ instructions: '1. COLONNES OBLIGATOIRES:' });
-    instructionsSheet.addRow({ instructions: '   - Code Article: Référence unique (ex: ART001)' });
-    instructionsSheet.addRow({ instructions: '   - Nom: Nom de l\'article' });
+    instructionsSheet.addRow({ instructions: '   - Nom: Nom de l\'article (sert à retrouver un article existant)' });
     instructionsSheet.addRow({ instructions: '   - Catégorie: Nom exact de la catégorie existante' });
     instructionsSheet.addRow({ instructions: '   - Zone: A, B, C, D ou E' });
     instructionsSheet.addRow({ instructions: '   - Prix Vente: En GNF (nombre)' });

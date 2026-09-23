@@ -20,11 +20,11 @@ export async function seedTestData(dataSource: DataSource, organizationId: strin
 
     for (const catData of jsonData.categories) {
       const result = await dataSource.query(
-        `INSERT INTO categorie (nom, code, description, actif, "organizationId", "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-         ON CONFLICT (code) DO NOTHING
+        `INSERT INTO categorie (nom, description, actif, "organizationId", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, NOW(), NOW())
+         ON CONFLICT DO NOTHING
          RETURNING id, nom`,
-        [catData.nom, catData.code, catData.description, catData.actif, organizationId]
+        [catData.nom, catData.description, catData.actif, organizationId]
       );
 
       if (result.length > 0) {
@@ -33,8 +33,8 @@ export async function seedTestData(dataSource: DataSource, organizationId: strin
       } else {
         // Si la catégorie existe déjà, la récupérer
         const existing = await dataSource.query(
-          `SELECT id, nom FROM categorie WHERE code = $1 AND "organizationId" = $2`,
-          [catData.code, organizationId]
+          `SELECT id, nom FROM categorie WHERE nom = $1 AND "organizationId" = $2`,
+          [catData.nom, organizationId]
         );
         if (existing.length > 0) {
           categoriesMap.set(existing[0].nom, existing[0].id);
@@ -135,15 +135,14 @@ export async function seedTestData(dataSource: DataSource, organizationId: strin
 
       const result = await dataSource.query(
         `INSERT INTO article (
-          nom, reference, description, "prixAchat", "prixVente", stock, "seuilAlerte", zone, "categorieId",
+          nom, description, "prixAchat", "prixVente", stock, "seuilAlerte", zone, "categorieId",
           "organizationId", "createdAt", "updatedAt"
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
          ON CONFLICT DO NOTHING
          RETURNING id, nom`,
         [
           articleData.nom,
-          articleData.reference,
           articleData.description,
           articleData.prixAchat,
           articleData.prixVente,

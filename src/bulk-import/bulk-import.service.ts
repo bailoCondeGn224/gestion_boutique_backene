@@ -121,18 +121,17 @@ export class BulkImportService {
 
       try {
         const data: ImportArticleDto = {
-          codeArticle: this.getCellValue(row, 1),
-          nom: this.getCellValue(row, 2),
-          categorie: this.getCellValue(row, 3),
-          zone: this.getCellValue(row, 4),
-          prixVente: this.getNumberValue(row, 5),
-          prixAchat: this.getNumberValue(row, 6),
-          seuilAlerte: this.getNumberValue(row, 7) || 10,
-          quantite: this.getNumberValue(row, 8) || 0,
-          fournisseur: this.getCellValue(row, 9),
-          dateLivraison: this.getCellValue(row, 10),
-          numeroFacture: this.getCellValue(row, 11),
-          photo: this.getCellValue(row, 12), // Colonne photo
+          nom: this.getCellValue(row, 1),
+          categorie: this.getCellValue(row, 2),
+          zone: this.getCellValue(row, 3),
+          prixVente: this.getNumberValue(row, 4),
+          prixAchat: this.getNumberValue(row, 5),
+          seuilAlerte: this.getNumberValue(row, 6) || 10,
+          quantite: this.getNumberValue(row, 7) || 0,
+          fournisseur: this.getCellValue(row, 8),
+          dateLivraison: this.getCellValue(row, 9),
+          numeroFacture: this.getCellValue(row, 10),
+          photo: this.getCellValue(row, 11), // Colonne photo
         };
 
         rows.push(data);
@@ -246,15 +245,15 @@ export class BulkImportService {
     for (const row of rows) {
       try {
         // Vérifier si l'article existe déjà
-        let article = articlesCache.get(row.codeArticle);
+        let article = articlesCache.get(row.nom);
 
         if (!article) {
           article = await this.articleRepository.findOne({
-            where: { reference: row.codeArticle, organizationId },
+            where: { nom: row.nom, organizationId },
           });
 
           if (article) {
-            articlesCache.set(row.codeArticle, article);
+            articlesCache.set(row.nom, article);
           }
         }
 
@@ -269,7 +268,6 @@ export class BulkImportService {
         if (!categorie) {
           errors.push({
             row: 0,
-            codeArticle: row.codeArticle,
             nom: row.nom,
             errors: [`Catégorie non trouvée: ${row.categorie}`],
           });
@@ -278,19 +276,18 @@ export class BulkImportService {
 
         // Traiter la photo si présente
         let photoFilename: string | null = null;
-        console.log(`🔎 Article ${row.codeArticle}: row.photo =`, row.photo);
+        console.log(`🔎 Article ${row.nom}: row.photo =`, row.photo);
         console.log(`🔎 photosMap.has("${row.photo?.toLowerCase()}") =`, row.photo ? photosMap.has(row.photo.toLowerCase()) : false);
         if (row.photo && photosMap.has(row.photo.toLowerCase())) {
           photoFilename = await this.copyPhotoToStorage(row.photo.toLowerCase(), photosMap, organizationId);
           console.log(`✅ photoFilename assigné:`, photoFilename);
         } else {
-          console.log(`❌ Pas de photo pour ${row.codeArticle}`);
+          console.log(`❌ Pas de photo pour ${row.nom}`);
         }
 
         // Créer l'article avec stock initial
         const newArticle = this.articleRepository.create({
           nom: row.nom,
-          reference: row.codeArticle,
           categorieId: categorie.id,
           zone: row.zone,
           stock: row.quantite,
@@ -301,10 +298,10 @@ export class BulkImportService {
           organizationId,
         });
 
-        console.log(`💾 Sauvegarde article ${row.codeArticle} avec photo:`, photoFilename);
+        console.log(`💾 Sauvegarde article ${row.nom} avec photo:`, photoFilename);
         await this.articleRepository.save(newArticle);
         console.log(`✅ Article sauvegardé. Photo dans DB:`, newArticle.photo);
-        articlesCache.set(row.codeArticle, newArticle);
+        articlesCache.set(row.nom, newArticle);
 
         // Créer mouvement de stock si quantité > 0
         if (row.quantite > 0) {
@@ -324,7 +321,6 @@ export class BulkImportService {
       } catch (error) {
         errors.push({
           row: 0,
-          codeArticle: row.codeArticle,
           nom: row.nom,
           errors: [`Erreur: ${error.message}`],
         });
@@ -413,15 +409,15 @@ export class BulkImportService {
       for (const row of rows) {
         try {
           // Chercher ou créer l'article
-          let article = articlesCache.get(row.codeArticle);
+          let article = articlesCache.get(row.nom);
 
           if (!article) {
             article = await manager.findOne(Article, {
-              where: { reference: row.codeArticle, organizationId },
+              where: { nom: row.nom, organizationId },
             });
 
             if (article) {
-              articlesCache.set(row.codeArticle, article);
+              articlesCache.set(row.nom, article);
             }
           }
 
@@ -432,7 +428,6 @@ export class BulkImportService {
             if (!categorie) {
               errors.push({
                 row: 0,
-                codeArticle: row.codeArticle,
                 nom: row.nom,
                 errors: [`Catégorie non trouvée: ${row.categorie}`],
               });
@@ -441,18 +436,17 @@ export class BulkImportService {
 
             // Traiter la photo si présente
             let photoFilename: string | null = null;
-            console.log(`🔎 Article ${row.codeArticle}: row.photo =`, row.photo);
+            console.log(`🔎 Article ${row.nom}: row.photo =`, row.photo);
             console.log(`🔎 photosMap.has("${row.photo?.toLowerCase()}") =`, row.photo ? photosMap.has(row.photo.toLowerCase()) : false);
             if (row.photo && photosMap.has(row.photo.toLowerCase())) {
               photoFilename = await this.copyPhotoToStorage(row.photo.toLowerCase(), photosMap, organizationId);
               console.log(`✅ photoFilename assigné:`, photoFilename);
             } else {
-              console.log(`❌ Pas de photo pour ${row.codeArticle}`);
+              console.log(`❌ Pas de photo pour ${row.nom}`);
             }
 
             article = manager.create(Article, {
               nom: row.nom,
-              reference: row.codeArticle,
               categorieId: categorie.id,
               zone: row.zone,
               stock: 0,
@@ -463,10 +457,10 @@ export class BulkImportService {
               organizationId,
             });
 
-            console.log(`💾 Sauvegarde article ${row.codeArticle} (appro) avec photo:`, photoFilename);
+            console.log(`💾 Sauvegarde article ${row.nom} (appro) avec photo:`, photoFilename);
             await manager.save(Article, article);
             console.log(`✅ Article sauvegardé (appro). Photo dans DB:`, article.photo);
-            articlesCache.set(row.codeArticle, article);
+            articlesCache.set(row.nom, article);
             articlesCreated++;
           }
 
@@ -508,7 +502,6 @@ export class BulkImportService {
         } catch (error) {
           errors.push({
             row: 0,
-            codeArticle: row.codeArticle,
             nom: row.nom,
             errors: [`Erreur: ${error.message}`],
           });
