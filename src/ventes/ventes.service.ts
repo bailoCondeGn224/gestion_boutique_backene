@@ -388,9 +388,10 @@ export class VentesService {
       if (vente.lignes && Array.isArray(vente.lignes) && vente.lignes.length > 0) {
         for (const ligne of vente.lignes) {
           const prixAchat = Number(ligne.prixAchat) || 0;
-          const prixUnitaire = Number(ligne.prixUnitaire) || 0;
           const quantite = Number(ligne.quantite) || 0;
-          const beneficeLigne = (prixUnitaire - prixAchat) * quantite;
+          const quantiteBase = Number(ligne.quantiteBase) || quantite;
+          const sousTotal = Number(ligne.sousTotal) || 0;
+          const beneficeLigne = sousTotal - prixAchat * quantiteBase;
 
           beneficeMois += beneficeLigne;
         }

@@ -207,8 +207,9 @@ export class ClientsService {
       let beneficeVente = 0;
 
       const lignes = vente.lignes.map((ligne) => {
-        const prixAchat = ligne.prixAchat || 0;
-        const beneficeLigne = (ligne.prixUnitaire - prixAchat) * ligne.quantite;
+        const prixAchat = Number(ligne.prixAchat) || 0;
+        const quantiteBase = Number(ligne.quantiteBase) || Number(ligne.quantite) || 0;
+        const beneficeLigne = Number(ligne.sousTotal) - prixAchat * quantiteBase;
         beneficeVente += beneficeLigne;
 
         return {
