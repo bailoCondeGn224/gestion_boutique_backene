@@ -8,6 +8,7 @@ import {
   IsEnum,
   IsOptional,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { StatutFournisseur } from '../entities/fournisseur.entity';
 
@@ -30,6 +31,7 @@ export class CreateFournisseurDto {
   telephone: string;
 
   @ApiProperty({ example: 'contact@alnour.ae', required: false })
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? null : value))
   @IsEmail({}, { message: 'Email invalide' })
   @IsOptional()
   email?: string;
