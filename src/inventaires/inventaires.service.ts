@@ -578,6 +578,7 @@ export class InventairesService {
       .addSelect('COALESCE(SUM(total), 0)', 'chiffreAffaires')
       .from('vente', 'v')
       .where('v."organizationId" = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere("v.statut = 'active'")
       .andWhere('v.date >= :dateDebut AND v.date < :dateFin', {
         dateDebut,
         dateFin,
@@ -593,11 +594,17 @@ export class InventairesService {
     // Utilise l'intervalle semi-ouvert [dateDebut, dateFin) : dateDebut incluse, dateFin exclue
     const cmv = await this.dataSource
       .createQueryBuilder()
-      .select('COALESCE(SUM(lv.quantite * a."prixAchat"), 0)', 'total')
+      // Quantité réelle en unités et prix d'achat du jour de la vente :
+      // lv.quantite compte des lots en vente en gros, et a."prixAchat" évolue avec les approvisionnements
+      .select(
+        'COALESCE(SUM(COALESCE(lv."quantiteBase", lv.quantite) * COALESCE(NULLIF(lv."prixAchat", 0), a."prixAchat")), 0)',
+        'total',
+      )
       .from('ligne_vente', 'lv')
       .innerJoin('vente', 'v', 'CAST(v.id AS text) = CAST(lv."venteId" AS text)')
       .innerJoin('article', 'a', 'CAST(a.id AS text) = CAST(lv."articleId" AS text)')
       .where('v."organizationId" = CAST(:organizationId AS uuid)', { organizationId })
+      .andWhere("v.statut = 'active'")
       .andWhere('v.date >= :dateDebut AND v.date < :dateFin', {
         dateDebut,
         dateFin,
