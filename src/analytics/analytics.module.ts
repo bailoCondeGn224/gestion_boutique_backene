@@ -6,10 +6,11 @@ import { Article } from '../stock/entities/article.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Vente } from '../ventes/entities/vente.entity';
 import { Fournisseur } from '../fournisseurs/entities/fournisseur.entity';
+import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Article, Client, Vente, Fournisseur]),
+    TypeOrmModule.forFeature([Article, Client, Vente, Fournisseur, Approvisionnement]),
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],

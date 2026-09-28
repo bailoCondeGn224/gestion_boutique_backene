@@ -5,6 +5,7 @@ import { Article } from '../stock/entities/article.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Vente } from '../ventes/entities/vente.entity';
 import { Fournisseur } from '../fournisseurs/entities/fournisseur.entity';
+import { Approvisionnement } from '../approvisionnements/entities/approvisionnement.entity';
 
 @Injectable()
 export class AnalyticsService {
@@ -17,6 +18,8 @@ export class AnalyticsService {
     private ventesRepository: Repository<Vente>,
     @InjectRepository(Fournisseur)
     private fournisseursRepository: Repository<Fournisseur>,
+    @InjectRepository(Approvisionnement)
+    private approvisionnementsRepository: Repository<Approvisionnement>,
   ) {}
 
   async getDashboardStats(organizationId: string) {
@@ -88,17 +91,28 @@ export class AnalyticsService {
     const statsResult = await this.fournisseursRepository
       .createQueryBuilder('fournisseur')
       .select('SUM(fournisseur.totalAchats)', 'totalAchats')
-      .addSelect('SUM(fournisseur.dette)', 'detteTotal')
-      .addSelect('COUNT(CASE WHEN fournisseur.dette > 0 THEN 1 END)', 'nombreCreanciers')
       .where('fournisseur.organizationId = :organizationId', { organizationId })
+      .getRawOne();
+
+    // La dette vient des approvisionnements validés, comme sur la page Fournisseurs :
+    // la colonne dette du fournisseur peut être périmée
+    const detteResult = await this.approvisionnementsRepository
+      .createQueryBuilder('appro')
+      .select('SUM(GREATEST(appro.montantRestant, 0))', 'detteTotal')
+      .addSelect(
+        'COUNT(DISTINCT CASE WHEN appro.montantRestant > 0 THEN appro.fournisseurId END)',
+        'nombreCreanciers',
+      )
+      .where('appro.organizationId = :organizationId', { organizationId })
+      .andWhere('appro.statut = :statut', { statut: 'VALIDE' })
       .getRawOne();
 
     return {
       totalActifs,
       totalFournisseurs,
       totalAchats: parseFloat(statsResult?.totalAchats || '0'),
-      detteTotal: parseFloat(statsResult?.detteTotal || '0'),
-      nombreCreanciers: parseInt(statsResult?.nombreCreanciers || '0', 10),
+      detteTotal: parseFloat(detteResult?.detteTotal || '0'),
+      nombreCreanciers: parseInt(detteResult?.nombreCreanciers || '0', 10),
     };
   }
 

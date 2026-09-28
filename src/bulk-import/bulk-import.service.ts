@@ -540,7 +540,7 @@ export class BulkImportService {
 
         // Mettre à jour le fournisseur
         fournisseur.totalAchats = Number(fournisseur.totalAchats) + total;
-        fournisseur.dette = Number(fournisseur.totalAchats) - Number(fournisseur.totalPaye);
+        fournisseur.dette = Math.max(0, Number(fournisseur.totalAchats) - Number(fournisseur.totalPaye));
         await manager.save(Fournisseur, fournisseur);
 
         approvisionnementsCreated++;

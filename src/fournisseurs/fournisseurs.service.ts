@@ -35,9 +35,10 @@ export class FournisseursService {
       }
     }
 
-    const dette =
-      (createFournisseurDto.totalAchats || 0) -
-      (createFournisseurDto.totalPaye || 0);
+    const dette = Math.max(
+      0,
+      (createFournisseurDto.totalAchats || 0) - (createFournisseurDto.totalPaye || 0),
+    );
 
     const fournisseur = this.fournisseursRepository.create({
       ...createFournisseurDto,
@@ -166,7 +167,8 @@ export class FournisseursService {
     const fournisseur = await this.findOne(id, organizationId);
 
     fournisseur.totalPaye = Number(fournisseur.totalPaye) + montantPaye;
-    fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
+    // Un fournisseur payé en trop n'a pas une dette négative : il n'a plus de dette
+    fournisseur.dette = Math.max(0, fournisseur.totalAchats - fournisseur.totalPaye);
 
     return this.fournisseursRepository.save(fournisseur);
   }
@@ -179,7 +181,7 @@ export class FournisseursService {
     const fournisseur = await this.findOne(id, organizationId);
 
     fournisseur.totalAchats = Number(fournisseur.totalAchats) + montantAchats;
-    fournisseur.dette = fournisseur.totalAchats - fournisseur.totalPaye;
+    fournisseur.dette = Math.max(0, fournisseur.totalAchats - fournisseur.totalPaye);
 
     return this.fournisseursRepository.save(fournisseur);
   }
